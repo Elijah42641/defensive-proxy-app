@@ -1,0 +1,212 @@
+[
+  {
+    "id": 1,
+    "name": "XSS Script Block",
+    "description": "Blocks script tags in request body to prevent XSS attacks",
+    "category": "Security",
+    "type": "body",
+    "rule": {
+      "key": "",
+      "keyRuleType": "value",
+      "value": "<script>.*?</script>",
+      "ruleType": "regex",
+      "mode": "blacklist"
+    }
+  },
+  {
+    "id": 2,
+    "name": "SQL Injection Prevention",
+    "description": "Detects common SQL injection patterns in body or headers",
+    "category": "Security",
+    "type": "body",
+    "rule": {
+      "key": "",
+      "keyRuleType": "value",
+      "value": "(?i)(union.*select|drop.*table|insert.*into)",
+      "ruleType": "regex",
+      "mode": "blacklist"
+    }
+  },
+  {
+    "id": 3,
+    "name": "CSRF Token Whitelist",
+    "description": "Allows specific CSRF token patterns in cookies",
+    "category": "Security",
+    "type": "cookies",
+    "rule": {
+      "key": "csrf_token",
+      "keyRuleType": "exact",
+      "value": "^[a-f0-9]{32}$",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 4,
+    "name": "User-Agent Validation",
+    "description": "Whitelists common browser user agents in headers",
+    "category": "Validation",
+    "type": "headers",
+    "rule": {
+      "key": "User-Agent",
+      "keyRuleType": "exact",
+      "value": "(?i)(chrome|firefox|safari|edge)",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 5,
+    "name": "API Key Blacklist",
+    "description": "Blocks requests with suspicious API keys in headers",
+    "category": "Security",
+    "type": "headers",
+    "rule": {
+      "key": "Authorization",
+      "keyRuleType": "exact",
+      "value": "Bearer\\s+sk-.*",
+      "ruleType": "regex",
+      "mode": "blacklist"
+    }
+  },
+  {
+    "id": 6,
+    "name": "Email Validation",
+    "description": "Validates email format in body fields",
+    "category": "Validation",
+    "type": "body",
+    "rule": {
+      "key": "email",
+      "keyRuleType": "exact",
+      "value": "^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 7,
+    "name": "Password Length Check",
+    "description": "Ensures password fields meet minimum length",
+    "category": "Validation",
+    "type": "body",
+    "rule": {
+      "key": "password",
+      "keyRuleType": "exact",
+      "value": ".{8,}",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 8,
+    "name": "Domain Whitelist",
+    "description": "Allows requests to trusted domains in referer header",
+    "category": "Security",
+    "type": "headers",
+    "rule": {
+      "key": "Referer",
+      "keyRuleType": "exact",
+      "value": "^https?://(example\\.com|trusted\\.site)",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 9,
+    "name": "File Upload Size Limit",
+    "description": "Blocks large file uploads via content-length",
+    "category": "Security",
+    "type": "headers",
+    "rule": {
+      "key": "Content-Length",
+      "keyRuleType": "exact",
+      "value": ">10485760",
+      "ruleType": "regex",
+      "mode": "blacklist"
+    }
+  },
+  {
+    "id": 10,
+    "name": "Session ID Validation",
+    "description": "Validates session cookie format",
+    "category": "Validation",
+    "type": "cookies",
+    "rule": {
+      "key": "session_id",
+      "keyRuleType": "exact",
+      "value": "^[a-zA-Z0-9]{20,}$",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 11,
+    "name": "Command Injection Block",
+    "description": "Prevents command injection in body parameters",
+    "category": "Security",
+    "type": "body",
+    "rule": {
+      "key": "",
+      "keyRuleType": "value",
+      "value": "(?i);\\s*(exec|system|shell_exec)",
+      "ruleType": "regex",
+      "mode": "blacklist"
+    }
+  },
+  {
+    "id": 12,
+    "name": "JSONP Callback Whitelist",
+    "description": "Allows safe JSONP callbacks in query params",
+    "category": "Validation",
+    "type": "body",
+    "rule": {
+      "key": "callback",
+      "keyRuleType": "exact",
+      "value": "^[a-zA-Z_$][a-zA-Z0-9_$]*$",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 13,
+    "name": "Rate Limit Header",
+    "description": "Checks for rate limit exceeded in response headers",
+    "category": "Monitoring",
+    "type": "headers",
+    "rule": {
+      "key": "X-RateLimit-Remaining",
+      "keyRuleType": "exact",
+      "value": "0",
+      "ruleType": "exact",
+      "mode": "blacklist"
+    }
+  },
+  {
+    "id": 14,
+    "name": "CORS Origin Check",
+    "description": "Whitelists allowed origins in CORS headers",
+    "category": "Security",
+    "type": "headers",
+    "rule": {
+      "key": "Origin",
+      "keyRuleType": "exact",
+      "value": "^https?://(localhost|trusted\\.domain\\.com)",
+      "ruleType": "regex",
+      "mode": "whitelist"
+    }
+  },
+  {
+    "id": 15,
+    "name": "Debug Mode Block",
+    "description": "Blocks requests with debug flags enabled",
+    "category": "Security",
+    "type": "body",
+    "rule": {
+      "key": "debug",
+      "keyRuleType": "exact",
+      "value": "true",
+      "ruleType": "exact",
+      "mode": "blacklist"
+    }
+  }
+]

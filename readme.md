@@ -1,6 +1,5 @@
 Owner right clicks on app then clicks add reverse proxy, they then enter the port that the server is on and the reverse proxy is added there, the server is moved to the port the owner specifies. After that the application (my software) adds the server to the tabs of apps they are securing and a map, each endpoint and the active protections. Then they can secure endpoints in that interface by choosing vuln protection templates based on what the endpoint does. When they add endpoint protection they choose options that the template has eg: whitelisted responses. If the template detects something, the request gets dropped and forwarded to security team, when user makes request if its directly to the server it will be blocked since the proxy has to make the request, the app has to check if the request has been made before and has been whitelisted (confirmed to be safe), owner can add normalization eg: different cookies but same request body can be specified to be the same request, it also checks the endpoint for the protections added
 <br>
 roadmap: <br>
-work on part where you specify endpoint and protections
-<br>
-fuck school
+have dropdowns for request and response that show basically all the configs<br>
+have dropdowns for headers, cookies, body, that show all the blacklisted and whitelisted values for those <br>

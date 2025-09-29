@@ -4,224 +4,908 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Project Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600&display=swap" rel="stylesheet">
   <style>
+    /* ... (Your CSS is unchanged and should remain here) ... */
+    :root {
+      --bg-color: #1a1a2e;
+      --card-bg: #2a2a44;
+      --text-color: #e0e0f0;
+      --accent-color: #64ffda;
+      --danger-color: #ff5757;
+      --primary-color: #4CAF50;
+      --border-color: #40405a;
+      --shadow-color: rgba(0, 0, 0, 0.4);
+    }
+    
     * {
-      margin: 0; padding: 0; box-sizing: border-box;
-      font-family: 'Segoe UI', sans-serif;
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Poppins', sans-serif;
     }
+
     body {
-      background: #121212;
-      color: #f0f0f0;
+      background: var(--bg-color);
+      color: var(--text-color);
+      min-height: 10vh;
+      display: flex;
+      flex-direction: column;
     }
+
     header {
-      background: #1f1f1f;
-      padding: 1rem 2rem;
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    nav {
-      display: flex; gap: 1rem;
-    }
-    nav button {
-      background: none;
-      border: none;
-      color: #bbb;
-      font-size: 1rem;
-      cursor: pointer;
-      padding: 0.5rem;
-      transition: color 0.2s, border-bottom 0.2s;
-    }
-    nav button.active,
-    nav button:hover {
-      color: white;
-      border-bottom: 2px solid #4caf50;
-    }
-    main {
-      padding: 2rem;
-    }
-    .tab-content {
-      display: none;
-    }
-    .tab-content.active {
-      display: block;
-    }
-    #projectsList {
-      display: grid;
-      gap: 1rem;
-      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
-    }
-    .project-card {
-      background: #1e1e1e;
-      padding: 1rem;
-      border-radius: 10px;
-      box-shadow: 0 0 8px rgba(0,0,0,0.3);
-      word-break: break-word;
-    }
-    .add-btn, .small-btn {
-      background-color: #4caf50;
-      border: none;
-      color: white;
-      padding: 0.6rem 1rem;
-      border-radius: 5px;
-      cursor: pointer;
-      font-weight: bold;
-      margin-top: 0.5rem;
-    }
-    .small-btn {
-      padding: 0.3rem 0.6rem;
-      font-size: 0.85rem;
-    }
-    .endpoints-list {
-      margin-top: 0.5rem;
-      font-size: 0.9rem;
-      color: #ccc;
-      list-style: none;
-      margin-left: 0;
-      max-height: 150px;
-      overflow-y: auto;
-    }
-    .endpoints-list li {
-      margin-bottom: 0.3rem;
+      background: var(--card-bg);
+      padding: 1.5rem 2rem;
       display: flex;
       justify-content: space-between;
       align-items: center;
-      padding: 0.5rem;
-      border-radius: 5px;
-      transition: background-color 0.2s;
+      box-shadow: 0 4px 12px var(--shadow-color);
     }
-    .endpoints-list li:hover {
-      background-color: #2e2e2e;
+    
+    .logo {
+        font-size: 1.5rem;
+        font-weight: 600;
+        color: var(--accent-color);
     }
-    .endpoints-list li.selected-endpoint {
-      background-color: #4caf50;
-      color: white;
-      font-weight: bold;
+
+    nav {
+      display: flex;
+      gap: 1.5rem;
     }
-    .endpoints-list li button {
-      background: #ff4d4d;
+
+    nav button {
+      background: none;
       border: none;
-      color: white;
-      font-size: 0.75rem;
-      padding: 0.15rem 0.4rem;
-      border-radius: 3px;
+      color: var(--text-color);
+      font-size: 1rem;
+      font-weight: 500;
       cursor: pointer;
+      padding: 0.5rem;
+      transition: color 0.3s ease, border-bottom 0.3s ease;
+      border-bottom: 2px solid transparent;
     }
-    .endpoints-list li .endpoint-actions {
+
+    nav button.active {
+      color: var(--accent-color);
+      border-bottom: 2px solid var(--accent-color);
+    }
+
+    main {
+      padding: 2rem;
+      flex-grow: 1;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .tab-content {
+      display: none;
+      flex-grow: 1;
+    }
+
+    .tab-content.active {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1.5rem;
+    }
+
+    .add-btn, .small-btn, .btn-primary {
+      background-color: var(--accent-color);
+      border: none;
+      color: var(--bg-color);
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.3s ease, transform 0.2s ease;
+    }
+
+    .btn-primary {
+      background-color: var(--primary-color);
+      color: white;
+    }
+
+    .add-btn:hover, .small-btn:hover, .btn-primary:hover {
+      background-color: #53e8c0;
+      transform: translateY(-2px);
+    }
+    
+    .btn-primary:hover {
+        background-color: #58b95c;
+    }
+
+    .small-btn {
+      font-size: 0.8rem;
+      padding: 0.4rem 0.8rem;
+    }
+
+    .btn-danger {
+      background-color: var(--danger-color);
+      color: white;
+    }
+
+    .btn-danger:hover {
+      background-color: #e04a4a;
+    }
+
+    #projectsList {
+      display: grid;
+      gap: 1.5rem;
+      grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    }
+
+    .project-card {
+      background: var(--card-bg);
+      padding: 1.5rem;
+      border-radius: 12px;
+      box-shadow: 0 6px 16px var(--shadow-color);
+      word-break: break-word;
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+    }
+    
+    .project-card h3 {
+        margin-bottom: 1rem;
+    }
+
+    .endpoints-list {
+      margin-top: 1rem;
+      list-style: none;
+      padding-left: 0;
+      max-height: 400px;
+      overflow-y: auto;
+      background: var(--card-bg);
+      border-radius: 8px;
+      padding: 1rem;
+      box-shadow: inset 0 0 10px rgba(0,0,0,0.2);
+    }
+
+    .endpoints-list li {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.8rem;
+      border-radius: 6px;
+      transition: background-color 0.2s ease;
+    }
+    
+    .endpoints-list li:not(:last-child) {
+        margin-bottom: 0.5rem;
+    }
+
+    .endpoints-list li:hover {
+      background-color: #333355;
+    }
+
+    .endpoints-list li.selected-endpoint {
+      background-color: var(--accent-color);
+      color: var(--bg-color);
+      font-weight: 500;
+    }
+
+    .endpoints-list li.selected-endpoint .small-btn {
+        background-color: var(--bg-color);
+        color: var(--accent-color);
+    }
+
+    .endpoint-actions {
       display: flex;
       gap: 0.5rem;
     }
-    .endpoints-list li .edit-endpoint-btn {
-      background-color: #007bff;
-      padding: 0.3rem 0.6rem;
-    }
-    .endpoints-list li .delete-endpoint-btn {
-      background-color: #ff4d4d;
-      padding: 0.3rem 0.6rem;
-    }
-    input.endpoint-input, textarea.endpoint-input {
-      background-color: #333;
-      color: #eee;
+
+    input.form-input, select.form-input, textarea.form-input {
+      background-color: var(--border-color);
+      color: var(--text-color);
       border: none;
-      border-radius: 5px;
-      padding: 0.4rem;
+      border-radius: 6px;
+      padding: 0.8rem;
       margin-top: 0.5rem;
       width: 100%;
       font-size: 1rem;
+      transition: border-color 0.3s ease, box-shadow 0.3s ease;
     }
+
+    input.form-input:focus, select.form-input:focus, textarea.form-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-color);
+    }
+    
+    textarea.form-input {
+        height: 80px;
+        resize: vertical;
+    }
+
+    .form-group {
+      margin-bottom: 1.5rem;
+    }
+
     label {
       display: block;
-      margin-top: 1rem;
-      font-weight: bold;
+      margin-bottom: 0.5rem;
+      font-weight: 500;
+      color: var(--text-color);
     }
+
     #folderInput {
       display: none;
     }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #currentProjectDisplay {
+      font-weight: 500;
+      color: var(--accent-color);
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    #feedback-display {
+      position: fixed;
+      bottom: 2rem;
+      right: 2rem;
+      background: var(--primary-color);
+      color: white;
+      padding: 0.8rem 1.5rem;
+      border-radius: 8px;
+      box-shadow: 0 4px 12px var(--shadow-color);
+      display: none;
+      animation: fadeInOut 3s forwards;
+      z-index: 1000;
+    }
+    
+    @keyframes fadeInOut {
+        0% { opacity: 0; transform: translateY(20px); }
+        10% { opacity: 1; transform: translateY(0); }
+        90% { opacity: 1; transform: translateY(0); }
+        100% { opacity: 0; transform: translateY(20px); }
+    }
+
+    .settings-panel {
+      background-color: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      margin-top: 1.5rem;
+      box-shadow: 0 6px 16px var(--shadow-color);
+      animation: slideIn 0.5s ease-out;
+    }
+    
+    @keyframes slideIn {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .settings-panel h3 {
+        margin-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 0.5rem;
+    }
+
+    .rules-list {
+        list-style: none;
+        padding: 0;
+        margin-top: 1rem;
+    }
+
+    .rules-list li {
+        background-color: var(--border-color);
+        padding: 0.5rem 0.8rem;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+    }
+
+    /* New styles for cleaner endpoint editing */
+    .edit-tabs {
+      display: flex;
+      gap: 1rem;
+      border-bottom: 2px solid var(--border-color);
+      margin-bottom: 1.5rem;
+    }
+
+    .edit-tab-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 1rem;
+      font-weight: 500;
+      cursor: pointer;
+      padding: 0.5rem 0;
+      transition: color 0.3s ease, border-bottom 0.3s ease;
+      border-bottom: 2px solid transparent;
+    }
+
+    .edit-tab-btn.active {
+      color: var(--accent-color);
+      border-bottom: 2px solid var(--accent-color);
+    }
+    
+    .rule-type-list {
+      display: grid;
+      gap: 2rem; 
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); 
+    }
+    
+    .rule-type-block {
+      background: #3a3a5a;
+      padding: 1.5rem; 
+      border-radius: 8px;
+      display: flex;
+      flex-direction: column;
+    }
+
+    .rule-type-block h4 {
+      margin-bottom: 1rem;
+    }
+
+    .rule-type-block h5 {
+      margin-top: 1.5rem; 
+      margin-bottom: 0.5rem;
+      color: var(--accent-color);
+      font-weight: 500;
+    }
+    
+    .mode-control {
+      margin-bottom: 1.5rem;
+    }
+
+    .add-rule-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+      margin-top: 1rem;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .add-rule-group > * {
+        width: 100%;
+    }
+
+    .add-rule-group .rule-key-input {
+        min-width: 100px;
+    }
+
+    .add-rule-group .buttons {
+        display: flex;
+        gap: 0.5rem;
+    }
+
+    .add-rule-group button {
+      flex-grow: 1;
+    }
+
+    .template-select-group {
+      display: flex;
+      gap: 0.5rem;
+      width: 100%;
+      align-items: center;
+    }
+
+    .template-select-group select {
+      flex-grow: 1;
+    }
+
+    .rules-list li {
+      background-color: var(--border-color);
+      padding: 0.6rem 1rem; 
+      border-radius: 8px; 
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .rules-list li .rule-text {
+        overflow: hidden;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+        flex-grow: 1;
+    }
+
+    .rules-list li .rule-text span {
+        font-weight: 600;
+        margin-right: 0.5rem;
+    }
+    
+    .rules-list .endpoint-actions {
+        flex-shrink: 0;
+    }
+
+    /* Pop-up styles */
+    #details-popup {
+      position: fixed;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: var(--card-bg);
+      color: var(--text-color);
+      padding: 2rem;
+      border-radius: 12px;
+      box-shadow: 0 8px 30px var(--shadow-color);
+      z-index: 1000;
+      width: 90%;
+      max-width: 500px;
+      animation: fadeIn 0.3s ease-out;
+    }
+
+    .popup-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--border-color);
+      padding-bottom: 1rem;
+      margin-bottom: 1rem;
+    }
+
+    .popup-header h3 {
+      margin: 0;
+    }
+
+    .popup-header .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 2rem;
+      cursor: pointer;
+      padding: 0 0.5rem;
+      line-height: 1;
+      transition: color 0.2s ease;
+    }
+
+    .popup-header .close-btn:hover {
+      color: var(--danger-color);
+    }
+
+    .popup-content p {
+      margin-bottom: 0.8rem;
+    }
+
+    .popup-content strong {
+      color: var(--accent-color);
+    }
+
+    .popup-actions {
+        display: flex;
+        justify-content: flex-end;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+    
     .hidden {
       display: none;
     }
-    .small-note {
-      font-size: 0.85rem;
-      color: #aaa;
-      margin-top: 0.3rem;
+
+
+    @keyframes fadeIn {
+        from { opacity: 0; }
+        to { opacity: 1; }
     }
-    #currentProjectDisplay {
-      font-weight: bold;
-      color: #eee;
-      margin-top: 0.3rem;
+
+    .templates-section {
+      margin-top: 20px;
+    }
+
+    .search-input {
+      width: 100%;
+      max-width: 400px;
       margin-bottom: 1rem;
-      min-height: 1.2em;
+      background: var(--border-color);
+      color: var(--text-color);
+      border: none;
+      border-radius: 6px;
+      padding: 0.8rem;
+      font-size: 1rem;
+    }
+
+    .search-input:focus {
+      outline: none;
+      box-shadow: 0 0 0 2px var(--accent-color);
+    }
+
+    .view-more-btn {
+      background: var(--accent-color);
+      color: var(--bg-color);
+      border: none;
+      padding: 0.6rem 1.2rem;
+      border-radius: 8px;
+      cursor: pointer;
+      font-weight: 500;
+      transition: background-color 0.3s ease;
+      margin-top: 1rem;
+    }
+
+    .view-more-btn:hover {
+      background: #53e8c0;
+    }
+
+    .template-item {
+      background: var(--card-bg);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+      box-shadow: 0 2px 8px var(--shadow-color);
+    }
+
+    .template-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .template-name {
+      font-weight: 600;
+      color: var(--accent-color);
+    }
+
+    .template-category {
+      background: var(--border-color);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+      color: var(--text-color);
+    }
+
+    .template-details {
+      color: var(--text-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .template-type {
+      font-size: 0.9rem;
+      color: var(--accent-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .template-rule {
+      font-family: monospace;
+      background: var(--border-color);
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      color: var(--text-color);
+      word-break: break-all;
+    }
+
+    /* Modal styles */
+    .modal {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+
+    .modal-content {
+      background: var(--card-bg);
+      color: var(--text-color);
+      border-radius: 12px;
+      width: 90%;
+      max-width: 600px;
+      max-height: 80%;
+      overflow-y: auto;
+      box-shadow: 0 8px 30px var(--shadow-color);
+    }
+
+    .modal-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.5rem;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .modal-header h3 {
+      margin: 0;
+    }
+
+    .close-btn {
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 2rem;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .close-btn:hover {
+      color: var(--danger-color);
+    }
+
+    .modal-body {
+      padding: 1.5rem;
+    }
+
+    .modal-template-item {
+      background: var(--border-color);
+      padding: 1rem;
+      border-radius: 8px;
+      margin-bottom: 1rem;
+    }
+
+    .modal-template-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-template-name {
+      font-weight: 600;
+      color: var(--accent-color);
+    }
+
+    .modal-template-category {
+      background: var(--bg-color);
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      font-size: 0.8rem;
+    }
+
+    .modal-template-details {
+      color: var(--text-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-template-type {
+      font-size: 0.9rem;
+      color: var(--accent-color);
+      margin-bottom: 0.5rem;
+    }
+
+    .modal-template-rule {
+      font-family: monospace;
+      background: var(--bg-color);
+      padding: 0.5rem;
+      border-radius: 4px;
+      font-size: 0.9rem;
+      color: var(--text-color);
+      word-break: break-all;
+      margin-bottom: 0.5rem;
+    }
+
+    .copy-btn {
+      background: var(--accent-color);
+      color: var(--bg-color);
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+    }
+
+    .copy-btn:hover {
+      background: #53e8c0;
     }
   </style>
 </head>
 <body>
 
 <header>
-  <h1>Project Dashboard</h1>
-  <nav>
-    <button class="tab-btn active" data-tab="projects">Projects</button>
-    <button class="tab-btn hidden" id="endpointsTab" data-tab="endpoints">Endpoints</button>
-    <button class="tab-btn hidden" id="proxyTab" data-tab="proxy">Enable Proxy</button>
-  </nav>
+  <h1 class="logo">SecureLink</h1>
+    <nav>
+      <button class="tab-btn active" data-tab="projects">Projects</button>
+      <button class="tab-btn hidden" id="endpointsTab" data-tab="endpoints">Endpoints</button>
+      <button class="tab-btn hidden" id="proxyTab" data-tab="proxy">Enable Proxy</button>
+      <button class="tab-btn hidden" id="logsTab" data-tab="logs">Logs</button>
+      <button class="tab-btn hidden" id="templatesTab" data-tab="templates">Templates</button>
+      <button id="tutorial-btn" class="small-btn">Tutorial</button>
+    </nav>
 </header>
 
 <main>
   <section id="projects" class="tab-content active">
-    <h2>Your Projects</h2>
-    <button class="add-btn" onclick="document.getElementById('folderInput').click()">+ Add Folder</button>
+    <div class="section-header">
+      <h2>Your Projects</h2>
+      <button class="add-btn" onclick="document.getElementById('folderInput').click()">+ Add Project</button>
+    </div>
     <input type="file" id="folderInput" webkitdirectory multiple />
-    <div id="projectsList">
-      </div>
+    <div id="projectsList"></div>
   </section>
 
   <section id="endpoints" class="tab-content">
-    <h2 id="endpointsTitle">Edit Endpoints</h2>
-
-    <div id="currentProjectDisplay">Currently Editing Project: None</div>
-
-    <button class="add-btn" id="exitEditModeBtn">Exit Edit Mode</button>
-
-    <div id="endpointControls">
-      <label>Add Secured Endpoint:</label>
-      <input type="text" id="newEndpointInput" class="endpoint-input" placeholder="e.g. /admin" />
-      <button class="small-btn" id="addEndpointBtn">+ Add Endpoint</button>
+    <div class="section-header">
+      <div class="project-info">
+        <div id="currentProjectDisplay">Currently Editing Project: None</div>
+        <button class="small-btn btn-primary" id="exitEditModeBtn">Exit Edit Mode</button>
+      </div>
+      <div class="add-endpoint-group">
+        <input type="text" id="newEndpointInput" class="form-input" placeholder="e.g. /api/users" />
+        <button class="small-btn" id="addEndpointBtn">+ Add Endpoint</button>
+      </div>
     </div>
-
-    <ul class="endpoints-list" id="endpointsList">
-      <li>Add an endpoint to get started.</li>
-    </ul>
-
-    <div id="endpointSettings">
-      <h3 style="margin-top:1.5rem;">Endpoint Response Filtering</h3>
-      <p class="small-note">
-        Configure rules to allow or block certain data in responses for the selected endpoint.
-      </p>
-
-      <label for="whitelistInput">Whitelist Parameters (comma-separated):</label>
-      <input type="text" id="whitelistInput" class="endpoint-input" placeholder="e.g. userId, status, token">
-
-      <label for="blacklistPatterns">Blacklist Patterns (one per line):</label>
-      <textarea id="blacklistPatterns" class="endpoint-input" rows="4" placeholder="e.g. password&#10;secretKey&#10;.*DROP TABLE.*"></textarea>
-
-      <label>
-        <input type="checkbox" id="enableRegexFilter"> Enable Regex Filtering
-      </label>
-
-      <label>
-        <input type="checkbox" id="duplicateServerCheckbox"> Create Duplicate Server Folder on Compromise
-      </label>
-
-      <button class="add-btn" id="saveEndpointSettingsBtn" style="margin-top:1rem;">Save Endpoint Settings</button>
+    
+    <div class="endpoints-list-container">
+        <ul class="endpoints-list" id="endpointsList">
+            <li>No endpoints added yet.</li>
+        </ul>
+    </div>
+    
+    <div id="endpointSettings" class="settings-panel hidden">
+        <h3 id="endpointSettingsHeader">Settings for: [Endpoint Name]</h3>
+        <p>Select a rule mode to determine how this endpoint will handle requests. **Whitelist** mode only allows requests that explicitly match your rules. **Blacklist** mode allows all requests except those that explicitly match your rules.</p>
+        <div class="edit-tabs">
+            <button class="edit-tab-btn active" data-type="request">Request Rules</button>
+            <button class="edit-tab-btn" data-type="response">Response Rules</button>
+        </div>
+        <div id="config-detail-container" class="rule-type-list">
+          </div>
     </div>
   </section>
 
   <section id="proxy" class="tab-content">
     <h2>Proxy Settings</h2>
-    <p>
-      This proxy will act as a man-in-the-middle (MITM) with the ability to drop responses based on whitelist/blacklist rules, regex patterns, or other filters.
-      It can also create a duplicate server folder if a request compromises the server.
-    </p>
+    <p>This proxy acts as a man-in-the-middle (MITM) to secure your application. It can drop responses based on whitelist/blacklist rules, regex patterns, or other filters. It can also create a duplicate server folder if a request compromises the server.</p>
+  </section>
+
+  <section id="logs" class="tab-content">
+    <div class="section-header">
+      <h2>Request Logs</h2>
+      <button class="small-btn" id="clearLogsBtn">Clear Logs</button>
+    </div>
+    <div id="logsContainer" class="endpoints-list-container">
+      <ul class="endpoints-list" id="logsList">
+        <li>Loading logs...</li>
+      </ul>
+    </div>
+  </section>
+
+  <section id="templates" class="tab-content">
+    <div class="section-header">
+      <h2>Regex Templates</h2>
+    </div>
+    <div class="templates-section">
+      <p>Browse predefined regex templates for common security patterns. Click "Browse Templates" to select and copy regex rules.</p>
+      <button id="browseTemplatesBtn" class="small-btn btn-primary">Browse Templates</button>
+    </div>
   </section>
 </main>
 
+<div id="feedback-display"></div>
+
+<!-- Templates Modal -->
+<div id="templatesModal" class="modal hidden">
+  <div class="modal-content">
+    <div class="modal-header">
+      <h3>Browse Regex Templates</h3>
+      <button id="closeTemplatesModal" class="close-btn">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div id="modalTemplatesList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Tutorial Overlay -->
+<div id="tutorial-overlay" style="display: none; position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%); width: 300px; height: auto; background: none; z-index: 10000;">
+<div id="tutorial-modal" style="background: var(--card-bg); color: var(--text-color); padding: 1rem; border-radius: 16px; box-shadow: 0 10px 30px var(--shadow-color); position: relative; width: 400px;">
+        <button id="tutorial-close" style="position: absolute; top: 10px; right: 10px; background: none; border: none; color: var(--accent-color); font-size: 2rem; cursor: pointer;">&times;</button>
+        <div id="tutorial-content">
+            <h2 id="tutorial-title" style="color: var(--accent-color); margin-bottom: 1rem;">Welcome to SecureLink Tutorial</h2>
+            <p id="tutorial-text">This tutorial will guide you through the key features of the app.</p>
+            <p id="tutorial-status" style="color: var(--accent-color); font-weight: bold; margin-top: 0.5rem;"></p>
+        </div>
+        <div style="display: flex; justify-content: space-between; margin-top: 2rem;">
+            <button id="tutorial-prev" style="background: #6c757d; color: white; border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;">Previous</button>
+            <div id="tutorial-step-indicator">Step 1 of 7</div>
+            <button id="tutorial-next" style="background: var(--accent-color); color: var(--bg-color); border: none; padding: 0.5rem 1rem; border-radius: 8px; cursor: pointer;">Next</button>
+        </div>
+    </div>
+</div>
+
+<!-- Highlight Overlay -->
+<div id="highlight-overlay" style="display: none; position: absolute; border: 3px solid var(--accent-color); border-radius: 8px; background: none; z-index: 10001; pointer-events: none; animation: pulse 1s infinite;">
+  <div id="highlight-arrow" style="position: absolute; width: 0; height: 0; border-left: 10px solid transparent; border-right: 10px solid transparent; border-top: 10px solid var(--accent-color); bottom: -10px; left: 50%; transform: translateX(-50%); display: none;"></div>
+</div>
+
+<style>
+    @keyframes pulse {
+        0% { box-shadow: 0 0 0 0 rgba(100, 255, 218, 0.4); }
+        70% { box-shadow: 0 0 0 10px rgba(100, 255, 218, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(100, 255, 218, 0); }
+    }
+</style>
+
 <script src="main.js"></script>
+
+<script>
+  let allTemplates = [];
+  let visibleCount = 5;
+
+  async function loadTemplates() {
+    try {
+      const response = await fetch('./public/templates.json');
+      if (!response.ok) {
+        throw new Error('Failed to fetch templates');
+      }
+      allTemplates = await response.json();
+      visibleCount = 5; // Reset on load
+      renderTemplates();
+    } catch (error) {
+      console.error('Error loading templates:', error);
+      document.getElementById('templatesList').innerHTML = '<p style="color: #ff5757; text-align: center;">Error loading templates. Check console for details.</p>';
+    }
+  }
+
+  window.loadTemplates = loadTemplates;
+
+  function getCurrentFiltered() {
+    const searchTerm = document.getElementById('templateSearch').value.toLowerCase();
+    if (!searchTerm) return allTemplates;
+    return allTemplates.filter(t =>
+      t.name.toLowerCase().includes(searchTerm) ||
+      t.description.toLowerCase().includes(searchTerm) ||
+      t.category.toLowerCase().includes(searchTerm) ||
+      t.rule.value.toLowerCase().includes(searchTerm)
+    );
+  }
+
+  function renderTemplates() {
+    const filtered = getCurrentFiltered();
+    const templatesList = document.getElementById('templatesList');
+    templatesList.innerHTML = '';
+
+    if (filtered.length === 0) {
+      templatesList.innerHTML = '<p style="color: var(--text-color); text-align: center;">No templates found.</p>';
+      document.getElementById('viewMoreBtn').style.display = 'none';
+      return;
+    }
+
+    const templatesToShow = filtered.slice(0, visibleCount);
+    templatesToShow.forEach(template => {
+      const div = document.createElement('div');
+      div.className = 'template-item';
+      div.innerHTML = `
+        <div class="template-header">
+          <span class="template-name">${template.name}</span>
+          <span class="template-category">${template.category}</span>
+        </div>
+        <div class="template-details">${template.description}</div>
+        <div class="template-type">Type: ${template.type}</div>
+        <div class="template-rule">Rule: ${template.rule.value}</div>
+      `;
+      templatesList.appendChild(div);
+    });
+
+    const viewMoreBtn = document.getElementById('viewMoreBtn');
+    if (templatesToShow.length >= filtered.length) {
+      viewMoreBtn.style.display = 'none';
+    } else {
+      viewMoreBtn.style.display = 'block';
+    }
+  }
+
+  // Event listeners
+  if (document.getElementById('templateSearch')) {
+    document.getElementById('templateSearch').addEventListener('input', () => {
+      visibleCount = 5;
+      renderTemplates();
+    });
+  }
+
+  if (document.getElementById('viewMoreBtn')) {
+    document.getElementById('viewMoreBtn').addEventListener('click', () => {
+      visibleCount += 5;
+      renderTemplates();
+    });
+  }
+</script>
 </body>
 </html>

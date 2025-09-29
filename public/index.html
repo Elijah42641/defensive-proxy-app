@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defensive Proxy App</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background-color: #f4f4f4;
+        }
+        h1 {
+            color: #333;
+        }
+        h2 {
+            color: #555;
+        }
+        button {
+            background-color: #dc3545;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            margin-bottom: 20px;
+        }
+        button:hover {
+            background-color: #c82333;
+        }
+        ul {
+            list-style-type: none;
+            padding: 0;
+        }
+        li {
+            background-color: #fff;
+            margin: 5px 0;
+            padding: 10px;
+            border-radius: 5px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .endpoint-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .toggle-rules-btn {
+            background-color: #007bff;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        .toggle-rules-btn:hover {
+            background-color: #0056b3;
+        }
+        .rules-container {
+            margin-top: 10px;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        .rules-section {
+            margin-bottom: 15px;
+        }
+        .rules-section h4 {
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .rule-group {
+            margin-bottom: 10px;
+        }
+        .rule-group h5 {
+            margin-bottom: 5px;
+            color: #555;
+            font-size: 0.9em;
+        }
+        .rule-group ul {
+            margin: 0;
+            padding-left: 20px;
+        }
+        .rule-group li {
+            background-color: transparent;
+            padding: 2px 0;
+            box-shadow: none;
+            margin: 0;
+        }
+        .whitelist li {
+            color: #28a745;
+        }
+        .blacklist li {
+            color: #dc3545;
+        }
+        .rule-item {
+            font-family: monospace;
+            font-size: 0.85em;
+        }
+        /* Tab styles */
+        .tabs {
+            display: flex;
+            margin-bottom: 20px;
+        }
+        .tab-button {
+            background-color: #e9ecef;
+            border: none;
+            padding: 10px 20px;
+            cursor: pointer;
+            border-radius: 5px 5px 0 0;
+            margin-right: 5px;
+        }
+        .tab-button.active {
+            background-color: #fff;
+            border-bottom: 2px solid #007bff;
+        }
+        .tab-content {
+            display: none;
+        }
+        .tab-content.active {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <h1>Defensive Proxy App</h1>
+    <p>Open the browser console to see request logs.</p>
+
+    <button id="toggleProxyBtn">Enable Proxy</button>
+    <div id="proxyStatus">Proxy Status: Unknown</div>
+
+    <div class="tabs">
+        <button class="tab-button active" data-tab="endpoints">Endpoints</button>
+    </div>
+
+    <div id="endpoints-tab" class="tab-content active">
+        <h2>Endpoints</h2>
+        <ul id="endpointsList"></ul>
+    </div>
+
+    <script>
+        let lastLogCount = 0;
+        let proxyEnabled = false;
+
+        function updateProxyUI() {
+            const btn = document.getElementById('toggleProxyBtn');
+            const statusDiv = document.getElementById('proxyStatus');
+            if (proxyEnabled) {
+                btn.textContent = 'Disable Proxy';
+                statusDiv.textContent = 'Proxy Status: Enabled';
+            } else {
+                btn.textContent = 'Enable Proxy';
+                statusDiv.textContent = 'Proxy Status: Disabled';
+            }
+        }
+
+        function fetchProxyStatus() {
+            fetch('/api/proxy/status')
+                .then(response => response.json())
+                .then(data => {
+                    proxyEnabled = data.enabled;
+                    updateProxyUI();
+                })
+                .catch(error => console.error('Error fetching proxy status:', error));
+        }
+
+        function fetchLogs() {
+            fetch('/api/logs')
+                .then(response => response.json())
+                .then(data => {
+                    const logs = data.logs;
+                    // Update lastLogCount without logging to console
+                    if (logs.length > lastLogCount) {
+                        lastLogCount = logs.length;
+                    }
+                })
+                .catch(error => console.error('Error fetching logs:', error));
+        }
+
+        function renderRules(rulesObj, title) {
+            let html = `<div class="rule-group"><h5>${title} (Mode: ${rulesObj.mode})</h5>`;
+            if (rulesObj.whitelist && rulesObj.whitelist.length > 0) {
+                html += '<ul class="whitelist"><li><strong>Allowed:</strong></li>';
+                rulesObj.whitelist.forEach(rule => {
+                    const keyPart = rule.key ? `<span style="color:#007bff;">${rule.key}</span>: ` : '';
+                    html += `<li class="rule-item">${keyPart}<span style="font-weight:600;">${rule.value}</span> <span style="font-size:0.8em;color:#666;">(${rule.ruleType})</span></li>`;
+                });
+                html += '</ul>';
+            } else {
+                html += '<ul class="whitelist"><li><strong>Allowed:</strong> None</li></ul>';
+            }
+            if (rulesObj.blacklist && rulesObj.blacklist.length > 0) {
+                html += '<ul class="blacklist"><li><strong>Blocked:</strong></li>';
+                rulesObj.blacklist.forEach(rule => {
+                    const keyPart = rule.key ? `<span style="color:#dc3545;">${rule.key}</span>: ` : '';
+                    html += `<li class="rule-item">${keyPart}<span style="font-weight:600;">${rule.value}</span> <span style="font-size:0.8em;color:#666;">(${rule.ruleType})</span></li>`;
+                });
+                html += '</ul>';
+            } else {
+                html += '<ul class="blacklist"><li><strong>Blocked:</strong> None</li></ul>';
+            }
+            html += '</div>';
+            return html;
+        }
+
+        function updateEndpoints() {
+            fetch('/api/endpoints')
+                .then(response => response.json())
+                .then(data => {
+                    const list = document.getElementById('endpointsList');
+                    list.innerHTML = '';
+                    data.endpoints.forEach(ep => {
+                        const li = document.createElement('li');
+                        const header = document.createElement('div');
+                        header.className = 'endpoint-header';
+                        header.innerHTML = `<span>${ep.method || 'ANY'} ${ep.path}</span><button class="toggle-rules-btn">Show Rules</button>`;
+                        li.appendChild(header);
+
+                        const rulesContainer = document.createElement('div');
+                        rulesContainer.className = 'rules-container';
+                        rulesContainer.style.display = 'none';
+
+                        let rulesHtml = '<div class="rules-section"><h4>Request Rules</h4>';
+                        rulesHtml += renderRules(ep.request.headers, 'Headers');
+                        rulesHtml += renderRules(ep.request.cookies, 'Cookies');
+                        rulesHtml += renderRules(ep.request.body, 'Body');
+                        rulesHtml += '</div>';
+
+                        rulesHtml += '<div class="rules-section"><h4>Response Rules</h4>';
+                        rulesHtml += renderRules(ep.response.headers, 'Headers');
+                        rulesHtml += renderRules(ep.response.cookies, 'Cookies');
+                        rulesHtml += renderRules(ep.response.body, 'Body');
+                        rulesHtml += '</div>';
+
+                        rulesContainer.innerHTML = rulesHtml;
+                        li.appendChild(rulesContainer);
+
+                        list.appendChild(li);
+                    });
+                })
+                .catch(error => console.error('Error fetching endpoints:', error));
+        }
+
+        document.getElementById('toggleProxyBtn').addEventListener('click', () => {
+            const endpoint = proxyEnabled ? '/api/proxy/disable' : '/api/proxy/enable';
+            const method = proxyEnabled ? 'POST' : 'POST'; // both are POST
+            fetch(endpoint, { method: method })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    fetchProxyStatus(); // Refresh status after action
+                })
+                .catch(error => console.error('Error toggling proxy:', error));
+        });
+
+        // Fetch logs every 2 seconds
+        setInterval(fetchLogs, 2000);
+
+        // Update endpoints every 10 seconds
+        setInterval(updateEndpoints, 10000);
+
+        // Initial fetch
+        fetchLogs();
+        updateEndpoints();
+        fetchProxyStatus();
+
+        // Add event delegation for toggle rules buttons
+        document.getElementById('endpointsList').addEventListener('click', (event) => {
+            if (event.target && event.target.classList.contains('toggle-rules-btn')) {
+                const btn = event.target;
+                const rulesContainer = btn.parentElement.nextElementSibling;
+                if (rulesContainer.style.display === 'none') {
+                    rulesContainer.style.display = 'block';
+                    btn.textContent = 'Hide Rules';
+                } else {
+                    rulesContainer.style.display = 'none';
+                    btn.textContent = 'Show Rules';
+                }
+            }
+        });
+
+        // Tab switching (only endpoints)
+        document.querySelectorAll('.tab-button').forEach(button => {
+            button.addEventListener('click', () => {
+                const tab = button.dataset.tab;
+                document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+                document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+                button.classList.add('active');
+                document.getElementById(tab + '-tab').classList.add('active');
+            });
+        });
+    </script>
+</body>
+</html>

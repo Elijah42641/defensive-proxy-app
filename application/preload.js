@@ -1,6 +1,6 @@
-const { contextBridge, ipcRenderer } = require('electron');
+// preload.js
 
-contextBridge.exposeInMainWorld('electronAPI', {
-  send: (channel, data) => ipcRenderer.send(channel, data),
-  receive: (channel, func) => ipcRenderer.on(channel, (event, ...args) => func(...args)),
-});
+const { ipcRenderer } = require('electron');
+
+// Expose ipcRenderer directly to the renderer process
+window.ipcRenderer = ipcRenderer;
