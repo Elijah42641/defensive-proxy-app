@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Project Dashboard</title>
+  <style>
+    * {
+      margin: 0; padding: 0; box-sizing: border-box;
+      font-family: 'Segoe UI', sans-serif;
+    }
+    body {
+      background: #121212;
+      color: #f0f0f0;
+    }
+    header {
+      background: #1f1f1f;
+      padding: 1rem 2rem;
+      display: flex; justify-content: space-between; align-items: center;
+    }
+    nav {
+      display: flex; gap: 1rem;
+    }
+    nav button {
+      background: none;
+      border: none;
+      color: #bbb;
+      font-size: 1rem;
+      cursor: pointer;
+      padding: 0.5rem;
+      transition: color 0.2s, border-bottom 0.2s;
+    }
+    nav button.active,
+    nav button:hover {
+      color: white;
+      border-bottom: 2px solid #4caf50;
+    }
+    main {
+      padding: 2rem;
+    }
+    .tab-content {
+      display: none;
+    }
+    .tab-content.active {
+      display: block;
+    }
+    #projectsList {
+      display: grid;
+      gap: 1rem;
+      grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+    }
+    .project-card {
+      background: #1e1e1e;
+      padding: 1rem;
+      border-radius: 10px;
+      box-shadow: 0 0 8px rgba(0,0,0,0.3);
+      word-break: break-word;
+    }
+    .add-btn, .small-btn {
+      background-color: #4caf50;
+      border: none;
+      color: white;
+      padding: 0.6rem 1rem;
+      border-radius: 5px;
+      cursor: pointer;
+      font-weight: bold;
+      margin-top: 0.5rem;
+    }
+    .small-btn {
+      padding: 0.3rem 0.6rem;
+      font-size: 0.85rem;
+    }
+    .endpoints-list {
+      margin-top: 0.5rem;
+      font-size: 0.9rem;
+      color: #ccc;
+      list-style: none;
+      margin-left: 0;
+      max-height: 150px;
+      overflow-y: auto;
+    }
+    .endpoints-list li {
+      margin-bottom: 0.3rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 0.5rem;
+      border-radius: 5px;
+      transition: background-color 0.2s;
+    }
+    .endpoints-list li:hover {
+      background-color: #2e2e2e;
+    }
+    .endpoints-list li.selected-endpoint {
+      background-color: #4caf50;
+      color: white;
+      font-weight: bold;
+    }
+    .endpoints-list li button {
+      background: #ff4d4d;
+      border: none;
+      color: white;
+      font-size: 0.75rem;
+      padding: 0.15rem 0.4rem;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .endpoints-list li .endpoint-actions {
+      display: flex;
+      gap: 0.5rem;
+    }
+    .endpoints-list li .edit-endpoint-btn {
+      background-color: #007bff;
+      padding: 0.3rem 0.6rem;
+    }
+    .endpoints-list li .delete-endpoint-btn {
+      background-color: #ff4d4d;
+      padding: 0.3rem 0.6rem;
+    }
+    input.endpoint-input, textarea.endpoint-input {
+      background-color: #333;
+      color: #eee;
+      border: none;
+      border-radius: 5px;
+      padding: 0.4rem;
+      margin-top: 0.5rem;
+      width: 100%;
+      font-size: 1rem;
+    }
+    label {
+      display: block;
+      margin-top: 1rem;
+      font-weight: bold;
+    }
+    #folderInput {
+      display: none;
+    }
+    .hidden {
+      display: none;
+    }
+    .small-note {
+      font-size: 0.85rem;
+      color: #aaa;
+      margin-top: 0.3rem;
+    }
+    #currentProjectDisplay {
+      font-weight: bold;
+      color: #eee;
+      margin-top: 0.3rem;
+      margin-bottom: 1rem;
+      min-height: 1.2em;
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>Project Dashboard</h1>
+  <nav>
+    <button class="tab-btn active" data-tab="projects">Projects</button>
+    <button class="tab-btn hidden" id="endpointsTab" data-tab="endpoints">Endpoints</button>
+    <button class="tab-btn hidden" id="proxyTab" data-tab="proxy">Enable Proxy</button>
+  </nav>
+</header>
+
+<main>
+  <section id="projects" class="tab-content active">
+    <h2>Your Projects</h2>
+    <button class="add-btn" onclick="document.getElementById('folderInput').click()">+ Add Folder</button>
+    <input type="file" id="folderInput" webkitdirectory multiple />
+    <div id="projectsList">
+      </div>
+  </section>
+
+  <section id="endpoints" class="tab-content">
+    <h2 id="endpointsTitle">Edit Endpoints</h2>
+
+    <div id="currentProjectDisplay">Currently Editing Project: None</div>
+
+    <button class="add-btn" id="exitEditModeBtn">Exit Edit Mode</button>
+
+    <div id="endpointControls">
+      <label>Add Secured Endpoint:</label>
+      <input type="text" id="newEndpointInput" class="endpoint-input" placeholder="e.g. /admin" />
+      <button class="small-btn" id="addEndpointBtn">+ Add Endpoint</button>
+    </div>
+
+    <ul class="endpoints-list" id="endpointsList">
+      <li>Add an endpoint to get started.</li>
+    </ul>
+
+    <div id="endpointSettings">
+      <h3 style="margin-top:1.5rem;">Endpoint Response Filtering</h3>
+      <p class="small-note">
+        Configure rules to allow or block certain data in responses for the selected endpoint.
+      </p>
+
+      <label for="whitelistInput">Whitelist Parameters (comma-separated):</label>
+      <input type="text" id="whitelistInput" class="endpoint-input" placeholder="e.g. userId, status, token">
+
+      <label for="blacklistPatterns">Blacklist Patterns (one per line):</label>
+      <textarea id="blacklistPatterns" class="endpoint-input" rows="4" placeholder="e.g. password&#10;secretKey&#10;.*DROP TABLE.*"></textarea>
+
+      <label>
+        <input type="checkbox" id="enableRegexFilter"> Enable Regex Filtering
+      </label>
+
+      <label>
+        <input type="checkbox" id="duplicateServerCheckbox"> Create Duplicate Server Folder on Compromise
+      </label>
+
+      <button class="add-btn" id="saveEndpointSettingsBtn" style="margin-top:1rem;">Save Endpoint Settings</button>
+    </div>
+  </section>
+
+  <section id="proxy" class="tab-content">
+    <h2>Proxy Settings</h2>
+    <p>
+      This proxy will act as a man-in-the-middle (MITM) with the ability to drop responses based on whitelist/blacklist rules, regex patterns, or other filters.
+      It can also create a duplicate server folder if a request compromises the server.
+    </p>
+  </section>
+</main>
+
+<script src="main.js"></script>
+</body>
+</html>
