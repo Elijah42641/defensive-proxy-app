@@ -1,3 +1,5 @@
+yes it was vibe coded, i care about the destination not the journey
+
 git clone https://github.com/Elijah42641/defensive-proxy-app
 
 cd defensive-proxy-app
