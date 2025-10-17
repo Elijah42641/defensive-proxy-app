@@ -154,10 +154,6 @@ func main() {
 				return
 			}
 			log.Printf("Request allowed: %s %s", r.Method, r.URL.Path)
-			// Obfuscate the path if it matches an endpoint
-			if matchingEndpoint.ObfuscatedPath != "" {
-				r.URL.Path = matchingEndpoint.ObfuscatedPath
-			}
 			proxy.ServeHTTP(w, r)
 			return
 		}
