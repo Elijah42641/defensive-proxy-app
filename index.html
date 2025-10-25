@@ -694,6 +694,172 @@
     .copy-btn:hover {
       background: #53e8c0;
     }
+
+    .regex-examples h5 {
+      color: var(--accent-color);
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      cursor: pointer;
+      user-select: none;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+
+    .regex-examples h5::after {
+      content: '▶';
+      transition: transform 0.2s;
+      font-size: 0.8rem;
+    }
+
+    .regex-examples.expanded h5::after {
+      transform: rotate(90deg);
+    }
+
+    .regex-content {
+      display: none;
+    }
+
+    .regex-examples.expanded .regex-content {
+      display: block;
+    }
+
+    .regex-item {
+      margin-bottom: 1rem;
+      padding: 0.5rem;
+      background: var(--border-color);
+      border-radius: 6px;
+      border-left: 3px solid var(--accent-color);
+    }
+
+    .regex-item strong {
+      color: var(--accent-color);
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    .regex-item pre {
+      background: var(--bg-color);
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin: 0.5rem 0;
+      overflow-x: auto;
+      font-size: 0.9rem;
+    }
+
+    .regex-item em {
+      color: var(--text-color);
+      font-style: italic;
+      font-size: 0.9rem;
+    }
+
+    /* Rule Guide Styles */
+    .guide-intro {
+      color: var(--text-color);
+      font-size: 1.1rem;
+      margin-bottom: 2rem;
+      max-width: 800px;
+    }
+
+    .guide-content {
+      display: flex;
+      flex-direction: column;
+      gap: 2rem;
+    }
+
+    .guide-section {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 6px 16px var(--shadow-color);
+    }
+
+    .guide-section h3 {
+      color: var(--accent-color);
+      margin-bottom: 1rem;
+      font-size: 1.3rem;
+    }
+
+    .guide-card {
+      background: var(--border-color);
+      border-radius: 8px;
+      padding: 1.5rem;
+      margin-top: 1rem;
+    }
+
+    .guide-card h4 {
+      color: var(--accent-color);
+      margin-bottom: 1rem;
+      font-size: 1.1rem;
+    }
+
+    .guide-card ul {
+      margin: 1rem 0;
+      padding-left: 1.5rem;
+    }
+
+    .guide-card li {
+      margin-bottom: 0.5rem;
+      line-height: 1.5;
+    }
+
+    .recommended-templates {
+      margin-top: 1.5rem;
+      padding-top: 1rem;
+      border-top: 1px solid var(--border-color);
+    }
+
+    .recommended-templates h5 {
+      color: var(--text-color);
+      margin-bottom: 0.5rem;
+      font-size: 1rem;
+    }
+
+    .template-link {
+      background: var(--accent-color);
+      color: var(--bg-color);
+      border: none;
+      padding: 0.4rem 0.8rem;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.9rem;
+      margin-right: 0.5rem;
+      margin-bottom: 0.5rem;
+      transition: background-color 0.3s ease;
+    }
+
+    .template-link:hover {
+      background: #53e8c0;
+    }
+
+    .guide-tips {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 6px 16px var(--shadow-color);
+    }
+
+    .guide-tips h3 {
+      color: var(--accent-color);
+      margin-bottom: 1rem;
+    }
+
+    .tips-list {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+
+    .tip {
+      background: var(--border-color);
+      padding: 1rem;
+      border-radius: 8px;
+      border-left: 4px solid var(--accent-color);
+    }
+
+    .tip strong {
+      color: var(--accent-color);
+    }
   </style>
 </head>
 <body>
@@ -706,6 +872,7 @@
       <button class="tab-btn hidden" id="proxyTab" data-tab="proxy">Enable Proxy</button>
       <button class="tab-btn hidden" id="logsTab" data-tab="logs">Logs</button>
       <button class="tab-btn hidden" id="templatesTab" data-tab="templates">Templates</button>
+      <button class="tab-btn" id="guideTab" data-tab="guide">Rule Guide</button>
       <button id="tutorial-btn" class="small-btn">Tutorial</button>
     </nav>
 </header>
@@ -776,6 +943,182 @@
       <button id="browseTemplatesBtn" class="small-btn btn-primary">Browse Templates</button>
     </div>
   </section>
+
+  <section id="guide" class="tab-content">
+    <div class="section-header">
+      <h2>Rule Guide - What Rules Should I Add?</h2>
+      <p class="guide-intro">This guide helps you choose the right security rules for your endpoints based on common scenarios and threats.</p>
+    </div>
+
+    <div class="guide-content">
+      <div class="guide-section">
+        <h3>🔐 Authentication Endpoints (/login, /register, /auth)</h3>
+        <div class="guide-card">
+          <h4>Essential Rules:</h4>
+          <ul>
+            <li><strong>SQL Injection Protection:</strong> Block common SQL injection patterns in login forms</li>
+            <li><strong>XSS Prevention:</strong> Filter script tags and dangerous HTML in usernames/passwords</li>
+            <li><strong>Rate Limiting:</strong> Prevent brute force attacks by limiting login attempts</li>
+            <li><strong>Input Validation:</strong> Validate email formats and password strength</li>
+          </ul>
+
+          <div class="recommended-templates">
+            <h5>Recommended Templates:</h5>
+            <button class="template-link" data-template="SQL Injection Prevention">SQL Injection</button>
+            <button class="template-link" data-template="XSS Script Block">XSS Block</button>
+            <button class="template-link" data-template="Email Validation">Email Validation</button>
+            <button class="template-link" data-template="Password Length Check">Password Check</button>
+          </div>
+
+          <div class="example-regex">
+            <h5>Example Regex Patterns:</h5>
+            <ul>
+              <li><strong>SQL Injection Detection:</strong> <code>(?i)(union.*select|drop.*table|insert.*into|--|#|/\*|\*/)</code> - Matches common SQL injection keywords and comments.</li>
+              <li><strong>XSS Script Tag Block:</strong> <code><script[^>]*>.*?</script></code> - Blocks script tags and their content.</li>
+              <li><strong>Email Format Validation:</strong> <code>^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$</code> - Ensures proper email structure.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3>📊 API Endpoints (/api/users, /api/data)</h3>
+        <div class="guide-card">
+          <h4>Essential Rules:</h4>
+          <ul>
+            <li><strong>Authorization Headers:</strong> Validate API keys and bearer tokens</li>
+            <li><strong>Content-Type Validation:</strong> Ensure requests use expected content types</li>
+            <li><strong>SQL Injection:</strong> Protect against database attacks in query parameters</li>
+            <li><strong>Command Injection:</strong> Block shell command execution attempts</li>
+          </ul>
+          <div class="recommended-templates">
+            <h5>Recommended Templates:</h5>
+            <button class="template-link" data-template="API Key Blacklist">API Key Security</button>
+            <button class="template-link" data-template="SQL Injection Prevention">SQL Injection</button>
+            <button class="template-link" data-template="Command Injection Block">Command Injection</button>
+          </div>
+
+          <div class="example-regex">
+            <h5>Example Regex Patterns:</h5>
+            <ul>
+              <li><strong>API Key Validation:</strong> <code>^[A-Za-z0-9]{32}$</code> - Ensures API keys are alphanumeric and 32 characters long.</li>
+              <li><strong>SQL Injection in Queries:</strong> <code>(?i)(select.*from|union.*select|drop.*table)</code> - Detects SQL injection in API query parameters.</li>
+              <li><strong>Command Injection Block:</strong> <code>(;|\||&|&&|\|\||`|\$\(|\$\{)</code> - Blocks shell command separators and execution.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3>📤 File Upload Endpoints (/upload, /files)</h3>
+        <div class="guide-card">
+          <h4>Essential Rules:</h4>
+          <ul>
+            <li><strong>File Size Limits:</strong> Prevent large file uploads that could cause DoS</li>
+            <li><strong>File Type Validation:</strong> Only allow safe file extensions</li>
+            <li><strong>Malicious Content:</strong> Scan for embedded scripts or executables</li>
+            <li><strong>Path Traversal:</strong> Block attempts to access files outside allowed directories</li>
+          </ul>
+          <div class="recommended-templates">
+            <h5>Recommended Templates:</h5>
+            <button class="template-link" data-template="File Upload Size Limit">File Size Limit</button>
+            <button class="template-link" data-template="XSS Script Block">Script Detection</button>
+          </div>
+
+          <div class="example-regex">
+            <h5>Example Regex Patterns:</h5>
+            <ul>
+              <li><strong>File Extension Validation:</strong> <code>\.(jpg|jpeg|png|gif|pdf|txt)$</code> - Allows only safe file extensions.</li>
+              <li><strong>Path Traversal Block:</strong> <code>\.\./|\.\.\\</code> - Prevents directory traversal attacks.</li>
+              <li><strong>Malicious Content Scan:</strong> <code><script[^>]*>.*?</script></code> - Detects embedded scripts in files.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3>🔍 Search & Query Endpoints (/search, /filter)</h3>
+        <div class="guide-card">
+          <h4>Essential Rules:</h4>
+          <ul>
+            <li><strong>SQL Injection:</strong> Protect against malicious search queries</li>
+            <li><strong>NoSQL Injection:</strong> Block MongoDB/JavaScript injection</li>
+            <li><strong>Input Sanitization:</strong> Clean special characters in search terms</li>
+            <li><strong>Query Length Limits:</strong> Prevent extremely long queries</li>
+          </ul>
+          <div class="recommended-templates">
+            <h5>Recommended Templates:</h5>
+            <button class="template-link" data-template="SQL Injection Prevention">SQL Injection</button>
+            <button class="template-link" data-template="Command Injection Block">Injection Protection</button>
+          </div>
+
+          <div class="example-regex">
+            <h5>Example Regex Patterns:</h5>
+            <ul>
+              <li><strong>NoSQL Injection Block:</strong> <code>\$where|\$ne|\$gt|\$lt</code> - Prevents MongoDB injection operators.</li>
+              <li><strong>Input Sanitization:</strong> <code>[<>\"'&]</code> - Detects potentially dangerous characters in search terms.</li>
+              <li><strong>Query Length Limit:</strong> <code>^.{0,1000}$</code> - Ensures queries don't exceed 1000 characters.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3>💳 Payment & Sensitive Data Endpoints</h3>
+        <div class="guide-card">
+          <h4>Essential Rules:</h4>
+          <ul>
+            <li><strong>PCI Compliance:</strong> Validate payment data formats</li>
+            <li><strong>Encryption Checks:</strong> Ensure sensitive data is properly encrypted</li>
+            <li><strong>Access Logging:</strong> Log all access to sensitive endpoints</li>
+            <li><strong>Rate Limiting:</strong> Prevent abuse of payment processing</li>
+          </ul>
+          <div class="recommended-templates">
+            <h5>Recommended Templates:</h5>
+            <button class="template-link" data-template="Session ID Validation">Session Validation</button>
+            <button class="template-link" data-template="CSRF Token Whitelist">CSRF Protection</button>
+          </div>
+
+          <div class="example-regex">
+            <h5>Example Regex Patterns:</h5>
+            <ul>
+              <li><strong>Credit Card Format:</strong> <code>^\d{4}-\d{4}-\d{4}-\d{4}$</code> - Validates standard credit card number format.</li>
+              <li><strong>Encryption Check:</strong> <code>password|ssn|credit_card</code> - Flags sensitive data that should be encrypted.</li>
+              <li><strong>Access Logging:</strong> <code>.*</code> - Matches all requests for logging (use with logging rules).</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+
+      <div class="guide-section">
+        <h3>🎯 General Best Practices</h3>
+        <div class="guide-card">
+          <h4>Always Consider:</h4>
+          <ul>
+            <li><strong>User-Agent Validation:</strong> Block suspicious or automated requests</li>
+            <li><strong>Origin/CORS Checks:</strong> Validate request origins for web applications</li>
+            <li><strong>Debug Mode Blocking:</strong> Prevent accidental exposure of debug information</li>
+            <li><strong>Rate Limiting:</strong> Protect against DoS and brute force attacks</li>
+          </ul>
+          <div class="recommended-templates">
+            <h5>Recommended Templates:</h5>
+            <button class="template-link" data-template="User-Agent Validation">User-Agent Check</button>
+            <button class="template-link" data-template="CORS Origin Check">CORS Validation</button>
+            <button class="template-link" data-template="Debug Mode Block">Debug Protection</button>
+          </div>
+
+          <div class="example-regex">
+            <h5>Example Regex Patterns:</h5>
+            <ul>
+              <li><strong>User-Agent Block:</strong> <code>(curl|wget|python|bot|crawler)</code> - Blocks common automated tools.</li>
+              <li><strong>CORS Origin Validation:</strong> <code>^https?://(localhost|yourdomain\.com)</code> - Allows only trusted origins.</li>
+              <li><strong>Debug Mode Detection:</strong> <code>debug|dev|test</code> - Flags debug-related parameters.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <div id="feedback-display"></div>
@@ -826,8 +1169,8 @@
 <script src="main.js"></script>
 
 <script>
-  let allTemplates = [];
-  let visibleCount = 5;
+  var allTemplates = [];
+  var visibleCount = 5;
 
   async function loadTemplates() {
     try {
@@ -906,6 +1249,16 @@
       renderTemplates();
     });
   }
+
+  // Toggle regex examples
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelectorAll('.regex-examples h5').forEach(header => {
+      header.addEventListener('click', () => {
+        const container = header.parentElement;
+        container.classList.toggle('expanded');
+      });
+    });
+  });
 </script>
 </body>
 </html>

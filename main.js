@@ -83,18 +83,18 @@ function isValidRegex(pattern) {
 
 // --- Regex Characters Data ---
 const regexCharacters = [
-  { char: '.', description: 'Matches any single character (except a newline).' },
-  { char: '[ ]', description: 'Matches any single character within the brackets (e.g., `[abc]` matches "a", "b", or "c").' },
-  { char: '[^ ]', description: 'Matches any character NOT within the brackets.' },
-  { char: '*', description: 'Matches the preceding character zero or more times.' },
-  { char: '+', description: 'Matches the preceding character one or more times.' },
-  { char: '?', description: 'Matches the preceding character zero or one time.' },
-  { char: '^', description: 'Matches the beginning of the string.' },
-  { char: '$', description: 'Matches the end of the string.' },
-  { char: '\\d', description: 'Matches any digit (0-9).' },
-  { char: '\\s', description: 'Matches any whitespace character (space, tab, newline).' },
-  { char: '()', description: 'Creates a capturing group to group characters together.' },
-  { char: '|', description: 'Acts as an OR operator (e.g., `cat|dog` matches "cat" or "dog").' },
+  { char: '.', description: 'Matches any single character (except a newline).', example: 'b.t matches "bat", "bet", "bit"' },
+  { char: '[ ]', description: 'Matches any single character within the brackets (e.g., `[abc]` matches "a", "b", or "c").', example: '[aeiou] matches any vowel' },
+  { char: '[^ ]', description: 'Matches any character NOT within the brackets.', example: '[^0-9] matches any non-digit' },
+  { char: '*', description: 'Matches the preceding character zero or more times.', example: 'bo* matches "b", "bo", "boo"' },
+  { char: '+', description: 'Matches the preceding character one or more times.', example: 'bo+ matches "bo", "boo", but not "b"' },
+  { char: '?', description: 'Matches the preceding character zero or one time.', example: 'colou?r matches "color" or "colour"' },
+  { char: '^', description: 'Matches the beginning of the string.', example: '^Hello matches strings starting with "Hello"' },
+  { char: '$', description: 'Matches the end of the string.', example: 'world$ matches strings ending with "world"' },
+  { char: '\\d', description: 'Matches any digit (0-9).', example: '\\d{3} matches "123" or "456"' },
+  { char: '\\s', description: 'Matches any whitespace character (space, tab, newline).', example: '\\s+ matches one or more spaces' },
+  { char: '()', description: 'Creates a capturing group to group characters together.', example: '(abc)+ matches "abc", "abcabc"' },
+  { char: '|', description: 'Acts as an OR operator (e.g., `cat|dog` matches "cat" or "dog").', example: 'apple|banana matches "apple" or "banana"' },
 ];
 
 // --- Reminder Popup Function ---
@@ -1238,20 +1238,20 @@ function switchTab(tabId) {
                             endpoints: sessionEndpoints[currentlyEditingProject]?.endpoints || []
                         })
                         });
-                        if (res.ok) {
-                            // Set the active project for proxy
-                            proxyActiveProject = currentlyEditingProject;
-                            await updateStatusDisplay();
-                            if (!proxyEnableFeedbackShown) {
-                                showFeedback('Proxy enabled!');
-                                proxyEnableFeedbackShown = true;
-                            }
-                            // Save the state.
-                            const settings = getCurrentProxySettings();
-                            saveProxySettings(settings, currentlyEditingProject);
-                        } else {
-                            showFeedback('Failed to enable proxy.');
-                        }
+                if (res.ok) {
+                    // Set the active project for proxy
+                    proxyActiveProject = currentlyEditingProject;
+                    updateProxyUI(true);
+                    if (!proxyEnableFeedbackShown) {
+                        showFeedback('Proxy enabled!');
+                        proxyEnableFeedbackShown = true;
+                    }
+                    // Save the state.
+                    const settings = getCurrentProxySettings();
+                    saveProxySettings(settings, currentlyEditingProject);
+                } else {
+                    showFeedback('Failed to enable proxy.');
+                }
                     } catch (err) {
                         showFeedback('Error enabling proxy: ' + err);
                     }
@@ -1613,6 +1613,24 @@ function renderEndpointSettings(endpoint) {
       explanation.style.marginTop = '0.5rem';
       addRuleGroup.appendChild(explanation);
 
+      // Add example regex section
+      const exampleSection = document.createElement('div');
+      exampleSection.style.marginTop = '1rem';
+      exampleSection.style.padding = '0.5rem';
+      exampleSection.style.background = '#29294d';
+      exampleSection.style.borderRadius = '6px';
+      exampleSection.style.fontSize = '0.9em';
+      exampleSection.style.color = '#e0e0f0';
+      exampleSection.innerHTML = `<strong style="color: #64ffda;">Example Regex:</strong><br>`;
+      if (dataType === 'headers') {
+        exampleSection.innerHTML += `Block User-Agent with 'bot': <code style="background: #1a1a2e; padding: 2px 4px; border-radius: 3px;">^.*bot.*$</code><br>Allow only JSON Content-Type: <code style="background: #1a1a2e; padding: 2px 4px; border-radius: 3px;">^application/json$</code>`;
+      } else if (dataType === 'cookies') {
+        exampleSection.innerHTML += `Block session cookies: <code style="background: #1a1a2e; padding: 2px 4px; border-radius: 3px;">^session.*$</code><br>Allow only secure cookies: <code style="background: #1a1a2e; padding: 2px 4px; border-radius: 3px;">^.*;.*Secure.*$</code>`;
+      } else { // body
+        exampleSection.innerHTML += `Block SQL injection: <code style="background: #1a1a2e; padding: 2px 4px; border-radius: 3px;">(SELECT|UNION|DROP)</code><br>Allow only alphanumeric: <code style="background: #1a1a2e; padding: 2px 4px; border-radius: 3px;">^[a-zA-Z0-9]*$</code>`;
+      }
+      addRuleGroup.appendChild(exampleSection);
+
       const regexValidationFeedback = document.createElement('div');
       regexValidationFeedback.className = 'regex-feedback hidden';
       addRuleGroup.appendChild(regexValidationFeedback);
@@ -1644,7 +1662,7 @@ function renderEndpointSettings(endpoint) {
           helpContent.innerHTML = `
               <h3 style="margin-bottom: 1rem;">Regex Help</h3>
               <ul style="margin: 1rem 0; padding-left: 1.5rem; line-height: 1.6;">
-                  ${regexCharacters.map(c => `<li style="margin-bottom: 0.5rem;"><strong>${c.char}</strong>: ${c.description}</li>`).join('')}
+                  ${regexCharacters.map(c => `<li style="margin-bottom: 0.5rem;"><strong>${c.char}</strong>: ${c.description}<br><em>Example: ${c.example}</em></li>`).join('')}
               </ul>
               <button id="closeRegexHelpBtn" class="small-btn btn-secondary" style="margin-top: 1rem;">Close</button>
           `;
@@ -2003,11 +2021,11 @@ viewInfoBtn.onclick = (e) => {
   overlay.style.display = 'block';
   popup.style.display = 'flex';
   // Close popup on close button, cancel button, or clicking overlay
-  popup.querySelector('#popupCloseBtn').onclick = closePopup;
-  popup.querySelector('#cancelEditBtn').onclick = closePopup;
-  overlay.onclick = function(ev) {
+  popup.querySelector('#popupCloseBtn').addEventListener('click', closePopup);
+  popup.querySelector('#cancelEditBtn').addEventListener('click', closePopup);
+  overlay.addEventListener('click', function(ev) {
     if (ev.target === overlay) closePopup();
-  };
+  });
   // Escape key closes popup
   document.addEventListener('keydown', escHandler);
   function escHandler(ev) {
@@ -2022,7 +2040,7 @@ viewInfoBtn.onclick = (e) => {
     document.removeEventListener('keydown', escHandler);
   }
   // Save changes handler
-  popup.querySelector('#saveChangesBtn').onclick = function(ev) {
+  popup.querySelector('#saveChangesBtn').addEventListener('click', function(ev) {
     ev.preventDefault();
     const newKey = popup.querySelector('#edit-key').value;
     const newValue = popup.querySelector('#edit-value').value;
@@ -2051,7 +2069,7 @@ viewInfoBtn.onclick = (e) => {
     } else {
       showAlert('Error: Rule not found.');
     }
-  };
+  });
 };
   buttonGroup.appendChild(viewInfoBtn);
 
@@ -2102,6 +2120,7 @@ projectsList.addEventListener('click', (e) => {
     currentProjectDisplay.textContent = `Currently Editing Project: ${projectName}`;
     endpointsTab.classList.remove('hidden');
     proxyTab.classList.remove('hidden');
+    guideTab.classList.remove('hidden');
     renderEndpoints(projectName);
     endpointSettingsSection.classList.add('hidden');
     
@@ -2205,6 +2224,7 @@ projectsList.addEventListener('click', (e) => {
 
     endpointsTab.classList.add('hidden');
     proxyTab.classList.add('hidden');
+    // guideTab remains visible
   });
 
   tabButtons.forEach(btn => {
