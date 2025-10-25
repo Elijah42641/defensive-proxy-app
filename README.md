@@ -1,3 +1,4 @@
+
 Blocks requests based on absolute values and regex <br>
 in either the body, headers, or cookies
   <pre>
@@ -16,6 +17,8 @@ npm start
     <li>.against known malicious headers</li>
     <li>.prevent code injection (sqli, xss, ssti, etc)</li>
   </ul>
+
+<h1> LOOKING FOR COLLABORATION </h1>
 
   <h2>Ways to test proxy</h2>
   <p>Create test node server and set that as the server port, then run curl commands on proxy port. You can test headers, cookies, etc.</p>
