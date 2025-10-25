@@ -1,4 +1,5 @@
-
+Blocks requests based on absolute values and regex <br>
+in either the body, headers, or cookies
   <pre>
 git clone https://github.com/Elijah42641/defensive-proxy-app
 cd defensive-proxy-app
