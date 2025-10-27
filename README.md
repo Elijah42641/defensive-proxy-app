@@ -26,6 +26,6 @@ npm start
   <p>Report any bugs through pull requesting read me and adding to the bugs list.</p>
 
   <h2>Bugs:</h2>
-  <p>none so far...</p>
+  <p> reads entire request at once </p>
 
   <h2>If you see this share my repo to at least one person to help get some attention to my project.</h2>
