@@ -80,8 +80,26 @@ func main() {
 		// Log remote address and origin for debugging
 		log.Printf("Request from remote addr: %s, Origin: %s, Host: %s, URL: %s", r.RemoteAddr, r.Header.Get("Origin"), r.Host, r.URL.Path)
 
-		// Read the entire request body into a byte slice. This is done once.
-		bodyBytes, err := io.ReadAll(r.Body)
+	defer r.Body.Close()
+
+buf := make([]byte, 32*1024) // 32 KB chunks
+
+for {
+    n, err := r.Body.Read(buf)
+    if n > 0 {
+        chunk := buf[:n]
+        // Handle this chunk here
+        // For now, you can just discard or forward it
+    }
+    if err == io.EOF {
+        break
+    }
+    if err != nil {
+        http.Error(w, "Error reading body", http.StatusInternalServerError)
+        return
+    }
+}
+
 		if err != nil {
 			log.Printf("Error reading request body: %v", err)
 			http.Error(w, "Error reading request body", http.StatusInternalServerError)
