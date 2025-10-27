@@ -80,6 +80,7 @@ func main() {
 		// Log remote address and origin for debugging
 		log.Printf("Request from remote addr: %s, Origin: %s, Host: %s, URL: %s", r.RemoteAddr, r.Header.Get("Origin"), r.Host, r.URL.Path)
 
+// instead if taking the whole body it safely chunks it 
 defer r.Body.Close()
 
 var bodyBuf bytes.Buffer
@@ -99,7 +100,6 @@ for {
     }
 }
 
-// Now you have the full body safely
 bodyBytes := bodyBuf.Bytes()
 
 // Replace original request body so it can be read again later
