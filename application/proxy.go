@@ -54,7 +54,7 @@ func main() {
 	// Create reverse proxy
 	// IMPORTANT
 
-// Directs requests to the server to stop infinite looping
+	// Directs requests to the server to stop infinite looping
 	proxy := &httputil.ReverseProxy{
 		Director: func(req *http.Request) {
 			req.URL.Scheme = "http"
@@ -63,20 +63,20 @@ func main() {
 		},
 	}
 
-///////////////////
+	///////////////////
 
 	// Global panic recovery middleware
 	recoveryHandler := func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			defer func() {
-//  uses built in go function to see if there is any panic
+				//  uses built in go function to see if there is any panic
 				if rec := recover(); rec != nil {
 					log.Printf("Recovered from panic: %v", rec)
 					w.WriteHeader(http.StatusInternalServerError)
 					w.Write([]byte("Internal Server Error"))
 				}
 			}()
-//  uses another handler for requests
+			//  uses another handler for requests
 			next.ServeHTTP(w, r)
 		})
 	}
@@ -86,37 +86,30 @@ func main() {
 		// Log remote address and origin for debugging
 		log.Printf("Request from remote addr: %s, Origin: %s, Host: %s, URL: %s", r.RemoteAddr, r.Header.Get("Origin"), r.Host, r.URL.Path)
 
-// instead of taking the whole body it safely chunks it 
-defer r.Body.Close()
+		// instead of taking the whole body it safely chunks it
+		defer r.Body.Close()
 
-var bodyBuf bytes.Buffer
-buf := make([]byte, 32*1024) // 32 KB chunks
+		var bodyBuf bytes.Buffer
+		buf := make([]byte, 32*1024) // 32 KB chunks
 
-for {
-    n, err := r.Body.Read(buf)
-    if n > 0 {
-        bodyBuf.Write(buf[:n]) // append chunk to buffer
-    }
-    if err == io.EOF {
-        break
-    }
-    if err != nil {
-        http.Error(w, "Error reading body", http.StatusInternalServerError)
-        return
-    }
-}
-
-bodyBytes := bodyBuf.Bytes()
-
-// Replace original request body so it can be read again later
-r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
-
-
-		if err != nil {
-			log.Printf("Error reading request body: %v", err)
-			http.Error(w, "Error reading request body", http.StatusInternalServerError)
-			return
+		for {
+			n, err := r.Body.Read(buf)
+			if n > 0 {
+				bodyBuf.Write(buf[:n]) // append chunk to buffer
+			}
+			if err == io.EOF {
+				break
+			}
+			if err != nil {
+				http.Error(w, "Error reading body", http.StatusInternalServerError)
+				return
+			}
 		}
+
+		bodyBytes := bodyBuf.Bytes()
+
+		// Replace original request body so it can be read again later
+		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 		// Create a new reader from the byte slice to replace the original request body.
 		// This allows the body to be read again by the proxy later.
