@@ -172,6 +172,7 @@ func main() {
 			log.Printf("checkRequestRules result: %v", result)
 			if !result {
 				log.Printf("Request blocked: %s %s", r.Method, r.URL.Path)
+
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("Request blocked by defensive proxy"))
 				return

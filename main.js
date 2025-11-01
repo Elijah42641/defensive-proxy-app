@@ -70,6 +70,26 @@ const endpointSettingsSection = document.getElementById('endpointSettings');
 const feedbackDisplay = document.getElementById('feedback-display');
 const detailsPopup = document.createElement('div');
 
+// Add IPS tab button dynamically
+const ipsTabBtn = document.createElement('button');
+ipsTabBtn.className = 'tab-btn';
+ipsTabBtn.dataset.tab = 'ips';
+ipsTabBtn.textContent = 'IPS';
+ipsTabBtn.style.display = 'none'; // Hidden by default
+// Safely append the IPS tab button if the `.tabs` container exists.
+// If the script runs before the DOM is ready, wait for DOMContentLoaded.
+const _tabsContainer = document.querySelector('.tabs');
+if (_tabsContainer) {
+  _tabsContainer.appendChild(ipsTabBtn);
+} else {
+  document.addEventListener('DOMContentLoaded', () => {
+    const tabsAfterLoad = document.querySelector('.tabs');
+    if (tabsAfterLoad) tabsAfterLoad.appendChild(ipsTabBtn);
+  });
+}
+
+
+
 
 // --- Regex Validation Function ---
 function isValidRegex(pattern) {
@@ -583,8 +603,9 @@ function switchTab(tabId) {
     newActiveBtn.classList.add('active');
     document.getElementById(tabId).classList.add('active');
 
-    // Always regenerate the proxy UI when switching to the proxy tab
+    // Handle specific tab logic
     if (tabId === 'proxy') {
+        // Always regenerate the proxy UI when switching to the proxy tab
         const proxyTab = document.getElementById('proxy');
         proxyTab.innerHTML = ''; // Clear previous content
 
@@ -1385,6 +1406,8 @@ function switchTab(tabId) {
         // Append the proxyContainer to the proxyTab so the UI is visible
         proxyTab.appendChild(proxyContainer);
     }
+
+
 }
 
 async function reloadProxyEndpoints() {
@@ -2219,6 +2242,7 @@ projectsList.addEventListener('click', (e) => {
     currentProjectDisplay.textContent = `Currently Editing Project: ${projectName}`;
     endpointsTab.classList.remove('hidden');
     proxyTab.classList.remove('hidden');
+    document.getElementById('blocked-ips').classList.remove('hidden');
     guideTab.classList.remove('hidden');
     renderEndpoints(projectName);
     endpointSettingsSection.classList.add('hidden');
@@ -2241,9 +2265,10 @@ projectsList.addEventListener('click', (e) => {
         updateCurrentProjectFile('');
         switchTab('projects');
         currentProjectDisplay.textContent = 'Currently Editing Project: None';
-        endpointsTab.classList.add('hidden');
-        proxyTab.classList.add('hidden');
-        endpointSettingsSection.classList.add('hidden');
+  endpointsTab.classList.add('hidden');
+  proxyTab.classList.add('hidden');
+  document.getElementById('blocked-ips').classList.add('hidden');
+  endpointSettingsSection.classList.add('hidden');
       }
 
       if (proxyActiveProject === projectName) {
@@ -2596,7 +2621,14 @@ function showTutorial() {
   tutorialCheckInterval = setInterval(checkTutorialCondition, 1000);
 
   // Make tutorial modal draggable
-  makeDraggable(document.getElementById('tutorial-modal'));
+  const modal = document.getElementById('tutorial-modal');
+  // Reset position to center before making draggable
+  modal.style.top = '50%';
+  modal.style.left = '50%';
+  modal.style.transform = 'translate(-50%, -50%)';
+  modal.style.right = 'auto';
+  modal.style.bottom = 'auto';
+  makeDraggable(modal);
 }
 
 function makeDraggable(element) {
@@ -2790,6 +2822,8 @@ function stopPerformanceMonitoring() {
         performanceMonitorInterval = null;
     }
 }
+
+
 
 // Tutorial check moved inside DOMContentLoaded
 
