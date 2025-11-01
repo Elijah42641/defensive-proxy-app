@@ -137,6 +137,7 @@ const regexTemplates = {
 };
 
 let proxyUiCreated = false; // Add a flag to prevent creating the UI multiple times
+let performanceMonitorInterval = null; // Interval for monitoring proxy performance
 
 function addDefaultProject() {
     const defaultProject = "Test Project";
@@ -499,6 +500,7 @@ function updateProxyUI(isActive) {
     const statusText = document.getElementById('proxyStatusText');
     const statusIndicator = document.getElementById('proxyStatusIndicator');
     const proxyProjectDisplay = document.getElementById('proxyProjectDisplay');
+    const performanceStatus = document.getElementById('proxyPerformanceStatus');
 
     if (!toggleBtn || !statusText || !statusIndicator) {
         return;
@@ -506,10 +508,10 @@ function updateProxyUI(isActive) {
 
     // Get configured ports from localStorage: use active project if proxy is running, else current project
     const projectForSettings = isActive ? proxyActiveProject : currentlyEditingProject;
-    const settings = projectForSettings ? 
-                     loadProxySettings(projectForSettings) : 
+    const settings = projectForSettings ?
+                     loadProxySettings(projectForSettings) :
                      { proxyPort: '8080', serverPort: '3000' };
-    
+
     const configuredProxyPort = settings.proxyPort;
     const configuredServerPort = settings.serverPort;
 
@@ -526,6 +528,9 @@ function updateProxyUI(isActive) {
             proxyProjectDisplay.style.display = 'block';
         }
 
+        // Start performance monitoring
+        startPerformanceMonitoring(configuredProxyPort);
+
         // Save state with the active project
         saveProxyState(true, configuredProxyPort, proxyActiveProject, configuredServerPort);
     } else {
@@ -538,6 +543,13 @@ function updateProxyUI(isActive) {
 
         if (proxyProjectDisplay) {
             proxyProjectDisplay.style.display = 'none';
+        }
+
+        // Stop performance monitoring
+        stopPerformanceMonitoring();
+
+        if (performanceStatus) {
+            performanceStatus.textContent = 'Performance: Not monitoring';
         }
     }
 }
@@ -888,6 +900,16 @@ function switchTab(tabId) {
         statusText.textContent = 'Status: Inactive';
         statusSection.appendChild(statusIndicator);
         statusSection.appendChild(statusText);
+
+        // Performance status
+        const performanceStatus = document.createElement('div');
+        performanceStatus.id = 'proxyPerformanceStatus';
+        performanceStatus.className = 'proxy-performance-status';
+        performanceStatus.style.marginTop = '10px';
+        performanceStatus.style.fontSize = '0.9em';
+        performanceStatus.style.color = '#64ffda';
+        performanceStatus.textContent = 'Performance: Not monitoring';
+        statusSection.appendChild(performanceStatus);
         
         // Proxy project display
         const proxyProjectDisplay = document.createElement('div');
@@ -962,177 +984,248 @@ function switchTab(tabId) {
         proxyContainer.appendChild(actionButtons);
 
 
-        // Modern card layout for endpoint configurations with hide/show toggle
-        const rulesSection = document.createElement('div');
-        rulesSection.className = 'rules-section';
-        const rulesHeader = document.createElement('div');
-        rulesHeader.style.display = 'flex';
-        rulesHeader.style.justifyContent = 'space-between';
-        rulesHeader.style.alignItems = 'center';
-        rulesHeader.style.marginBottom = '1rem';
 
-        const rulesTitle = document.createElement('h4');
-        rulesTitle.textContent = 'Active Rules';
-        rulesTitle.style.color = '#64ffda';
-        rulesTitle.style.fontSize = '1.5rem';
-        rulesHeader.appendChild(rulesTitle);
 
-        const hideBtn = document.createElement('button');
-        hideBtn.textContent = 'Hide Rules';
-        hideBtn.className = 'btn-secondary';
-        hideBtn.style.marginLeft = '1rem';
-        hideBtn.style.padding = '0.5rem 1.2rem';
-        hideBtn.style.fontSize = '1rem';
-        hideBtn.style.borderRadius = '8px';
-        hideBtn.style.cursor = 'pointer';
-        hideBtn.style.border = 'none';
-        hideBtn.style.background = '#6c757d';
-        hideBtn.style.color = 'white';
-        hideBtn.style.fontWeight = 'bold';
-        rulesHeader.appendChild(hideBtn);
+        // HTTP Testing Section
+        const testingSection = document.createElement('div');
+        testingSection.className = 'testing-section';
+        testingSection.style.background = '#23234a';
+        testingSection.style.borderRadius = '12px';
+        testingSection.style.padding = '1.5rem 2rem';
+        testingSection.style.marginBottom = '2rem';
+        testingSection.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+        testingSection.style.color = '#e0e0f0';
+        testingSection.style.fontFamily = 'Inter, sans-serif';
 
-        rulesSection.appendChild(rulesHeader);
+        const testingHeader = document.createElement('h4');
+        testingHeader.textContent = 'HTTP Testing';
+        testingHeader.style.color = '#64ffda';
+        testingHeader.style.marginBottom = '1rem';
+        testingHeader.style.fontSize = '1.5rem';
+        testingSection.appendChild(testingHeader);
 
-        const rulesContent = document.createElement('div');
-        rulesContent.id = 'rulesContent';
+        const testingDescription = document.createElement('p');
+        testingDescription.textContent = 'Test your proxy rules by sending HTTP requests. Make sure the proxy is enabled and your server is running.';
+        testingDescription.style.marginBottom = '1.5rem';
+        testingDescription.style.fontSize = '0.9em';
+        testingDescription.style.color = '#aaa';
+        testingSection.appendChild(testingDescription);
 
-        if (!currentlyEditingProject) {
-            const noProjectMsg = document.createElement('div');
-            noProjectMsg.style.background = '#23234a';
-            noProjectMsg.style.borderRadius = '12px';
-            noProjectMsg.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
-            noProjectMsg.style.padding = '2rem';
-            noProjectMsg.style.color = '#e0e0f0';
-            noProjectMsg.style.textAlign = 'center';
-            noProjectMsg.innerHTML = '<strong>No project selected.</strong><br>Please select or create a project to view endpoint rules.';
-            rulesContent.appendChild(noProjectMsg);
-        } else {
-            const currentProjectData = sessionEndpoints[currentlyEditingProject] || {};
-            const projectEndpoints = currentProjectData.endpoints || [];
-            if (projectEndpoints.length === 0) {
-                const emptyCard = document.createElement('div');
-                emptyCard.style.background = '#23234a';
-                emptyCard.style.borderRadius = '12px';
-                emptyCard.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
-                emptyCard.style.padding = '2rem';
-                emptyCard.style.color = '#e0e0f0';
-                emptyCard.style.textAlign = 'center';
-                emptyCard.textContent = 'No active rules.';
-                rulesContent.appendChild(emptyCard);
-            } else {
-                projectEndpoints.forEach(endpoint => {
-                    // For each endpoint, show a card with all rules
-                    const card = document.createElement('div');
-                    card.style.background = '#23234a';
-                    card.style.borderRadius = '12px';
-                    card.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
-                    card.style.padding = '1.5rem 2rem';
-                    card.style.marginBottom = '1.5rem';
-                    card.style.color = '#e0e0f0';
-                    card.style.fontFamily = 'Inter, sans-serif';
-                    card.style.display = 'flex';
-                    card.style.flexDirection = 'column';
-                    card.style.gap = '0.7rem';
-                    card.style.position = 'relative';
+        // Test Request Form
+        const testForm = document.createElement('div');
+        testForm.style.display = 'flex';
+        testForm.style.flexDirection = 'column';
+        testForm.style.gap = '1rem';
 
-                    // Endpoint header
-                    const header = document.createElement('div');
-                    header.style.display = 'flex';
-                    header.style.justifyContent = 'space-between';
-                    header.style.alignItems = 'center';
-                    const methodDisplay = endpoint.method && endpoint.method !== '' ? endpoint.method : 'ANY';
-                    header.innerHTML = `<span style="font-size:1.1rem;font-weight:bold;color:#64ffda;">${endpoint.path}</span> <span style="font-size:1rem;color:#aaa;" title="ANY means the rule applies to all HTTP methods">${methodDisplay}</span>`;
-                    card.appendChild(header);
+        // Method and URL row
+        const methodUrlRow = document.createElement('div');
+        methodUrlRow.style.display = 'flex';
+        methodUrlRow.style.gap = '1rem';
+        methodUrlRow.style.alignItems = 'center';
 
-                    // Helper to render rules for a section
-                    function renderRuleList(title, rulesObj) {
-                        const block = document.createElement('div');
-                        block.style.background = '#29294d';
-                        block.style.borderRadius = '8px';
-                        block.style.padding = '1rem';
-                        block.style.marginTop = '0.5rem';
-                        block.style.marginBottom = '0.5rem';
-                        block.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-                        const modeDisplay = rulesObj.mode === 'blacklist' ? 'Blacklist (Default Block)' : 'Whitelist (Default Pass)';
-                        block.innerHTML = `<div style="font-weight:600;color:#fff;margin-bottom:0.5rem;">${title} <span style="font-size:0.9em;color:#64ffda;">(${modeDisplay})</span></div>`;
-                        // Whitelist
-                        const allowList = document.createElement('ul');
-                        allowList.style.listStyle = 'none';
-                        allowList.style.padding = '0';
-                        allowList.style.marginBottom = '0.5rem';
-                        allowList.innerHTML = `<li style="color:#52d8b7;font-weight:600;">Allowed:</li>`;
-                        if (rulesObj.whitelist && rulesObj.whitelist.length > 0) {
-                            rulesObj.whitelist.forEach(rule => {
-                                const li = document.createElement('li');
-                                li.style.marginLeft = '1.2em';
-                                li.style.marginBottom = '0.2em';
-                                li.style.fontFamily = 'monospace';
-                                li.style.color = '#e0e0f0';
-                                li.innerHTML = `${rule.key ? `<span style='color:#64ffda;'>${rule.key}</span>: ` : ''}<span style='font-weight:600;'>${rule.value}</span> <span style='font-size:0.8em;color:#999;'>(${rule.ruleType})</span>`;
-                                allowList.appendChild(li);
-                            });
-                        } else {
-                            const li = document.createElement('li');
-                            li.style.marginLeft = '1.2em';
-                            li.style.color = '#999';
-                            li.textContent = 'None';
-                            allowList.appendChild(li);
-                        }
-                        block.appendChild(allowList);
-                        // Blacklist
-                        const blockList = document.createElement('ul');
-                        blockList.style.listStyle = 'none';
-                        blockList.style.padding = '0';
-                        blockList.innerHTML = `<li style="color:#ff5757;font-weight:600;">Blocked:</li>`;
-                        if (rulesObj.blacklist && rulesObj.blacklist.length > 0) {
-                            rulesObj.blacklist.forEach(rule => {
-                                const li = document.createElement('li');
-                                li.style.marginLeft = '1.2em';
-                                li.style.marginBottom = '0.2em';
-                                li.style.fontFamily = 'monospace';
-                                li.style.color = '#e0e0f0';
-                                li.innerHTML = `${rule.key ? `<span style='color:#ff5757;'>${rule.key}</span>: ` : ''}<span style='font-weight:600;'>${rule.value}</span> <span style='font-size:0.8em;color:#999;'>(${rule.ruleType})</span>`;
-                                blockList.appendChild(li);
-                            });
-                        } else {
-                            const li = document.createElement('li');
-                            li.style.marginLeft = '1.2em';
-                            li.style.color = '#999';
-                            li.textContent = 'None';
-                            blockList.appendChild(li);
-                        }
-                        block.appendChild(blockList);
-                        return block;
+        const methodSelect = document.createElement('select');
+        methodSelect.className = 'form-input';
+        methodSelect.style.width = '120px';
+        methodSelect.innerHTML = `
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+            <option value="PUT">PUT</option>
+            <option value="DELETE">DELETE</option>
+            <option value="PATCH">PATCH</option>
+            <option value="HEAD">HEAD</option>
+            <option value="OPTIONS">OPTIONS</option>
+        `;
+        methodUrlRow.appendChild(methodSelect);
+
+        const urlInput = document.createElement('input');
+        urlInput.type = 'text';
+        urlInput.className = 'form-input';
+        urlInput.placeholder = 'URL Path (e.g., /api/test)';
+        urlInput.value = '/api/test';
+        urlInput.style.flex = '1';
+        methodUrlRow.appendChild(urlInput);
+
+        testForm.appendChild(methodUrlRow);
+
+        // Headers
+        const headersLabel = document.createElement('label');
+        headersLabel.textContent = 'Headers (one per line, key: value):';
+        headersLabel.style.fontWeight = 'bold';
+        headersLabel.style.color = '#64ffda';
+        testForm.appendChild(headersLabel);
+
+        const headersTextarea = document.createElement('textarea');
+        headersTextarea.className = 'form-input';
+        headersTextarea.placeholder = 'Content-Type: application/json\nAuthorization: Bearer token';
+        headersTextarea.rows = 3;
+        testForm.appendChild(headersTextarea);
+
+        // Body
+        const bodyLabel = document.createElement('label');
+        bodyLabel.textContent = 'Request Body:';
+        bodyLabel.style.fontWeight = 'bold';
+        bodyLabel.style.color = '#64ffda';
+        testForm.appendChild(bodyLabel);
+
+        const bodyTextarea = document.createElement('textarea');
+        bodyTextarea.className = 'form-input';
+        bodyTextarea.placeholder = '{"key": "value"}';
+        bodyTextarea.rows = 4;
+        testForm.appendChild(bodyTextarea);
+
+        // Send Button
+        const sendTestBtn = document.createElement('button');
+        sendTestBtn.textContent = 'Send Test Request';
+        sendTestBtn.className = 'btn-primary';
+        sendTestBtn.style.width = '200px';
+        sendTestBtn.style.alignSelf = 'flex-start';
+        testForm.appendChild(sendTestBtn);
+
+        testingSection.appendChild(testForm);
+
+        // Test Results
+        const resultsSection = document.createElement('div');
+        resultsSection.id = 'testResults';
+        resultsSection.style.marginTop = '1.5rem';
+        resultsSection.style.padding = '1rem';
+        resultsSection.style.background = '#29294d';
+        resultsSection.style.borderRadius = '8px';
+        resultsSection.style.display = 'none';
+
+        const resultsHeader = document.createElement('h5');
+        resultsHeader.textContent = 'Test Results';
+        resultsHeader.style.color = '#64ffda';
+        resultsHeader.style.marginBottom = '1rem';
+        resultsSection.appendChild(resultsHeader);
+
+        const statusDiv = document.createElement('div');
+        statusDiv.id = 'testStatus';
+        statusDiv.style.marginBottom = '0.5rem';
+        resultsSection.appendChild(statusDiv);
+
+        const responseHeadersDiv = document.createElement('div');
+        responseHeadersDiv.id = 'testResponseHeaders';
+        responseHeadersDiv.style.marginBottom = '0.5rem';
+        resultsSection.appendChild(responseHeadersDiv);
+
+        const responseBodyDiv = document.createElement('div');
+        responseBodyDiv.id = 'testResponseBody';
+        resultsSection.appendChild(responseBodyDiv);
+
+        testingSection.appendChild(resultsSection);
+
+        proxyContainer.appendChild(testingSection);
+
+        // Function to send test request
+        async function sendTestRequest() {
+            const proxyPort = proxyPortInput.value || '8080';
+            const method = methodSelect.value;
+            const urlPath = urlInput.value.trim();
+            const headersText = headersTextarea.value.trim();
+            const bodyText = bodyTextarea.value.trim();
+
+            if (!urlPath) {
+                showFeedback('Please enter a URL path for the test request.');
+                return;
+            }
+
+            // Parse headers
+            const headers = {};
+            if (headersText) {
+                const headerLines = headersText.split('\n');
+                for (const line of headerLines) {
+                    const colonIndex = line.indexOf(':');
+                    if (colonIndex > 0) {
+                        const key = line.substring(0, colonIndex).trim();
+                        const value = line.substring(colonIndex + 1).trim();
+                        headers[key] = value;
                     }
+                }
+            }
 
-                    // Request rules
-                    card.appendChild(renderRuleList('Request Headers', endpoint.request.headers));
-                    card.appendChild(renderRuleList('Request Cookies', endpoint.request.cookies));
-                    card.appendChild(renderRuleList('Request Body', endpoint.request.body));
-                    // Response rules
-                    card.appendChild(renderRuleList('Response Headers', endpoint.response.headers));
-                    card.appendChild(renderRuleList('Response Cookies', endpoint.response.cookies));
-                    card.appendChild(renderRuleList('Response Body', endpoint.response.body));
+            // Prepare request options
+            const requestOptions = {
+                method: method,
+                headers: headers,
+                mode: 'cors'
+            };
 
-                    rulesContent.appendChild(card);
-                });
+            if (bodyText && ['POST', 'PUT', 'PATCH'].includes(method)) {
+                requestOptions.body = bodyText;
+            }
+
+            try {
+                const fullUrl = `http://localhost:${proxyPort}${urlPath}`;
+                console.log('Sending test request to:', fullUrl, requestOptions);
+
+                const startTime = performance.now();
+                const response = await fetch(fullUrl, requestOptions);
+                const endTime = performance.now();
+                const responseTime = endTime - startTime;
+
+                // Get response headers
+                const responseHeaders = {};
+                for (const [key, value] of response.headers.entries()) {
+                    responseHeaders[key] = value;
+                }
+
+                // Get response body
+                let responseBody = '';
+                const contentType = response.headers.get('content-type');
+                if (contentType && contentType.includes('application/json')) {
+                    try {
+                        responseBody = JSON.stringify(await response.json(), null, 2);
+                    } catch (e) {
+                        responseBody = await response.text();
+                    }
+                } else {
+                    responseBody = await response.text();
+                }
+
+                // Display results
+                statusDiv.innerHTML = `<strong>Status:</strong> ${response.status} ${response.statusText} (${Math.round(responseTime)}ms)`;
+                statusDiv.style.color = response.ok ? '#4CAF50' : '#ff5757';
+
+                responseHeadersDiv.innerHTML = `<strong>Response Headers:</strong><br><pre style="background: #1a1a2e; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; font-size: 0.8em; overflow-x: auto;">${Object.entries(responseHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>`;
+
+                responseBodyDiv.innerHTML = `<strong>Response Body:</strong><br><pre style="background: #1a1a2e; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; font-size: 0.8em; overflow-x: auto; max-height: 200px; overflow-y: auto;">${responseBody}</pre>`;
+
+                resultsSection.style.display = 'block';
+                showFeedback(`Test request sent successfully (${response.status})`);
+
+            } catch (error) {
+                console.error('Test request failed:', error);
+                statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+                statusDiv.style.color = '#ff5757';
+                responseHeadersDiv.innerHTML = '';
+                responseBodyDiv.innerHTML = '';
+                resultsSection.style.display = 'block';
+                showFeedback('Test request failed: ' + error.message);
             }
         }
-        rulesSection.appendChild(rulesContent);
 
-        // Hide/show logic
-        hideBtn.addEventListener('click', () => {
-            if (rulesContent.style.display === 'none') {
-                rulesContent.style.display = '';
-                hideBtn.textContent = 'Hide Rules';
-            } else {
-                rulesContent.style.display = 'none';
-                hideBtn.textContent = 'Show Rules';
+        // Event listener for send test button
+        sendTestBtn.addEventListener('click', sendTestRequest);
+
+        // Enable/disable testing based on proxy status
+        function updateTestingSection() {
+            const isActive = toggleBtn.textContent.includes('Disable') || toggleBtn.textContent.includes('Browser');
+            sendTestBtn.disabled = !isActive;
+            sendTestBtn.style.opacity = isActive ? '1' : '0.5';
+            if (!isActive) {
+                resultsSection.style.display = 'none';
             }
-        });
+        }
 
-        proxyContainer.appendChild(rulesSection);
+        // Initial update
+        updateTestingSection();
 
+        // Update testing section when proxy state changes
+        const originalUpdateProxyUI = updateProxyUI;
+        updateProxyUI = function(isActive) {
+            originalUpdateProxyUI(isActive);
+            updateTestingSection();
+        };
 
         saveBtn.addEventListener('click', () => {
             const settings = getCurrentProxySettings();
@@ -1282,6 +1375,12 @@ function switchTab(tabId) {
 
         // Restore proxy state when switching to proxy tab
         restoreProxyStateOnLoad();
+
+        // Start performance monitoring if proxy is active
+        const savedProxyState = loadProxyState();
+        if (savedProxyState.isRunning && savedProxyState.port) {
+            startPerformanceMonitoring(savedProxyState.port);
+        }
 
         // Append the proxyContainer to the proxyTab so the UI is visible
         proxyTab.appendChild(proxyContainer);
@@ -2304,6 +2403,12 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Restore proxy state on page load (independent of tab switching)
   restoreProxyStateOnLoad();
 
+  // Start performance monitoring if proxy is active on load
+  const savedProxyState = loadProxyState();
+  if (savedProxyState.isRunning && savedProxyState.port) {
+      startPerformanceMonitoring(savedProxyState.port);
+  }
+
   // Tutorial button event listener
   const tutorialBtn = document.getElementById('tutorial-btn');
   if (tutorialBtn) {
@@ -2614,6 +2719,77 @@ function checkTutorialCondition() {
 document.getElementById('tutorial-close').addEventListener('click', hideTutorial);
 document.getElementById('tutorial-next').addEventListener('click', nextTutorialStep);
 document.getElementById('tutorial-prev').addEventListener('click', prevTutorialStep);
+
+// Performance monitoring functions
+async function startPerformanceMonitoring(port) {
+    stopPerformanceMonitoring(); // Clear any existing interval
+
+    const performanceStatus = document.getElementById('proxyPerformanceStatus');
+    if (!performanceStatus) return;
+
+    performanceStatus.textContent = 'Performance: Checking...';
+
+    performanceMonitorInterval = setInterval(async () => {
+        try {
+            const startTime = performance.now();
+            const response = await fetch(`http://localhost:${port}/api/proxy/status`, {
+                method: 'GET',
+                signal: AbortSignal.timeout(5000), // 5 second timeout
+                headers: {
+                    'Accept': 'application/json'
+                }
+            });
+            const endTime = performance.now();
+            const responseTime = endTime - startTime;
+
+            if (response.ok) {
+                const data = await response.json();
+                if (data.status === 'running' && data.enabled === true) {
+                    // Determine performance status based on response time
+                    let performanceText = '';
+                    let color = '#64ffda'; // Default green
+
+                    if (responseTime < 100) {
+                        performanceText = 'Excellent';
+                        color = '#4CAF50'; // Green
+                    } else if (responseTime < 300) {
+                        performanceText = 'Good';
+                        color = '#64ffda'; // Cyan
+                    } else if (responseTime < 1000) {
+                        performanceText = 'Fair';
+                        color = '#ff9800'; // Orange
+                    } else if (responseTime < 3000) {
+                        performanceText = 'Slow';
+                        color = '#ff5757'; // Red
+                    } else {
+                        performanceText = 'Very Slow';
+                        color = '#c30000'; // Dark red
+                    }
+
+                    performanceStatus.textContent = `Performance: ${performanceText} (${Math.round(responseTime)}ms)`;
+                    performanceStatus.style.color = color;
+                } else {
+                    performanceStatus.textContent = 'Performance: Proxy disabled';
+                    performanceStatus.style.color = '#ff5757';
+                }
+            } else {
+                performanceStatus.textContent = 'Performance: Error checking status';
+                performanceStatus.style.color = '#ff5757';
+            }
+        } catch (error) {
+            console.log('Performance check failed:', error.message);
+            performanceStatus.textContent = 'Performance: Unable to check';
+            performanceStatus.style.color = '#ff5757';
+        }
+    }, 5000); // Check every 5 seconds
+}
+
+function stopPerformanceMonitoring() {
+    if (performanceMonitorInterval) {
+        clearInterval(performanceMonitorInterval);
+        performanceMonitorInterval = null;
+    }
+}
 
 // Tutorial check moved inside DOMContentLoaded
 
