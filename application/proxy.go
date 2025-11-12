@@ -13,7 +13,6 @@ import (
 	"os"
 	"regexp"
 	"strings"
-	"sync"
 	"time"
 )
 
@@ -25,8 +24,6 @@ var server *http.Server
 
 // To persist proxy enabled state across refreshes, consider storing in a file or external state store
 // For now, we keep it in memory and do not reset on refresh
-var requestLogs []string
-var requestLogsMutex sync.Mutex
 
 func main() {
 	//load env variables
@@ -115,19 +112,6 @@ func main() {
 		// This allows the body to be read again by the proxy later.
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		// Log the raw HTTP request, now using the stored bodyBytes
-		if dump, err := httputil.DumpRequest(r, true); err == nil {
-			log.Printf("Incoming request:\n%s", string(dump))
-			requestLogsMutex.Lock()
-			requestLogs = append(requestLogs, fmt.Sprintf("[%s] %s", time.Now().Format(time.RFC3339), string(dump)))
-			if len(requestLogs) > 100 {
-				requestLogs = requestLogs[1:]
-			}
-			requestLogsMutex.Unlock()
-		} else {
-			log.Printf("Error dumping request: %v", err)
-		}
-
 		// Re-assign the body reader to the request.
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
@@ -140,7 +124,7 @@ func main() {
 		// Check if this is an internal proxy API request (always allow API calls)
 		internalAPI := false
 		apiPath := r.URL.Path
-		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/logs" {
+		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" {
 			internalAPI = true
 		}
 
@@ -361,61 +345,6 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Endpoints reloaded"})
-	})
-
-	// Add API endpoint to get request logs
-	http.HandleFunc("/api/logs", func(w http.ResponseWriter, r *http.Request) {
-		// CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		if r.Method != http.MethodGet {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			w.Write([]byte("Method not allowed"))
-			return
-		}
-
-		requestLogsMutex.Lock()
-		logs := make([]string, len(requestLogs))
-		copy(logs, requestLogs)
-		requestLogsMutex.Unlock()
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{"logs": logs})
-	})
-
-	// Add API endpoint to clear request logs
-	http.HandleFunc("/api/logs/clear", func(w http.ResponseWriter, r *http.Request) {
-		// CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			w.Write([]byte("Method not allowed"))
-			return
-		}
-
-		requestLogsMutex.Lock()
-		requestLogs = []string{}
-		requestLogsMutex.Unlock()
-
-		w.Header().Set("Content-Type", "application/json")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]string{"message": "Logs cleared"})
 	})
 
 	// Create server
