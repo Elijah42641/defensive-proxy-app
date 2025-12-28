@@ -2216,17 +2216,38 @@ viewInfoBtn.onclick = (e) => {
 // --- Event Handlers ---
 function initializeEventHandlers() {
   folderInput.addEventListener('change', (e) => {
+    console.log('Folder input change event fired');
     const files = Array.from(e.target.files || []);
-    if (!files.length) return;
+    console.log('Files selected:', files.length);
+    if (!files.length) {
+      console.log('No files selected, returning');
+      return;
+    }
     const folderName = (files[0].webkitRelativePath || files[0].name).split('/')[0].trim();
+    console.log('Extracted folder name:', folderName);
     if (!folderName || projectNames.includes(folderName)) {
+      console.log('Invalid or duplicate folder name:', folderName);
       showAlert('Project with this name already exists or is invalid.');
       return;
     }
+    console.log('Adding project:', folderName);
     projectNames.push(folderName);
     sessionEndpoints[folderName] = { endpoints: [] };
     saveProjects();
+    console.log('Projects saved to localStorage');
+    saveProjectEndpoints(folderName);
+    console.log('Endpoints saved to localStorage for project:', folderName);
     renderProjectsList();
+    currentlyEditingProject = folderName;
+    localStorage.setItem('currentlyEditingProject', folderName);
+    console.log('Set currently editing project to:', folderName);
+    switchTab('endpoints');
+    currentProjectDisplay.textContent = `Currently Editing Project: ${folderName}`;
+    endpointsTab.classList.remove('hidden');
+    proxyTab.classList.remove('hidden');
+    renderEndpoints(folderName);
+    folderInput.value = '';
+    console.log('Project added successfully and switched to edit mode');
   });
 
 projectsList.addEventListener('click', (e) => {

@@ -144,7 +144,7 @@ ipcMain.on('start-proxy', (event, { projectPath, proxyPort, serverPort, currentP
   // The projectPath should be the application directory path
   const proxyCwd = projectPath || path.join(__dirname, 'application');
 
-  proxyProcess = spawn('go', ['run', 'proxy.go'], {
+  proxyProcess = spawn('/usr/local/go/bin/go', ['run', 'proxy.go'], {
     cwd: proxyCwd,
     env: {
       ...process.env,

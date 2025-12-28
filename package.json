@@ -10,7 +10,7 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "electron": "^37.3.1",
+    "electron": "^37.10.3",
     "npm": "^11.6.2",
     "start": "^5.1.0",
     "terminal-kit": "^3.1.2",
