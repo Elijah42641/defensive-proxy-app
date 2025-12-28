@@ -1412,6 +1412,20 @@ function switchTab(tabId) {
     document.getElementById("autoBlock").checked = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockEnabled;
     document.getElementById("reputationThreshold").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockThreshhold;
 
+    const autoBlockCheckbox = document.getElementById("autoBlock");
+    const thresholdInput = document.getElementById("reputationThreshold");
+
+    function updateThreshold() {
+      if (!autoBlockCheckbox.checked) {
+        thresholdInput.value = '0';
+        thresholdInput.readOnly = true;
+      } else {
+        thresholdInput.readOnly = false;
+      }
+    }
+
+    autoBlockCheckbox.addEventListener('change', updateThreshold);
+    updateThreshold(); // Initial call
   }
 
 }
@@ -2866,11 +2880,16 @@ function saveIpSettings(project) {
   };
   localStorage.setItem(`ips_${project}`, JSON.stringify(ipSettings))
 
-  console.log("saved ip settings:", ipSettings);
-
+  showFeedback('IPS settings saved successfully!');
 }
 
-document.getElementById("saveSettingsBtn").onclick = () => {saveIpSettings(currentlyEditingProject)
+document.getElementById("saveSettingsBtn").onclick = () => {
+  if (!document.getElementById("saveLimit").value ||
+    !document.getElementById("reputationThreshold").value 
+  ) { showFeedback("Fill out each field first") } else {
+    saveIpSettings(currentlyEditingProject)
+  }
+
 };
 // Tutorial check moved inside DOMContentLoaded
 
