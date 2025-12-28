@@ -30,7 +30,7 @@ async function disableProxy() {
 
 // Override fetch to log calls to /api/proxy/disable
 const originalFetch = window.fetch;
-window.fetch = function(...args) {
+window.fetch = function (...args) {
   const url = args[0] instanceof Request ? args[0].url : args[0];
   if (url.includes('/api/proxy/disable')) {
     console.log('Disable proxy API called:', url);
@@ -40,7 +40,7 @@ window.fetch = function(...args) {
 
 // Similarly, add logging to XMLHttpRequest if used
 const originalXHROpen = XMLHttpRequest.prototype.open;
-XMLHttpRequest.prototype.open = function(method, url, ...rest) {
+XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   this._method = method;
   this._url = url;
   if (url.includes('/api/proxy/disable')) {
@@ -149,36 +149,36 @@ function showReminderPopup(message) {
 
 // --- Regex Templates ---
 const regexTemplates = {
-    'specific-value': '',
-    'sql-injection': /(SELECT|UNION|OR)\s/i,
-    'xss': /<\s*script[^>]*>|<\s*\/\s*script\s*>|on(load|click|error|submit)=/i,
-    'email-validation': /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
-    'number-validation': /^\d+$/
+  'specific-value': '',
+  'sql-injection': /(SELECT|UNION|OR)\s/i,
+  'xss': /<\s*script[^>]*>|<\s*\/\s*script\s*>|on(load|click|error|submit)=/i,
+  'email-validation': /^[^\s@]+@[^\s@]+\.[^\s@]+$/,
+  'number-validation': /^\d+$/
 };
 
 let proxyUiCreated = false; // Add a flag to prevent creating the UI multiple times
 let performanceMonitorInterval = null; // Interval for monitoring proxy performance
 
 function addDefaultProject() {
-    const defaultProject = "Test Project";
-    const defaultEndpoint = {
-        path: "/test-endpoint",
-        request: {
-            headers: { whitelist: [], blacklist: [], mode: "blacklist" },
-            cookies: { whitelist: [], blacklist: [], mode: "blacklist" },
-            body: { whitelist: [], blacklist: [], mode: "blacklist" }
-        },
-        response: {
-            headers: { whitelist: [], blacklist: [], mode: "blacklist" },
-            cookies: { whitelist: [], blacklist: [], mode: "blacklist" },
-            body: { whitelist: [], blacklist: [], mode: "blacklist" }
-        }
-    };
+  const defaultProject = "Test Project";
+  const defaultEndpoint = {
+    path: "/test-endpoint",
+    request: {
+      headers: { whitelist: [], blacklist: [], mode: "blacklist" },
+      cookies: { whitelist: [], blacklist: [], mode: "blacklist" },
+      body: { whitelist: [], blacklist: [], mode: "blacklist" }
+    },
+    response: {
+      headers: { whitelist: [], blacklist: [], mode: "blacklist" },
+      cookies: { whitelist: [], blacklist: [], mode: "blacklist" },
+      body: { whitelist: [], blacklist: [], mode: "blacklist" }
+    }
+  };
 
-    projectNames.push(defaultProject);
-    sessionEndpoints[defaultProject] = { endpoints: [defaultEndpoint] };
-    saveProjects();
-    saveProjectEndpoints(defaultProject);
+  projectNames.push(defaultProject);
+  sessionEndpoints[defaultProject] = { endpoints: [defaultEndpoint] };
+  saveProjects();
+  saveProjectEndpoints(defaultProject);
 }
 
 // --- Data Management Functions ---
@@ -229,7 +229,7 @@ function getCurrentProxySettings() {
   const proxyPortInput = document.getElementById('proxyPort');
   const serverPortInput = document.getElementById('serverPort');
   const toggleBtn = document.getElementById('toggleProxyBtn');
-  
+
   return {
     proxyPort: proxyPortInput ? proxyPortInput.value : '8080',
     serverPort: serverPortInput ? serverPortInput.value : '3000',
@@ -516,106 +516,106 @@ async function updateStatusDisplay() {
 
 // Centralized function to update the proxy UI state.
 function updateProxyUI(isActive) {
-    const toggleBtn = document.getElementById('toggleProxyBtn');
-    const statusText = document.getElementById('proxyStatusText');
-    const statusIndicator = document.getElementById('proxyStatusIndicator');
-    const proxyProjectDisplay = document.getElementById('proxyProjectDisplay');
-    const performanceStatus = document.getElementById('proxyPerformanceStatus');
+  const toggleBtn = document.getElementById('toggleProxyBtn');
+  const statusText = document.getElementById('proxyStatusText');
+  const statusIndicator = document.getElementById('proxyStatusIndicator');
+  const proxyProjectDisplay = document.getElementById('proxyProjectDisplay');
+  const performanceStatus = document.getElementById('proxyPerformanceStatus');
 
-    if (!toggleBtn || !statusText || !statusIndicator) {
-        return;
+  if (!toggleBtn || !statusText || !statusIndicator) {
+    return;
+  }
+
+  // Get configured ports from localStorage: use active project if proxy is running, else current project
+  const projectForSettings = isActive ? proxyActiveProject : currentlyEditingProject;
+  const settings = projectForSettings ?
+    loadProxySettings(projectForSettings) :
+    { proxyPort: '8080', serverPort: '3000' };
+
+  const configuredProxyPort = settings.proxyPort;
+  const configuredServerPort = settings.serverPort;
+
+  if (isActive) {
+    toggleBtn.textContent = window.require ? 'Disable in Browser' : 'Disable Proxy';
+    toggleBtn.className = 'toggle-btn disable-proxy';
+    toggleBtn.disabled = window.require ? true : false;
+    toggleBtn.style.display = 'block';
+    statusText.textContent = `Status: Active on Port ${configuredProxyPort}, forwarding to ${configuredServerPort}`;
+    statusIndicator.style.backgroundColor = '#4CAF50';
+
+    if (proxyProjectDisplay) {
+      proxyProjectDisplay.textContent = `Proxy Project: ${proxyActiveProject}`;
+      proxyProjectDisplay.style.display = 'block';
     }
 
-    // Get configured ports from localStorage: use active project if proxy is running, else current project
-    const projectForSettings = isActive ? proxyActiveProject : currentlyEditingProject;
-    const settings = projectForSettings ?
-                     loadProxySettings(projectForSettings) :
-                     { proxyPort: '8080', serverPort: '3000' };
+    // Start performance monitoring
+    startPerformanceMonitoring(configuredProxyPort);
 
-    const configuredProxyPort = settings.proxyPort;
-    const configuredServerPort = settings.serverPort;
+    // Save state with the active project
+    saveProxyState(true, configuredProxyPort, proxyActiveProject, configuredServerPort);
+  } else {
+    toggleBtn.textContent = 'Enable Proxy';
+    toggleBtn.className = 'toggle-btn enable-proxy';
+    toggleBtn.disabled = false;
+    toggleBtn.style.display = 'block';
+    statusText.textContent = `Status: Inactive (Proxy Port: ${configuredProxyPort}, Server Port: ${configuredServerPort})`;
+    statusIndicator.style.backgroundColor = '#ff5757';
 
-    if (isActive) {
-        toggleBtn.textContent = window.require ? 'Disable in Browser' : 'Disable Proxy';
-        toggleBtn.className = 'toggle-btn disable-proxy';
-        toggleBtn.disabled = window.require ? true : false;
-        toggleBtn.style.display = 'block';
-        statusText.textContent = `Status: Active on Port ${configuredProxyPort}, forwarding to ${configuredServerPort}`;
-        statusIndicator.style.backgroundColor = '#4CAF50';
-
-        if (proxyProjectDisplay) {
-            proxyProjectDisplay.textContent = `Proxy Project: ${proxyActiveProject}`;
-            proxyProjectDisplay.style.display = 'block';
-        }
-
-        // Start performance monitoring
-        startPerformanceMonitoring(configuredProxyPort);
-
-        // Save state with the active project
-        saveProxyState(true, configuredProxyPort, proxyActiveProject, configuredServerPort);
-    } else {
-        toggleBtn.textContent = 'Enable Proxy';
-        toggleBtn.className = 'toggle-btn enable-proxy';
-        toggleBtn.disabled = false;
-        toggleBtn.style.display = 'block';
-        statusText.textContent = `Status: Inactive (Proxy Port: ${configuredProxyPort}, Server Port: ${configuredServerPort})`;
-        statusIndicator.style.backgroundColor = '#ff5757';
-
-        if (proxyProjectDisplay) {
-            proxyProjectDisplay.style.display = 'none';
-        }
-
-        // Stop performance monitoring
-        stopPerformanceMonitoring();
-
-        if (performanceStatus) {
-            performanceStatus.textContent = 'Performance: Not monitoring';
-        }
+    if (proxyProjectDisplay) {
+      proxyProjectDisplay.style.display = 'none';
     }
+
+    // Stop performance monitoring
+    stopPerformanceMonitoring();
+
+    if (performanceStatus) {
+      performanceStatus.textContent = 'Performance: Not monitoring';
+    }
+  }
 }
 
 // Add this listener once, outside of any functions, to react to main process events.
 if (window.require) {
-    const { ipcRenderer } = window.require('electron');
-    ipcRenderer.on('proxy-state-update', (event, data) => {
-        const isActiveForCurrent = data.isActive && (proxyActiveProject === currentlyEditingProject);
-        updateProxyUI(isActiveForCurrent);
-        if (!data.isActive) {
-            showFeedback('Proxy has been stopped.');
-        }
-    });
-    ipcRenderer.on('proxy-stopped', () => {
-        proxyProcess = null;
-        proxyActiveProject = null;
-        updateProxyUI(false);
-        clearProxyState();
-        showFeedback('Proxy has been stopped.');
-    });
+  const { ipcRenderer } = window.require('electron');
+  ipcRenderer.on('proxy-state-update', (event, data) => {
+    const isActiveForCurrent = data.isActive && (proxyActiveProject === currentlyEditingProject);
+    updateProxyUI(isActiveForCurrent);
+    if (!data.isActive) {
+      showFeedback('Proxy has been stopped.');
+    }
+  });
+  ipcRenderer.on('proxy-stopped', () => {
+    proxyProcess = null;
+    proxyActiveProject = null;
+    updateProxyUI(false);
+    clearProxyState();
+    showFeedback('Proxy has been stopped.');
+  });
 }
 
 function switchTab(tabId) {
-    // Deactivate all tab buttons and content sections
-    tabButtons.forEach(b => b.classList.remove('active'));
-    tabContents.forEach(t => t.classList.remove('active'));
+  // Deactivate all tab buttons and content sections
+  tabButtons.forEach(b => b.classList.remove('active'));
+  tabContents.forEach(t => t.classList.remove('active'));
 
-    // Activate the selected tab button and content section
-    const newActiveBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
-    newActiveBtn.classList.add('active');
-    document.getElementById(tabId).classList.add('active');
+  // Activate the selected tab button and content section
+  const newActiveBtn = document.querySelector(`.tab-btn[data-tab="${tabId}"]`);
+  newActiveBtn.classList.add('active');
+  document.getElementById(tabId).classList.add('active');
 
-    // Handle specific tab logic
-    if (tabId === 'proxy') {
-        // Always regenerate the proxy UI when switching to the proxy tab
-        const proxyTab = document.getElementById('proxy');
-        proxyTab.innerHTML = ''; // Clear previous content
+  // Handle specific tab logic
+  if (tabId === 'proxy') {
+    // Always regenerate the proxy UI when switching to the proxy tab
+    const proxyTab = document.getElementById('proxy');
+    proxyTab.innerHTML = ''; // Clear previous content
 
-        // Create the container element for the entire proxy UI
-        const proxyContainer = document.createElement('div');
-        proxyContainer.className = 'proxy-container';
+    // Create the container element for the entire proxy UI
+    const proxyContainer = document.createElement('div');
+    proxyContainer.className = 'proxy-container';
 
-        // Add CSS for styling. This is a self-contained solution.
-        const style = document.createElement('style');
-        style.innerHTML = `
+    // Add CSS for styling. This is a self-contained solution.
+    const style = document.createElement('style');
+    style.innerHTML = `
             .proxy-container {
                 background: linear-gradient(145deg, #2a2a44, #20203a);
                 padding: 2.5rem;
@@ -870,25 +870,25 @@ function switchTab(tabId) {
                 font-size: 0.9em;
             }
         `;
-        document.head.appendChild(style);
+    document.head.appendChild(style);
 
-        // Create a title and description for the proxy tab
-        const title = document.createElement('h3');
-        title.textContent = 'Defensive Proxy Configuration';
-        title.className = 'proxy-title';
-        proxyContainer.appendChild(title);
+    // Create a title and description for the proxy tab
+    const title = document.createElement('h3');
+    title.textContent = 'Defensive Proxy Configuration';
+    title.className = 'proxy-title';
+    proxyContainer.appendChild(title);
 
-        // Add a clear description of what the proxy does
-        const description = document.createElement('div');
-        description.className = 'proxy-description';
-        description.style.background = '#23234a';
-        description.style.borderRadius = '10px';
-        description.style.padding = '1.2rem';
-        description.style.marginBottom = '1.2rem';
-        description.style.color = '#e0e0f0';
-        description.style.fontSize = '1.1rem';
-        description.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
-        description.innerHTML = `
+    // Add a clear description of what the proxy does
+    const description = document.createElement('div');
+    description.className = 'proxy-description';
+    description.style.background = '#23234a';
+    description.style.borderRadius = '10px';
+    description.style.padding = '1.2rem';
+    description.style.marginBottom = '1.2rem';
+    description.style.color = '#e0e0f0';
+    description.style.fontSize = '1.1rem';
+    description.style.boxShadow = '0 2px 8px rgba(0,0,0,0.2)';
+    description.innerHTML = `
             <strong>How does the Defensive Proxy work?</strong><br>
             <ul style="margin-top:0.7em;margin-bottom:0.7em;padding-left:1.2em;">
                 <li><span style="color:#64ffda;font-weight:bold;">Intercepts</span> all requests that would normally go to your server.</li>
@@ -907,147 +907,147 @@ function switchTab(tabId) {
         <strong>Warning:</strong> When using the proxy, always use full localhost URLs in your fetch calls, e.g., <code>fetch('http://localhost:8080/api/users')</code> instead of relative paths like <code>fetch('/api/users')</code>. This ensures requests are intercepted by the proxy on the specified port.
     </div>
         `;
-        proxyContainer.appendChild(description);
+    proxyContainer.appendChild(description);
 
-        // Status section
-        const statusSection = document.createElement('div');
-        statusSection.className = 'proxy-status-section';
-        const statusIndicator = document.createElement('div');
-        statusIndicator.id = 'proxyStatusIndicator';
-        statusIndicator.className = 'proxy-status-indicator';
-        const statusText = document.createElement('span');
-        statusText.id = 'proxyStatusText';
-        statusText.className = 'proxy-status-text';
-        statusText.textContent = 'Status: Inactive';
-        statusSection.appendChild(statusIndicator);
-        statusSection.appendChild(statusText);
+    // Status section
+    const statusSection = document.createElement('div');
+    statusSection.className = 'proxy-status-section';
+    const statusIndicator = document.createElement('div');
+    statusIndicator.id = 'proxyStatusIndicator';
+    statusIndicator.className = 'proxy-status-indicator';
+    const statusText = document.createElement('span');
+    statusText.id = 'proxyStatusText';
+    statusText.className = 'proxy-status-text';
+    statusText.textContent = 'Status: Inactive';
+    statusSection.appendChild(statusIndicator);
+    statusSection.appendChild(statusText);
 
-        // Performance status
-        const performanceStatus = document.createElement('div');
-        performanceStatus.id = 'proxyPerformanceStatus';
-        performanceStatus.className = 'proxy-performance-status';
-        performanceStatus.style.marginTop = '10px';
-        performanceStatus.style.fontSize = '0.9em';
-        performanceStatus.style.color = '#64ffda';
-        performanceStatus.textContent = 'Performance: Not monitoring';
-        statusSection.appendChild(performanceStatus);
-        
-        // Proxy project display
-        const proxyProjectDisplay = document.createElement('div');
-        proxyProjectDisplay.id = 'proxyProjectDisplay';
-        proxyProjectDisplay.className = 'proxy-project-display';
-        proxyProjectDisplay.style.display = 'none';
-        proxyProjectDisplay.style.marginTop = '10px';
-        proxyProjectDisplay.style.fontSize = '0.9em';
-        proxyProjectDisplay.style.color = '#64ffda';
-        proxyProjectDisplay.style.fontWeight = 'bold';
-        statusSection.appendChild(proxyProjectDisplay);
-        
-        proxyContainer.appendChild(statusSection);
+    // Performance status
+    const performanceStatus = document.createElement('div');
+    performanceStatus.id = 'proxyPerformanceStatus';
+    performanceStatus.className = 'proxy-performance-status';
+    performanceStatus.style.marginTop = '10px';
+    performanceStatus.style.fontSize = '0.9em';
+    performanceStatus.style.color = '#64ffda';
+    performanceStatus.textContent = 'Performance: Not monitoring';
+    statusSection.appendChild(performanceStatus);
 
-        // Load saved proxy settings for the currently editing project
-        const projectForSettings = currentlyEditingProject;
-        let savedSettings = loadProxySettings(projectForSettings);
+    // Proxy project display
+    const proxyProjectDisplay = document.createElement('div');
+    proxyProjectDisplay.id = 'proxyProjectDisplay';
+    proxyProjectDisplay.className = 'proxy-project-display';
+    proxyProjectDisplay.style.display = 'none';
+    proxyProjectDisplay.style.marginTop = '10px';
+    proxyProjectDisplay.style.fontSize = '0.9em';
+    proxyProjectDisplay.style.color = '#64ffda';
+    proxyProjectDisplay.style.fontWeight = 'bold';
+    statusSection.appendChild(proxyProjectDisplay);
 
-        // Toggle button
-        const toggleBtn = document.createElement('button');
-        toggleBtn.id = 'toggleProxyBtn';
-        // Default to enable button state
-        toggleBtn.textContent = 'Enable Proxy';
-        toggleBtn.className = 'toggle-btn enable-proxy';
-        toggleBtn.disabled = false;
-        proxyContainer.appendChild(toggleBtn);
+    proxyContainer.appendChild(statusSection);
 
-        // Form section
-        const formSection = document.createElement('div');
-        formSection.className = 'form-section';
-        
-        const proxyPortLabel = document.createElement('label');
-        proxyPortLabel.textContent = 'Proxy Port:';
-        const proxyPortInput = document.createElement('input');
-        proxyPortInput.id = 'proxyPort';
-        proxyPortInput.type = 'number';
-        proxyPortInput.value = savedSettings.proxyPort;
-        proxyPortInput.className = 'form-input';
-        proxyPortInput.addEventListener('change', () => {
-            const settings = getCurrentProxySettings();
-            saveProxySettings(settings, projectForSettings);
-        });
-        formSection.appendChild(proxyPortLabel);
-        formSection.appendChild(proxyPortInput);
+    // Load saved proxy settings for the currently editing project
+    const projectForSettings = currentlyEditingProject;
+    let savedSettings = loadProxySettings(projectForSettings);
 
-        const serverPortLabel = document.createElement('label');
-        serverPortLabel.textContent = 'Server Port:';
-        const serverPortInput = document.createElement('input');
-        serverPortInput.id = 'serverPort';
-        serverPortInput.type = 'number';
-        serverPortInput.value = savedSettings.serverPort;
-        serverPortInput.className = 'form-input';
-        serverPortInput.addEventListener('change', () => {
-            const settings = getCurrentProxySettings();
-            saveProxySettings(settings, projectForSettings);
-        });
-        formSection.appendChild(serverPortLabel);
-        formSection.appendChild(serverPortInput);
-        proxyContainer.appendChild(formSection);
+    // Toggle button
+    const toggleBtn = document.createElement('button');
+    toggleBtn.id = 'toggleProxyBtn';
+    // Default to enable button state
+    toggleBtn.textContent = 'Enable Proxy';
+    toggleBtn.className = 'toggle-btn enable-proxy';
+    toggleBtn.disabled = false;
+    proxyContainer.appendChild(toggleBtn);
 
-        // Action buttons
-        const actionButtons = document.createElement('div');
-        actionButtons.className = 'action-buttons';
-        const saveBtn = document.createElement('button');
-        saveBtn.textContent = 'Save Settings';
-        saveBtn.className = 'btn-primary';
-        const resetBtn = document.createElement('button');
-        resetBtn.textContent = 'Reset';
-        resetBtn.className = 'btn-secondary';
-        actionButtons.appendChild(saveBtn);
-        actionButtons.appendChild(resetBtn);
-        proxyContainer.appendChild(actionButtons);
+    // Form section
+    const formSection = document.createElement('div');
+    formSection.className = 'form-section';
 
+    const proxyPortLabel = document.createElement('label');
+    proxyPortLabel.textContent = 'Proxy Port:';
+    const proxyPortInput = document.createElement('input');
+    proxyPortInput.id = 'proxyPort';
+    proxyPortInput.type = 'number';
+    proxyPortInput.value = savedSettings.proxyPort;
+    proxyPortInput.className = 'form-input';
+    proxyPortInput.addEventListener('change', () => {
+      const settings = getCurrentProxySettings();
+      saveProxySettings(settings, projectForSettings);
+    });
+    formSection.appendChild(proxyPortLabel);
+    formSection.appendChild(proxyPortInput);
 
+    const serverPortLabel = document.createElement('label');
+    serverPortLabel.textContent = 'Server Port:';
+    const serverPortInput = document.createElement('input');
+    serverPortInput.id = 'serverPort';
+    serverPortInput.type = 'number';
+    serverPortInput.value = savedSettings.serverPort;
+    serverPortInput.className = 'form-input';
+    serverPortInput.addEventListener('change', () => {
+      const settings = getCurrentProxySettings();
+      saveProxySettings(settings, projectForSettings);
+    });
+    formSection.appendChild(serverPortLabel);
+    formSection.appendChild(serverPortInput);
+    proxyContainer.appendChild(formSection);
+
+    // Action buttons
+    const actionButtons = document.createElement('div');
+    actionButtons.className = 'action-buttons';
+    const saveBtn = document.createElement('button');
+    saveBtn.textContent = 'Save Settings';
+    saveBtn.className = 'btn-primary';
+    const resetBtn = document.createElement('button');
+    resetBtn.textContent = 'Reset';
+    resetBtn.className = 'btn-secondary';
+    actionButtons.appendChild(saveBtn);
+    actionButtons.appendChild(resetBtn);
+    proxyContainer.appendChild(actionButtons);
 
 
-        // HTTP Testing Section
-        const testingSection = document.createElement('div');
-        testingSection.className = 'testing-section';
-        testingSection.style.background = '#23234a';
-        testingSection.style.borderRadius = '12px';
-        testingSection.style.padding = '1.5rem 2rem';
-        testingSection.style.marginBottom = '2rem';
-        testingSection.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
-        testingSection.style.color = '#e0e0f0';
-        testingSection.style.fontFamily = 'Inter, sans-serif';
 
-        const testingHeader = document.createElement('h4');
-        testingHeader.textContent = 'HTTP Testing';
-        testingHeader.style.color = '#64ffda';
-        testingHeader.style.marginBottom = '1rem';
-        testingHeader.style.fontSize = '1.5rem';
-        testingSection.appendChild(testingHeader);
 
-        const testingDescription = document.createElement('p');
-        testingDescription.textContent = 'Test your proxy rules by sending HTTP requests. Make sure the proxy is enabled and your server is running.';
-        testingDescription.style.marginBottom = '1.5rem';
-        testingDescription.style.fontSize = '0.9em';
-        testingDescription.style.color = '#aaa';
-        testingSection.appendChild(testingDescription);
+    // HTTP Testing Section
+    const testingSection = document.createElement('div');
+    testingSection.className = 'testing-section';
+    testingSection.style.background = '#23234a';
+    testingSection.style.borderRadius = '12px';
+    testingSection.style.padding = '1.5rem 2rem';
+    testingSection.style.marginBottom = '2rem';
+    testingSection.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+    testingSection.style.color = '#e0e0f0';
+    testingSection.style.fontFamily = 'Inter, sans-serif';
 
-        // Test Request Form
-        const testForm = document.createElement('div');
-        testForm.style.display = 'flex';
-        testForm.style.flexDirection = 'column';
-        testForm.style.gap = '1rem';
+    const testingHeader = document.createElement('h4');
+    testingHeader.textContent = 'HTTP Testing';
+    testingHeader.style.color = '#64ffda';
+    testingHeader.style.marginBottom = '1rem';
+    testingHeader.style.fontSize = '1.5rem';
+    testingSection.appendChild(testingHeader);
 
-        // Method and URL row
-        const methodUrlRow = document.createElement('div');
-        methodUrlRow.style.display = 'flex';
-        methodUrlRow.style.gap = '1rem';
-        methodUrlRow.style.alignItems = 'center';
+    const testingDescription = document.createElement('p');
+    testingDescription.textContent = 'Test your proxy rules by sending HTTP requests. Make sure the proxy is enabled and your server is running.';
+    testingDescription.style.marginBottom = '1.5rem';
+    testingDescription.style.fontSize = '0.9em';
+    testingDescription.style.color = '#aaa';
+    testingSection.appendChild(testingDescription);
 
-        const methodSelect = document.createElement('select');
-        methodSelect.className = 'form-input';
-        methodSelect.style.width = '120px';
-        methodSelect.innerHTML = `
+    // Test Request Form
+    const testForm = document.createElement('div');
+    testForm.style.display = 'flex';
+    testForm.style.flexDirection = 'column';
+    testForm.style.gap = '1rem';
+
+    // Method and URL row
+    const methodUrlRow = document.createElement('div');
+    methodUrlRow.style.display = 'flex';
+    methodUrlRow.style.gap = '1rem';
+    methodUrlRow.style.alignItems = 'center';
+
+    const methodSelect = document.createElement('select');
+    methodSelect.className = 'form-input';
+    methodSelect.style.width = '120px';
+    methodSelect.innerHTML = `
             <option value="GET">GET</option>
             <option value="POST">POST</option>
             <option value="PUT">PUT</option>
@@ -1056,357 +1056,363 @@ function switchTab(tabId) {
             <option value="HEAD">HEAD</option>
             <option value="OPTIONS">OPTIONS</option>
         `;
-        methodUrlRow.appendChild(methodSelect);
+    methodUrlRow.appendChild(methodSelect);
 
-        const urlInput = document.createElement('input');
-        urlInput.type = 'text';
-        urlInput.className = 'form-input';
-        urlInput.placeholder = 'URL Path (e.g., /api/test)';
-        urlInput.value = '/api/test';
-        urlInput.style.flex = '1';
-        methodUrlRow.appendChild(urlInput);
+    const urlInput = document.createElement('input');
+    urlInput.type = 'text';
+    urlInput.className = 'form-input';
+    urlInput.placeholder = 'URL Path (e.g., /api/test)';
+    urlInput.value = '/api/test';
+    urlInput.style.flex = '1';
+    methodUrlRow.appendChild(urlInput);
 
-        testForm.appendChild(methodUrlRow);
+    testForm.appendChild(methodUrlRow);
 
-        // Headers
-        const headersLabel = document.createElement('label');
-        headersLabel.textContent = 'Headers (one per line, key: value):';
-        headersLabel.style.fontWeight = 'bold';
-        headersLabel.style.color = '#64ffda';
-        testForm.appendChild(headersLabel);
+    // Headers
+    const headersLabel = document.createElement('label');
+    headersLabel.textContent = 'Headers (one per line, key: value):';
+    headersLabel.style.fontWeight = 'bold';
+    headersLabel.style.color = '#64ffda';
+    testForm.appendChild(headersLabel);
 
-        const headersTextarea = document.createElement('textarea');
-        headersTextarea.className = 'form-input';
-        headersTextarea.placeholder = 'Content-Type: application/json\nAuthorization: Bearer token';
-        headersTextarea.rows = 3;
-        testForm.appendChild(headersTextarea);
+    const headersTextarea = document.createElement('textarea');
+    headersTextarea.className = 'form-input';
+    headersTextarea.placeholder = 'Content-Type: application/json\nAuthorization: Bearer token';
+    headersTextarea.rows = 3;
+    testForm.appendChild(headersTextarea);
 
-        // Body
-        const bodyLabel = document.createElement('label');
-        bodyLabel.textContent = 'Request Body:';
-        bodyLabel.style.fontWeight = 'bold';
-        bodyLabel.style.color = '#64ffda';
-        testForm.appendChild(bodyLabel);
+    // Body
+    const bodyLabel = document.createElement('label');
+    bodyLabel.textContent = 'Request Body:';
+    bodyLabel.style.fontWeight = 'bold';
+    bodyLabel.style.color = '#64ffda';
+    testForm.appendChild(bodyLabel);
 
-        const bodyTextarea = document.createElement('textarea');
-        bodyTextarea.className = 'form-input';
-        bodyTextarea.placeholder = '{"key": "value"}';
-        bodyTextarea.rows = 4;
-        testForm.appendChild(bodyTextarea);
+    const bodyTextarea = document.createElement('textarea');
+    bodyTextarea.className = 'form-input';
+    bodyTextarea.placeholder = '{"key": "value"}';
+    bodyTextarea.rows = 4;
+    testForm.appendChild(bodyTextarea);
 
-        // Send Button
-        const sendTestBtn = document.createElement('button');
-        sendTestBtn.textContent = 'Send Test Request';
-        sendTestBtn.className = 'btn-primary';
-        sendTestBtn.style.width = '200px';
-        sendTestBtn.style.alignSelf = 'flex-start';
-        testForm.appendChild(sendTestBtn);
+    // Send Button
+    const sendTestBtn = document.createElement('button');
+    sendTestBtn.textContent = 'Send Test Request';
+    sendTestBtn.className = 'btn-primary';
+    sendTestBtn.style.width = '200px';
+    sendTestBtn.style.alignSelf = 'flex-start';
+    testForm.appendChild(sendTestBtn);
 
-        testingSection.appendChild(testForm);
+    testingSection.appendChild(testForm);
 
-        // Test Results
-        const resultsSection = document.createElement('div');
-        resultsSection.id = 'testResults';
-        resultsSection.style.marginTop = '1.5rem';
-        resultsSection.style.padding = '1rem';
-        resultsSection.style.background = '#29294d';
-        resultsSection.style.borderRadius = '8px';
-        resultsSection.style.display = 'none';
+    // Test Results
+    const resultsSection = document.createElement('div');
+    resultsSection.id = 'testResults';
+    resultsSection.style.marginTop = '1.5rem';
+    resultsSection.style.padding = '1rem';
+    resultsSection.style.background = '#29294d';
+    resultsSection.style.borderRadius = '8px';
+    resultsSection.style.display = 'none';
 
-        const resultsHeader = document.createElement('h5');
-        resultsHeader.textContent = 'Test Results';
-        resultsHeader.style.color = '#64ffda';
-        resultsHeader.style.marginBottom = '1rem';
-        resultsSection.appendChild(resultsHeader);
+    const resultsHeader = document.createElement('h5');
+    resultsHeader.textContent = 'Test Results';
+    resultsHeader.style.color = '#64ffda';
+    resultsHeader.style.marginBottom = '1rem';
+    resultsSection.appendChild(resultsHeader);
 
-        const statusDiv = document.createElement('div');
-        statusDiv.id = 'testStatus';
-        statusDiv.style.marginBottom = '0.5rem';
-        resultsSection.appendChild(statusDiv);
+    const statusDiv = document.createElement('div');
+    statusDiv.id = 'testStatus';
+    statusDiv.style.marginBottom = '0.5rem';
+    resultsSection.appendChild(statusDiv);
 
-        const responseHeadersDiv = document.createElement('div');
-        responseHeadersDiv.id = 'testResponseHeaders';
-        responseHeadersDiv.style.marginBottom = '0.5rem';
-        resultsSection.appendChild(responseHeadersDiv);
+    const responseHeadersDiv = document.createElement('div');
+    responseHeadersDiv.id = 'testResponseHeaders';
+    responseHeadersDiv.style.marginBottom = '0.5rem';
+    resultsSection.appendChild(responseHeadersDiv);
 
-        const responseBodyDiv = document.createElement('div');
-        responseBodyDiv.id = 'testResponseBody';
-        resultsSection.appendChild(responseBodyDiv);
+    const responseBodyDiv = document.createElement('div');
+    responseBodyDiv.id = 'testResponseBody';
+    resultsSection.appendChild(responseBodyDiv);
 
-        testingSection.appendChild(resultsSection);
+    testingSection.appendChild(resultsSection);
 
-        proxyContainer.appendChild(testingSection);
+    proxyContainer.appendChild(testingSection);
 
-        // Function to send test request
-        async function sendTestRequest() {
-            const proxyPort = proxyPortInput.value || '8080';
-            const method = methodSelect.value;
-            const urlPath = urlInput.value.trim();
-            const headersText = headersTextarea.value.trim();
-            const bodyText = bodyTextarea.value.trim();
+    // Function to send test request
+    async function sendTestRequest() {
+      const proxyPort = proxyPortInput.value || '8080';
+      const method = methodSelect.value;
+      const urlPath = urlInput.value.trim();
+      const headersText = headersTextarea.value.trim();
+      const bodyText = bodyTextarea.value.trim();
 
-            if (!urlPath) {
-                showFeedback('Please enter a URL path for the test request.');
-                return;
-            }
+      if (!urlPath) {
+        showFeedback('Please enter a URL path for the test request.');
+        return;
+      }
 
-            // Parse headers
-            const headers = {};
-            if (headersText) {
-                const headerLines = headersText.split('\n');
-                for (const line of headerLines) {
-                    const colonIndex = line.indexOf(':');
-                    if (colonIndex > 0) {
-                        const key = line.substring(0, colonIndex).trim();
-                        const value = line.substring(colonIndex + 1).trim();
-                        headers[key] = value;
-                    }
-                }
-            }
+      // Parse headers
+      const headers = {};
+      if (headersText) {
+        const headerLines = headersText.split('\n');
+        for (const line of headerLines) {
+          const colonIndex = line.indexOf(':');
+          if (colonIndex > 0) {
+            const key = line.substring(0, colonIndex).trim();
+            const value = line.substring(colonIndex + 1).trim();
+            headers[key] = value;
+          }
+        }
+      }
 
-            // Prepare request options
-            const requestOptions = {
-                method: method,
-                headers: headers,
-                mode: 'cors'
-            };
+      // Prepare request options
+      const requestOptions = {
+        method: method,
+        headers: headers,
+        mode: 'cors'
+      };
 
-            if (bodyText && ['POST', 'PUT', 'PATCH'].includes(method)) {
-                requestOptions.body = bodyText;
-            }
+      if (bodyText && ['POST', 'PUT', 'PATCH'].includes(method)) {
+        requestOptions.body = bodyText;
+      }
 
-            try {
-                const fullUrl = `http://localhost:${proxyPort}${urlPath}`;
-                console.log('Sending test request to:', fullUrl, requestOptions);
+      try {
+        const fullUrl = `http://localhost:${proxyPort}${urlPath}`;
+        console.log('Sending test request to:', fullUrl, requestOptions);
 
-                const startTime = performance.now();
-                const response = await fetch(fullUrl, requestOptions);
-                const endTime = performance.now();
-                const responseTime = endTime - startTime;
+        const startTime = performance.now();
+        const response = await fetch(fullUrl, requestOptions);
+        const endTime = performance.now();
+        const responseTime = endTime - startTime;
 
-                // Get response headers
-                const responseHeaders = {};
-                for (const [key, value] of response.headers.entries()) {
-                    responseHeaders[key] = value;
-                }
-
-                // Get response body
-                let responseBody = '';
-                const contentType = response.headers.get('content-type');
-                if (contentType && contentType.includes('application/json')) {
-                    try {
-                        responseBody = JSON.stringify(await response.json(), null, 2);
-                    } catch (e) {
-                        responseBody = await response.text();
-                    }
-                } else {
-                    responseBody = await response.text();
-                }
-
-                // Display results
-                statusDiv.innerHTML = `<strong>Status:</strong> ${response.status} ${response.statusText} (${Math.round(responseTime)}ms)`;
-                statusDiv.style.color = response.ok ? '#4CAF50' : '#ff5757';
-
-                responseHeadersDiv.innerHTML = `<strong>Response Headers:</strong><br><pre style="background: #1a1a2e; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; font-size: 0.8em; overflow-x: auto;">${Object.entries(responseHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>`;
-
-                responseBodyDiv.innerHTML = `<strong>Response Body:</strong><br><pre style="background: #1a1a2e; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; font-size: 0.8em; overflow-x: auto; max-height: 200px; overflow-y: auto;">${responseBody}</pre>`;
-
-                resultsSection.style.display = 'block';
-                showFeedback(`Test request sent successfully (${response.status})`);
-
-            } catch (error) {
-                console.error('Test request failed:', error);
-                statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
-                statusDiv.style.color = '#ff5757';
-                responseHeadersDiv.innerHTML = '';
-                responseBodyDiv.innerHTML = '';
-                resultsSection.style.display = 'block';
-                showFeedback('Test request failed: ' + error.message);
-            }
+        // Get response headers
+        const responseHeaders = {};
+        for (const [key, value] of response.headers.entries()) {
+          responseHeaders[key] = value;
         }
 
-        // Event listener for send test button
-        sendTestBtn.addEventListener('click', sendTestRequest);
-
-        // Enable/disable testing based on proxy status
-        function updateTestingSection() {
-            const isActive = toggleBtn.textContent.includes('Disable') || toggleBtn.textContent.includes('Browser');
-            sendTestBtn.disabled = !isActive;
-            sendTestBtn.style.opacity = isActive ? '1' : '0.5';
-            if (!isActive) {
-                resultsSection.style.display = 'none';
-            }
+        // Get response body
+        let responseBody = '';
+        const contentType = response.headers.get('content-type');
+        if (contentType && contentType.includes('application/json')) {
+          try {
+            responseBody = JSON.stringify(await response.json(), null, 2);
+          } catch (e) {
+            responseBody = await response.text();
+          }
+        } else {
+          responseBody = await response.text();
         }
 
-        // Initial update
-        updateTestingSection();
+        // Display results
+        statusDiv.innerHTML = `<strong>Status:</strong> ${response.status} ${response.statusText} (${Math.round(responseTime)}ms)`;
+        statusDiv.style.color = response.ok ? '#4CAF50' : '#ff5757';
 
-        // Update testing section when proxy state changes
-        const originalUpdateProxyUI = updateProxyUI;
-        updateProxyUI = function(isActive) {
-            originalUpdateProxyUI(isActive);
-            updateTestingSection();
-        };
+        responseHeadersDiv.innerHTML = `<strong>Response Headers:</strong><br><pre style="background: #1a1a2e; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; font-size: 0.8em; overflow-x: auto;">${Object.entries(responseHeaders).map(([k, v]) => `${k}: ${v}`).join('\n')}</pre>`;
 
-        saveBtn.addEventListener('click', () => {
-            const settings = getCurrentProxySettings();
-            const targetProject = proxyActiveProject || currentlyEditingProject;
+        responseBodyDiv.innerHTML = `<strong>Response Body:</strong><br><pre style="background: #1a1a2e; padding: 0.5rem; border-radius: 4px; margin-top: 0.5rem; font-size: 0.8em; overflow-x: auto; max-height: 200px; overflow-y: auto;">${responseBody}</pre>`;
 
-            if (targetProject) {
-                if (!sessionEndpoints[targetProject]) {
-                    sessionEndpoints[targetProject] = { endpoints: [] };
-                }
-                sessionEndpoints[targetProject].proxyPort = settings.proxyPort;
-                sessionEndpoints[targetProject].serverPort = settings.serverPort;
-                saveProjectEndpoints(targetProject);
-                saveProxySettings(settings, targetProject);
-                showFeedback(`Settings saved for project: ${targetProject}!`);
-            } else {
-                showFeedback('Please select a project to save settings.');
-            }
-        });
+        resultsSection.style.display = 'block';
+        showFeedback(`Test request sent successfully (${response.status})`);
 
-        resetBtn.addEventListener('click', () => {
-            proxyPortInput.value = '8080';
-            serverPortInput.value = '3000';
-        });
-
-        // Proxy enable feedback tracker
-        let proxyEnableFeedbackShown = false;
-
-        // Event listener for toggle button
-        toggleBtn.addEventListener('click', async () => {
-            console.log('Toggle proxy button clicked');
-            const proxyPort = proxyPortInput.value || '8080';
-            const serverPort = serverPortInput.value || '3000';
-            console.log(`Proxy port: ${proxyPort}, Server port: ${serverPort}`);
-
-            // Check if the app is in the Electron environment.
-            if (window.require) {
-                // If the proxy is not running, start it.
-            if (!proxyProcess) {
-                if (!currentlyEditingProject) {
-                    showFeedback('Please select a project before enabling proxy.');
-                    return;
-                }
-
-                // Check if proxy port and server port are the same
-                if (proxyPort === serverPort) {
-                    showFeedback('Proxy port and server port cannot be the same.');
-                    return;
-                }
-
-                try {
-                    const path = window.require('path');
-                    const { ipcRenderer } = window.require('electron');
-                    const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
-
-                    // Save localStorage endpoints to JSON file before starting proxy
-                    if (sessionEndpoints[currentlyEditingProject] && sessionEndpoints[currentlyEditingProject].endpoints) {
-                        const proxySettings = loadProxySettings(currentlyEditingProject);
-                        updateCurrentProjectFile(currentlyEditingProject, sessionEndpoints[currentlyEditingProject].endpoints, proxySettings.isEnabled);
-                    }
-
-                    // Set the active project for proxy (fixed when proxy is enabled)
-                    proxyActiveProject = currentlyEditingProject;
-
-                    // Send IPC message to start proxy with the fixed project
-                    ipcRenderer.send('start-proxy', {
-                        projectPath: path.join(__dirname, 'application'),
-                        proxyPort: proxyPort,
-                        serverPort: serverPort,
-                        currentProject: proxyActiveProject
-                    });
-
-                    proxyProcess = true; // Indicate proxy is started
-
-                    updateProxyUI(true);
-                    if (!proxyEnableFeedbackShown) {
-                        showFeedback(`Proxy started for project: ${proxyActiveProject}! Please go to your browser to disable it.`);
-                        proxyEnableFeedbackShown = true;
-                    }
-
-                    // Save the state.
-                    const settings = getCurrentProxySettings();
-                    saveProxySettings(settings, currentlyEditingProject);
-
-                } catch (err) {
-                    showFeedback('Failed to start proxy: ' + err);
-                }
-            }
-            } else {
-                // Browser environment.
-                const isRunning = toggleBtn.textContent.includes('Disable');
-                if (!isRunning) {
-                // Browser: call backend API to enable proxy
-                    try {
-                        const res = await fetch(window.location.origin + '/api/proxy/enable', {
-                            method: 'POST',
-                            headers: {
-                                'Content-Type': 'application/json'
-                            },
-                        body: JSON.stringify({
-                            proxyPort: proxyPort,
-                            serverPort: serverPort,
-                            project: currentlyEditingProject,
-                            endpoints: sessionEndpoints[currentlyEditingProject]?.endpoints || []
-                        })
-                        });
-                if (res.ok) {
-                    // Set the active project for proxy
-                    proxyActiveProject = currentlyEditingProject;
-                    updateProxyUI(true);
-                    if (!proxyEnableFeedbackShown) {
-                        showFeedback('Proxy enabled!');
-                        proxyEnableFeedbackShown = true;
-                    }
-                    // Save the state.
-                    const settings = getCurrentProxySettings();
-                    saveProxySettings(settings, currentlyEditingProject);
-                } else {
-                    showFeedback('Failed to enable proxy.');
-                }
-                    } catch (err) {
-                        showFeedback('Error enabling proxy: ' + err);
-                    }
-                } else {
-        // Browser: call backend API to disable proxy
-        try {
-             const res = await fetch(window.location.origin + '/api/proxy/disable', {
-                method: 'POST'
-            });
-    if (res.ok) {
-        proxyActiveProject = null; // Clear active project when proxy is disabled
-        await updateStatusDisplay();
-        clearProxyState(); // Clear proxy state on disable
-                showFeedback('Proxy disabled!');
-
-                // Save the state.
-                const settings = getCurrentProxySettings();
-                saveProxySettings(settings, currentlyEditingProject);
-            } else {
-                showFeedback('Failed to disable proxy.');
-            }
-        } catch (err) {
-            showFeedback('Error disabling proxy: ' + err);
-        }
-                }
-            }
-        });
-
-        // Restore proxy state when switching to proxy tab
-        restoreProxyStateOnLoad();
-
-        // Start performance monitoring if proxy is active
-        const savedProxyState = loadProxyState();
-        if (savedProxyState.isRunning && savedProxyState.port) {
-            startPerformanceMonitoring(savedProxyState.port);
-        }
-
-        // Append the proxyContainer to the proxyTab so the UI is visible
-        proxyTab.appendChild(proxyContainer);
+      } catch (error) {
+        console.error('Test request failed:', error);
+        statusDiv.innerHTML = `<strong>Error:</strong> ${error.message}`;
+        statusDiv.style.color = '#ff5757';
+        responseHeadersDiv.innerHTML = '';
+        responseBodyDiv.innerHTML = '';
+        resultsSection.style.display = 'block';
+        showFeedback('Test request failed: ' + error.message);
+      }
     }
 
+    // Event listener for send test button
+    sendTestBtn.addEventListener('click', sendTestRequest);
+
+    // Enable/disable testing based on proxy status
+    function updateTestingSection() {
+      const isActive = toggleBtn.textContent.includes('Disable') || toggleBtn.textContent.includes('Browser');
+      sendTestBtn.disabled = !isActive;
+      sendTestBtn.style.opacity = isActive ? '1' : '0.5';
+      if (!isActive) {
+        resultsSection.style.display = 'none';
+      }
+    }
+
+    // Initial update
+    updateTestingSection();
+
+    // Update testing section when proxy state changes
+    const originalUpdateProxyUI = updateProxyUI;
+    updateProxyUI = function (isActive) {
+      originalUpdateProxyUI(isActive);
+      updateTestingSection();
+    };
+
+    saveBtn.addEventListener('click', () => {
+      const settings = getCurrentProxySettings();
+      const targetProject = proxyActiveProject || currentlyEditingProject;
+
+      if (targetProject) {
+        if (!sessionEndpoints[targetProject]) {
+          sessionEndpoints[targetProject] = { endpoints: [] };
+        }
+        sessionEndpoints[targetProject].proxyPort = settings.proxyPort;
+        sessionEndpoints[targetProject].serverPort = settings.serverPort;
+        saveProjectEndpoints(targetProject);
+        saveProxySettings(settings, targetProject);
+        showFeedback(`Settings saved for project: ${targetProject}!`);
+      } else {
+        showFeedback('Please select a project to save settings.');
+      }
+    });
+
+    resetBtn.addEventListener('click', () => {
+      proxyPortInput.value = '8080';
+      serverPortInput.value = '3000';
+    });
+
+    // Proxy enable feedback tracker
+    let proxyEnableFeedbackShown = false;
+
+    // Event listener for toggle button
+    toggleBtn.addEventListener('click', async () => {
+      console.log('Toggle proxy button clicked');
+      const proxyPort = proxyPortInput.value || '8080';
+      const serverPort = serverPortInput.value || '3000';
+      console.log(`Proxy port: ${proxyPort}, Server port: ${serverPort}`);
+
+      // Check if the app is in the Electron environment.
+      if (window.require) {
+        // If the proxy is not running, start it.
+        if (!proxyProcess) {
+          if (!currentlyEditingProject) {
+            showFeedback('Please select a project before enabling proxy.');
+            return;
+          }
+
+          // Check if proxy port and server port are the same
+          if (proxyPort === serverPort) {
+            showFeedback('Proxy port and server port cannot be the same.');
+            return;
+          }
+
+          try {
+            const path = window.require('path');
+            const { ipcRenderer } = window.require('electron');
+            const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
+
+            // Save localStorage endpoints to JSON file before starting proxy
+            if (sessionEndpoints[currentlyEditingProject] && sessionEndpoints[currentlyEditingProject].endpoints) {
+              const proxySettings = loadProxySettings(currentlyEditingProject);
+              updateCurrentProjectFile(currentlyEditingProject, sessionEndpoints[currentlyEditingProject].endpoints, proxySettings.isEnabled);
+            }
+
+            // Set the active project for proxy (fixed when proxy is enabled)
+            proxyActiveProject = currentlyEditingProject;
+
+            // Send IPC message to start proxy with the fixed project
+            ipcRenderer.send('start-proxy', {
+              projectPath: path.join(__dirname, 'application'),
+              proxyPort: proxyPort,
+              serverPort: serverPort,
+              currentProject: proxyActiveProject
+            });
+
+            proxyProcess = true; // Indicate proxy is started
+
+            updateProxyUI(true);
+            if (!proxyEnableFeedbackShown) {
+              showFeedback(`Proxy started for project: ${proxyActiveProject}! Please go to your browser to disable it.`);
+              proxyEnableFeedbackShown = true;
+            }
+
+            // Save the state.
+            const settings = getCurrentProxySettings();
+            saveProxySettings(settings, currentlyEditingProject);
+
+          } catch (err) {
+            showFeedback('Failed to start proxy: ' + err);
+          }
+        }
+      } else {
+        // Browser environment.
+        const isRunning = toggleBtn.textContent.includes('Disable');
+        if (!isRunning) {
+          // Browser: call backend API to enable proxy
+          try {
+            const res = await fetch(window.location.origin + '/api/proxy/enable', {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json'
+              },
+              body: JSON.stringify({
+                proxyPort: proxyPort,
+                serverPort: serverPort,
+                project: currentlyEditingProject,
+                endpoints: sessionEndpoints[currentlyEditingProject]?.endpoints || []
+              })
+            });
+            if (res.ok) {
+              // Set the active project for proxy
+              proxyActiveProject = currentlyEditingProject;
+              updateProxyUI(true);
+              if (!proxyEnableFeedbackShown) {
+                showFeedback('Proxy enabled!');
+                proxyEnableFeedbackShown = true;
+              }
+              // Save the state.
+              const settings = getCurrentProxySettings();
+              saveProxySettings(settings, currentlyEditingProject);
+            } else {
+              showFeedback('Failed to enable proxy.');
+            }
+          } catch (err) {
+            showFeedback('Error enabling proxy: ' + err);
+          }
+        } else {
+          // Browser: call backend API to disable proxy
+          try {
+            const res = await fetch(window.location.origin + '/api/proxy/disable', {
+              method: 'POST'
+            });
+            if (res.ok) {
+              proxyActiveProject = null; // Clear active project when proxy is disabled
+              await updateStatusDisplay();
+              clearProxyState(); // Clear proxy state on disable
+              showFeedback('Proxy disabled!');
+
+              // Save the state.
+              const settings = getCurrentProxySettings();
+              saveProxySettings(settings, currentlyEditingProject);
+            } else {
+              showFeedback('Failed to disable proxy.');
+            }
+          } catch (err) {
+            showFeedback('Error disabling proxy: ' + err);
+          }
+        }
+      }
+    });
+
+    // Restore proxy state when switching to proxy tab
+    restoreProxyStateOnLoad();
+
+    // Start performance monitoring if proxy is active
+    const savedProxyState = loadProxyState();
+    if (savedProxyState.isRunning && savedProxyState.port) {
+      startPerformanceMonitoring(savedProxyState.port);
+    }
+
+    // Append the proxyContainer to the proxyTab so the UI is visible
+    proxyTab.appendChild(proxyContainer);
+  }
+
+  if (tabId === "ips") {
+    document.getElementById("saveLimit").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).saveLimit;
+    document.getElementById("autoBlock").checked = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockEnabled;
+    document.getElementById("reputationThreshold").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockThreshhold;
+
+  }
 
 }
 
@@ -1601,7 +1607,7 @@ function renderEndpointSettings(endpoint) {
     **Blacklist** mode operates as a "default block," only allowing requests that explicitly match a rule.
   `;
   endpointSettingsSection.appendChild(modeExplanation);
-  
+
   const editTabs = document.createElement('div');
   editTabs.className = 'edit-tabs';
   editTabs.innerHTML = `
@@ -1624,7 +1630,7 @@ function renderEndpointSettings(endpoint) {
       const ruleTypeBlock = document.createElement('div');
       ruleTypeBlock.className = 'rule-type-block';
       ruleTypeBlock.innerHTML = `<h4>${dataType.charAt(0).toUpperCase() + dataType.slice(1)} Rules</h4>`;
-      
+
       const modeControl = document.createElement('div');
       modeControl.className = 'mode-control';
       modeControl.innerHTML = `
@@ -1637,15 +1643,15 @@ function renderEndpointSettings(endpoint) {
       const modeSelect = modeControl.querySelector('select');
       modeSelect.value = endpoint[type][dataType].mode;
       modeSelect.addEventListener('change', (e) => {
-          endpoint[type][dataType].mode = e.target.value;
-          saveEndpointSettings();
-          showFeedback('Rule mode updated successfully!');
+        endpoint[type][dataType].mode = e.target.value;
+        saveEndpointSettings();
+        showFeedback('Rule mode updated successfully!');
       });
       ruleTypeBlock.appendChild(modeControl);
 
       const addRuleGroup = document.createElement('div');
       addRuleGroup.className = 'add-rule-group';
-      
+
       const isBody = dataType === 'body';
 
       // Key Method dropdown
@@ -1665,10 +1671,10 @@ function renderEndpointSettings(endpoint) {
       ruleKeyInput.style.width = '100%';
       ruleKeyInput.style.marginBottom = '0.25em';
       ruleKeyInput.placeholder = dataType === 'headers'
-      ? 'Header Name (optional)'
-      : dataType === 'cookies'
-      ? 'Cookie Name (optional)'
-      : 'Key (optional)';
+        ? 'Header Name (optional)'
+        : dataType === 'cookies'
+          ? 'Cookie Name (optional)'
+          : 'Key (optional)';
       addRuleGroup.appendChild(ruleKeyInput);
       // Regex validation for key -- placed right below the name input
       const regexKeyValidationFeedback = document.createElement('div');
@@ -1676,7 +1682,7 @@ function renderEndpointSettings(endpoint) {
       regexKeyValidationFeedback.style.margin = '0 0 0.25em 0';
       regexKeyValidationFeedback.style.fontSize = '0.96em';
       ruleKeyInput.insertAdjacentElement('afterend', regexKeyValidationFeedback);
-      
+
       // Value Method dropdown
       const ruleTypeSelect = document.createElement('select');
       ruleTypeSelect.className = 'form-input';
@@ -1701,7 +1707,7 @@ function renderEndpointSettings(endpoint) {
       regexValueValidationFeedback.style.margin = '0 0 0.25em 0';
       regexValueValidationFeedback.style.fontSize = '0.96em';
       ruleValueInput.insertAdjacentElement('afterend', regexValueValidationFeedback);
-      
+
       // Regex template/help only for regex mode (for value)
       const regexTemplateGroup = document.createElement('div');
       regexTemplateGroup.className = 'form-group hidden';
@@ -1720,15 +1726,15 @@ function renderEndpointSettings(endpoint) {
       </div>
       `;
       addRuleGroup.appendChild(regexTemplateGroup);
-      
+
       // Now explanation updated for convenience
       const explanation = document.createElement('p');
       if (dataType === 'headers') {
-      explanation.textContent = 'Add a header name to blacklist/whitelist that header (all values optional). Enter a value or a regex pattern to further target specific values (and select pattern type).';
+        explanation.textContent = 'Add a header name to blacklist/whitelist that header (all values optional). Enter a value or a regex pattern to further target specific values (and select pattern type).';
       } else if (dataType === 'cookies') {
-      explanation.textContent = 'Add a cookie name to blacklist/whitelist that cookie (all values optional). Enter a value or a regex pattern to further target specific values.';
+        explanation.textContent = 'Add a cookie name to blacklist/whitelist that cookie (all values optional). Enter a value or a regex pattern to further target specific values.';
       } else {
-      explanation.textContent = 'Add a key and or a value as in headers/cookies.';
+        explanation.textContent = 'Add a key and or a value as in headers/cookies.';
       }
       explanation.style.fontSize = '0.9em';
       explanation.style.color = '#aaa';
@@ -1762,26 +1768,26 @@ function renderEndpointSettings(endpoint) {
       regexHelpBtn.className = 'small-btn btn-secondary';
       regexHelpBtn.style.display = 'none';
       addRuleGroup.appendChild(regexHelpBtn);
-      
+
       regexHelpBtn.addEventListener('click', (e) => {
-          e.preventDefault();
-          showRegexHelp();
+        e.preventDefault();
+        showRegexHelp();
       });
 
       function showRegexHelp() {
-          const helpContent = document.createElement('div');
-          helpContent.style.background = '#23234a';
-          helpContent.style.borderRadius = '12px';
-          helpContent.style.padding = '2rem';
-          helpContent.style.color = '#e0e0f0';
-          helpContent.style.fontFamily = 'Inter, sans-serif';
-          helpContent.style.fontSize = '1.1rem';
-          helpContent.style.maxWidth = '500px';
-          helpContent.style.maxHeight = '60vh';
-          helpContent.style.overflowY = 'auto';
-          helpContent.style.margin = '1rem auto';
-          helpContent.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
-          helpContent.innerHTML = `
+        const helpContent = document.createElement('div');
+        helpContent.style.background = '#23234a';
+        helpContent.style.borderRadius = '12px';
+        helpContent.style.padding = '2rem';
+        helpContent.style.color = '#e0e0f0';
+        helpContent.style.fontFamily = 'Inter, sans-serif';
+        helpContent.style.fontSize = '1.1rem';
+        helpContent.style.maxWidth = '500px';
+        helpContent.style.maxHeight = '60vh';
+        helpContent.style.overflowY = 'auto';
+        helpContent.style.margin = '1rem auto';
+        helpContent.style.boxShadow = '0 4px 16px rgba(0,0,0,0.5)';
+        helpContent.innerHTML = `
               <h3 style="margin-bottom: 1rem;">Regex Help</h3>
               <ul style="margin: 1rem 0; padding-left: 1.5rem; line-height: 1.6;">
                   ${regexCharacters.map(c => `<li style="margin-bottom: 0.5rem;"><strong>${c.char}</strong>: ${c.description}<br><em>Example: ${c.example}</em></li>`).join('')}
@@ -1789,24 +1795,24 @@ function renderEndpointSettings(endpoint) {
               <button id="closeRegexHelpBtn" class="small-btn btn-secondary" style="margin-top: 1rem;">Close</button>
           `;
 
-          const existingHelp = document.getElementById('regexHelpContainer');
-          if (existingHelp) {
-              existingHelp.remove();
-          }
+        const existingHelp = document.getElementById('regexHelpContainer');
+        if (existingHelp) {
+          existingHelp.remove();
+        }
 
-          const container = document.createElement('div');
-          container.id = 'regexHelpContainer';
-          container.style.position = 'fixed';
-          container.style.top = '50%';
-          container.style.left = '50%';
-          container.style.transform = 'translate(-50%, -50%)';
-          container.style.zIndex = '10000';
-          container.appendChild(helpContent);
-          document.body.appendChild(container);
+        const container = document.createElement('div');
+        container.id = 'regexHelpContainer';
+        container.style.position = 'fixed';
+        container.style.top = '50%';
+        container.style.left = '50%';
+        container.style.transform = 'translate(-50%, -50%)';
+        container.style.zIndex = '10000';
+        container.appendChild(helpContent);
+        document.body.appendChild(container);
 
-          document.getElementById('closeRegexHelpBtn').addEventListener('click', () => {
-              container.remove();
-          });
+        document.getElementById('closeRegexHelpBtn').addEventListener('click', () => {
+          container.remove();
+        });
       }
 
       const ruleNotesInput = document.createElement('textarea');
@@ -1818,7 +1824,7 @@ function renderEndpointSettings(endpoint) {
       ruleKeyMethodSelect.addEventListener('change', () => {
         const isRegex = ruleKeyMethodSelect.value === 'regex';
         ruleKeyInput.placeholder = isRegex ? (dataType === 'headers' ? 'Header Name Regex...' : dataType === 'cookies' ? 'Cookie Name Regex...' : 'Key Regex...')
-                                           : (dataType === 'headers' ? 'Header Name (optional)' : dataType === 'cookies' ? 'Cookie Name (optional)' : 'Key (optional)');
+          : (dataType === 'headers' ? 'Header Name (optional)' : dataType === 'cookies' ? 'Cookie Name (optional)' : 'Key (optional)');
         regexKeyValidationFeedback.classList.add('hidden');
         if (isRegex && ruleKeyInput.value.trim() !== '') {
           if (isValidRegex(ruleKeyInput.value)) {
@@ -1851,47 +1857,47 @@ function renderEndpointSettings(endpoint) {
         const isRegex = ruleTypeSelect.value === 'regex';
         ruleValueInput.placeholder = isRegex ? 'Regex pattern for value' : 'Value (exact substring match)';
         if (isRegex) {
-            regexTemplateGroup.classList.remove('hidden');
-            regexHelpBtn.style.display = 'block';
-            ruleValueInput.value = '';
-            regexValueValidationFeedback.textContent = '';
-            regexValueValidationFeedback.classList.add('hidden');
+          regexTemplateGroup.classList.remove('hidden');
+          regexHelpBtn.style.display = 'block';
+          ruleValueInput.value = '';
+          regexValueValidationFeedback.textContent = '';
+          regexValueValidationFeedback.classList.add('hidden');
         } else {
-            regexTemplateGroup.classList.add('hidden');
-            regexHelpBtn.style.display = 'none';
-            regexValueValidationFeedback.classList.add('hidden');
+          regexTemplateGroup.classList.add('hidden');
+          regexHelpBtn.style.display = 'none';
+          regexValueValidationFeedback.classList.add('hidden');
         }
       });
 
       ruleValueInput.addEventListener('input', () => {
-          if (ruleTypeSelect.value === 'regex') {
-              if (isValidRegex(ruleValueInput.value)) {
-                  regexValueValidationFeedback.textContent = 'Valid Regex!';
-                  regexValueValidationFeedback.style.color = '#64ffda';
-                  regexValueValidationFeedback.classList.remove('hidden');
-              } else {
-                  regexValueValidationFeedback.textContent = 'Invalid Regex';
-                  regexValueValidationFeedback.style.color = 'red';
-                  regexValueValidationFeedback.classList.remove('hidden');
-              }
+        if (ruleTypeSelect.value === 'regex') {
+          if (isValidRegex(ruleValueInput.value)) {
+            regexValueValidationFeedback.textContent = 'Valid Regex!';
+            regexValueValidationFeedback.style.color = '#64ffda';
+            regexValueValidationFeedback.classList.remove('hidden');
           } else {
-              regexValueValidationFeedback.classList.add('hidden');
+            regexValueValidationFeedback.textContent = 'Invalid Regex';
+            regexValueValidationFeedback.style.color = 'red';
+            regexValueValidationFeedback.classList.remove('hidden');
           }
+        } else {
+          regexValueValidationFeedback.classList.add('hidden');
+        }
       });
-      
+
       const applyTemplateBtn = regexTemplateGroup.querySelector(`#apply-template-btn-${type}-${dataType}`);
       applyTemplateBtn.addEventListener('click', () => {
-          const selectedTemplate = regexTemplateGroup.querySelector('select').value;
-          if (selectedTemplate && regexTemplates[selectedTemplate]) {
-              let templateString = regexTemplates[selectedTemplate].toString();
-              templateString = templateString.replace(/^\/|\/i$/g, '');
-              ruleValueInput.value = templateString;
-              if (isValidRegex(templateString)) {
-                  regexValidationFeedback.textContent = 'Valid Regex!';
-                  regexValidationFeedback.style.color = '#64ffda';
-                  regexValidationFeedback.classList.remove('hidden');
-              }
+        const selectedTemplate = regexTemplateGroup.querySelector('select').value;
+        if (selectedTemplate && regexTemplates[selectedTemplate]) {
+          let templateString = regexTemplates[selectedTemplate].toString();
+          templateString = templateString.replace(/^\/|\/i$/g, '');
+          ruleValueInput.value = templateString;
+          if (isValidRegex(templateString)) {
+            regexValidationFeedback.textContent = 'Valid Regex!';
+            regexValidationFeedback.style.color = '#64ffda';
+            regexValidationFeedback.classList.remove('hidden');
           }
+        }
       });
 
       const addAllowBtn = document.createElement('button');
@@ -1934,8 +1940,8 @@ function renderEndpointSettings(endpoint) {
         const notes = ruleNotesInput.value;
 
         if (ruleType === 'regex' && !isValidRegex(ruleValueInput.value)) {
-            showAlert('Cannot add rule: The regex pattern is invalid.');
-            return;
+          showAlert('Cannot add rule: The regex pattern is invalid.');
+          return;
         }
 
         addRule(key, ruleValueInput.value, ruleType, keyRuleType, dataType, type, 'whitelist', notes, ruleKeyInput, ruleValueInput, ruleNotesInput);
@@ -1948,14 +1954,14 @@ function renderEndpointSettings(endpoint) {
         const notes = ruleNotesInput.value;
 
         if (ruleType === 'regex' && !isValidRegex(ruleValueInput.value)) {
-            showAlert('Cannot add rule: The regex pattern is invalid.');
-            return;
+          showAlert('Cannot add rule: The regex pattern is invalid.');
+          return;
         }
 
         addRule(key, ruleValueInput.value, ruleType, keyRuleType, dataType, type, 'blacklist', notes, ruleKeyInput, ruleValueInput, ruleNotesInput);
       };
 
-// ------ update addRule signature and body accordingly...
+      // ------ update addRule signature and body accordingly...
     });
 
     detailContainer.appendChild(ruleTypeBlocks);
@@ -2055,7 +2061,7 @@ function addListItem(listElement, rule, dataType, type, ruleType) {
 
   const displayKey = rule.key ? `<span style="font-weight: 600;">${rule.key}</span>: ` : '';
   ruleDetails = `${displayKey}<span style="font-style: italic;">${rule.value}</span>`;
-  
+
   const ruleText = document.createElement('span');
   ruleText.className = 'rule-text';
   ruleText.innerHTML = `
@@ -2070,51 +2076,51 @@ function addListItem(listElement, rule, dataType, type, ruleType) {
   const viewInfoBtn = document.createElement('button');
   viewInfoBtn.textContent = 'View Info';
   viewInfoBtn.className = 'small-btn btn-primary';
-viewInfoBtn.onclick = (e) => {
-  e.stopPropagation();
-  // Use a single overlay and popup for all rule details
-  let overlay = document.getElementById('detailsPopupOverlay');
-  if (!overlay) {
-    overlay = document.createElement('div');
-    overlay.id = 'detailsPopupOverlay';
-    overlay.style.position = 'fixed';
-    overlay.style.top = '0';
-    overlay.style.left = '0';
-    overlay.style.width = '100vw';
-    overlay.style.height = '100vh';
-    overlay.style.background = 'rgba(20, 20, 40, 0.7)';
-    overlay.style.zIndex = '9998';
-    overlay.style.display = 'none';
-    document.body.appendChild(overlay);
-  }
-  let popup = document.getElementById('detailsPopup');
-  if (!popup) {
-    popup = document.createElement('div');
-    popup.id = 'detailsPopup';
-    popup.className = 'details-popup';
-    popup.style.position = 'fixed';
-    popup.style.top = '50%';
-    popup.style.left = '50%';
-    popup.style.transform = 'translate(-50%, -50%)';
-    popup.style.zIndex = '9999';
-    popup.style.maxWidth = '90vw';
-    popup.style.width = '500px';
-    popup.style.maxHeight = '80vh';
-    popup.style.overflowY = 'auto';
-    popup.style.display = 'none';
-    document.body.appendChild(popup);
-  }
-  
-  // Determine specific labels based on dataType
-  const keyLabel = dataType === 'headers' ? 'Header Name' : dataType === 'cookies' ? 'Cookie Name' : 'Key';
-  const valueLabel = dataType === 'headers' ? 'Header Value' : dataType === 'cookies' ? 'Cookie Value' : 'Value';
-  
-  // Get both method types
-  const keyMethodType = rule.keyRuleType || 'value';
-  const valueMethodType = rule.ruleType || 'value';
-  
-  // Build rule details HTML (simple modern look)
-  const content = `
+  viewInfoBtn.onclick = (e) => {
+    e.stopPropagation();
+    // Use a single overlay and popup for all rule details
+    let overlay = document.getElementById('detailsPopupOverlay');
+    if (!overlay) {
+      overlay = document.createElement('div');
+      overlay.id = 'detailsPopupOverlay';
+      overlay.style.position = 'fixed';
+      overlay.style.top = '0';
+      overlay.style.left = '0';
+      overlay.style.width = '100vw';
+      overlay.style.height = '100vh';
+      overlay.style.background = 'rgba(20, 20, 40, 0.7)';
+      overlay.style.zIndex = '9998';
+      overlay.style.display = 'none';
+      document.body.appendChild(overlay);
+    }
+    let popup = document.getElementById('detailsPopup');
+    if (!popup) {
+      popup = document.createElement('div');
+      popup.id = 'detailsPopup';
+      popup.className = 'details-popup';
+      popup.style.position = 'fixed';
+      popup.style.top = '50%';
+      popup.style.left = '50%';
+      popup.style.transform = 'translate(-50%, -50%)';
+      popup.style.zIndex = '9999';
+      popup.style.maxWidth = '90vw';
+      popup.style.width = '500px';
+      popup.style.maxHeight = '80vh';
+      popup.style.overflowY = 'auto';
+      popup.style.display = 'none';
+      document.body.appendChild(popup);
+    }
+
+    // Determine specific labels based on dataType
+    const keyLabel = dataType === 'headers' ? 'Header Name' : dataType === 'cookies' ? 'Cookie Name' : 'Key';
+    const valueLabel = dataType === 'headers' ? 'Header Value' : dataType === 'cookies' ? 'Cookie Value' : 'Value';
+
+    // Get both method types
+    const keyMethodType = rule.keyRuleType || 'value';
+    const valueMethodType = rule.ruleType || 'value';
+
+    // Build rule details HTML (simple modern look)
+    const content = `
     <div style="display: flex; flex-direction: column; gap: 1rem; background: #23234a; border-radius: 16px; box-shadow: 0 10px 32px rgba(0,0,0,0.7); padding: 2rem; color: #e0e0f0; font-family: 'Inter', sans-serif; position: relative;">
       <button id="popupCloseBtn" style="position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 2rem; color: #64ffda; cursor: pointer;">&times;</button>
       <h2 style="color: #64ffda; margin-bottom: 0.5rem;">Rule Details</h2>
@@ -2139,60 +2145,60 @@ viewInfoBtn.onclick = (e) => {
       </div>
     </div>
   `;
-  popup.innerHTML = content;
-  overlay.style.display = 'block';
-  popup.style.display = 'flex';
-  // Close popup on close button, cancel button, or clicking overlay
-  popup.querySelector('#popupCloseBtn').addEventListener('click', closePopup);
-  popup.querySelector('#cancelEditBtn').addEventListener('click', closePopup);
-  overlay.addEventListener('click', function(ev) {
-    if (ev.target === overlay) closePopup();
-  });
-  // Escape key closes popup
-  document.addEventListener('keydown', escHandler);
-  function escHandler(ev) {
-    if (ev.key === 'Escape') {
-      closePopup();
+    popup.innerHTML = content;
+    overlay.style.display = 'block';
+    popup.style.display = 'flex';
+    // Close popup on close button, cancel button, or clicking overlay
+    popup.querySelector('#popupCloseBtn').addEventListener('click', closePopup);
+    popup.querySelector('#cancelEditBtn').addEventListener('click', closePopup);
+    overlay.addEventListener('click', function (ev) {
+      if (ev.target === overlay) closePopup();
+    });
+    // Escape key closes popup
+    document.addEventListener('keydown', escHandler);
+    function escHandler(ev) {
+      if (ev.key === 'Escape') {
+        closePopup();
+        document.removeEventListener('keydown', escHandler);
+      }
+    }
+    function closePopup() {
+      popup.style.display = 'none';
+      overlay.style.display = 'none';
       document.removeEventListener('keydown', escHandler);
     }
-  }
-  function closePopup() {
-    popup.style.display = 'none';
-    overlay.style.display = 'none';
-    document.removeEventListener('keydown', escHandler);
-  }
-  // Save changes handler
-  popup.querySelector('#saveChangesBtn').addEventListener('click', function(ev) {
-    ev.preventDefault();
-    const newKey = popup.querySelector('#edit-key').value;
-    const newValue = popup.querySelector('#edit-value').value;
-    const newKeyMethod = popup.querySelector('#edit-key-method').value;
-    const newValueMethod = popup.querySelector('#edit-value-method').value;
-    const newNotes = popup.querySelector('#edit-notes').value;
-    if (newValueMethod === 'regex' && !isValidRegex(newValue)) {
-      showAlert('Invalid regex pattern for value.');
-      return;
-    }
-    if (newKeyMethod === 'regex' && newKey && !isValidRegex(newKey)) {
-      showAlert('Invalid regex pattern for key.');
-      return;
-    }
-    const ruleList = selectedEndpoint[type][dataType][ruleType];
-    const idx = ruleList.findIndex(item => item.key === rule.key && item.value === rule.value);
-    if (idx !== -1) {
-      ruleList[idx].key = newKey;
-      ruleList[idx].value = newValue;
-      ruleList[idx].keyRuleType = newKeyMethod;
-      ruleList[idx].ruleType = newValueMethod;
-      ruleList[idx].notes = newNotes;
-      saveEndpointSettings();
-      renderEndpointSettings(selectedEndpoint);
-      closePopup();
-    } else {
-      showAlert('Error: Rule not found.');
-    }
-  });
-};
+    // Save changes handler
+    popup.querySelector('#saveChangesBtn').addEventListener('click', function (ev) {
+      ev.preventDefault();
+      const newKey = popup.querySelector('#edit-key').value;
+      const newValue = popup.querySelector('#edit-value').value;
+      const newKeyMethod = popup.querySelector('#edit-key-method').value;
+      const newValueMethod = popup.querySelector('#edit-value-method').value;
+      const newNotes = popup.querySelector('#edit-notes').value;
+      if (newValueMethod === 'regex' && !isValidRegex(newValue)) {
+        showAlert('Invalid regex pattern for value.');
+        return;
+      }
+      if (newKeyMethod === 'regex' && newKey && !isValidRegex(newKey)) {
+        showAlert('Invalid regex pattern for key.');
+        return;
+      }
+      const ruleList = selectedEndpoint[type][dataType][ruleType];
+      const idx = ruleList.findIndex(item => item.key === rule.key && item.value === rule.value);
+      if (idx !== -1) {
+        ruleList[idx].key = newKey;
+        ruleList[idx].value = newValue;
+        ruleList[idx].keyRuleType = newKeyMethod;
+        ruleList[idx].ruleType = newValueMethod;
+        ruleList[idx].notes = newNotes;
+        saveEndpointSettings();
+        renderEndpointSettings(selectedEndpoint);
+        closePopup();
+      } else {
+        showAlert('Error: Rule not found.');
+      }
+    });
+  };
   buttonGroup.appendChild(viewInfoBtn);
 
   const removeBtn = document.createElement('button');
@@ -2244,71 +2250,75 @@ function initializeEventHandlers() {
     switchTab('endpoints');
     currentProjectDisplay.textContent = `Currently Editing Project: ${folderName}`;
     endpointsTab.classList.remove('hidden');
+    document.getElementById('ipsTab').classList.remove('hidden');
     proxyTab.classList.remove('hidden');
     renderEndpoints(folderName);
     folderInput.value = '';
     console.log('Project added successfully and switched to edit mode');
   });
 
-projectsList.addEventListener('click', (e) => {
-  if (e.target.classList.contains('enter-edit-btn')) {
-    const projectName = e.target.dataset.project;
-    currentlyEditingProject = projectName;
-    localStorage.setItem('currentlyEditingProject', projectName);
-    const proxySettings = loadProxySettings(projectName);
-    loadProjectEndpoints(projectName);
-    updateCurrentProjectFile(projectName, sessionEndpoints[projectName].endpoints, proxySettings.isEnabled);
-    reloadProxyEndpoints();
-    switchTab('endpoints');
-    currentProjectDisplay.textContent = `Currently Editing Project: ${projectName}`;
-    endpointsTab.classList.remove('hidden');
-    proxyTab.classList.remove('hidden');
-    document.getElementById('blocked-ips').classList.remove('hidden');
-    guideTab.classList.remove('hidden');
-    renderEndpoints(projectName);
-    endpointSettingsSection.classList.add('hidden');
-    
-    // Restore proxy UI state for this project
-    restoreProxyStateForProject(projectName);
-    
-  } else if (e.target.classList.contains('delete-btn')) {
-    const projectName = e.target.dataset.project;
+  projectsList.addEventListener('click', (e) => {
+    if (e.target.classList.contains('enter-edit-btn')) {
+      const projectName = e.target.dataset.project;
+      currentlyEditingProject = projectName;
+      localStorage.setItem('currentlyEditingProject', projectName);
+      const proxySettings = loadProxySettings(projectName);
+      loadProjectEndpoints(projectName);
+      updateCurrentProjectFile(projectName, sessionEndpoints[projectName].endpoints, proxySettings.isEnabled);
+      reloadProxyEndpoints();
+      switchTab('endpoints');
+      document.getElementById('ipsTab').classList.remove('hidden')
+      currentProjectDisplay.textContent = `Currently Editing Project: ${projectName}`;
+      endpointsTab.classList.remove('hidden');
+      proxyTab.classList.remove('hidden');
 
-    if (confirm(`Are you sure you want to delete the project "${projectName}"? This action cannot be undone.`)) {
-      projectNames = projectNames.filter(name => name !== projectName);
-      localStorage.removeItem(`endpoints_${projectName}`);
-      localStorage.removeItem(`proxySettings_${projectName}`);
-      saveProjects();
+      document.getElementById('blocked-ips').classList.remove('hidden');
+      guideTab.classList.remove('hidden');
+      renderEndpoints(projectName);
+      endpointSettingsSection.classList.add('hidden');
 
-      if (currentlyEditingProject === projectName) {
-        currentlyEditingProject = null;
-        localStorage.removeItem('currentlyEditingProject');
-        updateCurrentProjectFile('');
-        switchTab('projects');
-        currentProjectDisplay.textContent = 'Currently Editing Project: None';
-  endpointsTab.classList.add('hidden');
-  proxyTab.classList.add('hidden');
-  document.getElementById('blocked-ips').classList.add('hidden');
-  endpointSettingsSection.classList.add('hidden');
-      }
+      // Restore proxy UI state for this project
+      restoreProxyStateForProject(projectName);
 
-      if (proxyActiveProject === projectName) {
-        if (window.require) {
-          const { ipcRenderer } = window.require('electron');
-          ipcRenderer.send('stop-proxy');
+    } else if (e.target.classList.contains('delete-btn')) {
+      const projectName = e.target.dataset.project;
+
+      if (confirm(`Are you sure you want to delete the project "${projectName}"? This action cannot be undone.`)) {
+        projectNames = projectNames.filter(name => name !== projectName);
+        localStorage.removeItem(`endpoints_${projectName}`);
+        localStorage.removeItem(`proxySettings_${projectName}`);
+        saveProjects();
+
+        if (currentlyEditingProject === projectName) {
+          currentlyEditingProject = null;
+          localStorage.removeItem('currentlyEditingProject');
+          updateCurrentProjectFile('');
+          switchTab('projects');
+          currentProjectDisplay.textContent = 'Currently Editing Project: None';
+          endpointsTab.classList.add('hidden');
+          document.getElementById('ipsTab').classList.add('hidden')
+          proxyTab.classList.add('hidden');
+          document.getElementById('blocked-ips').classList.add('hidden');
+          endpointSettingsSection.classList.add('hidden');
         }
-        proxyProcess = null;
-        proxyActiveProject = null;
-        updateProxyUI(false);
-        clearProxyState();
-        showFeedback('Proxy disabled because the active project was deleted.');
-      }
 
-      renderProjectsList();
-      showFeedback(`Project "${projectName}" deleted successfully.`);
+        if (proxyActiveProject === projectName) {
+          if (window.require) {
+            const { ipcRenderer } = window.require('electron');
+            ipcRenderer.send('stop-proxy');
+          }
+          proxyProcess = null;
+          proxyActiveProject = null;
+          updateProxyUI(false);
+          clearProxyState();
+          showFeedback('Proxy disabled because the active project was deleted.');
+        }
+
+        renderProjectsList();
+        showFeedback(`Project "${projectName}" deleted successfully.`);
+      }
     }
-  }
-});
+  });
 
   addEndpointBtn.addEventListener('click', () => {
     const project = currentlyEditingProject;
@@ -2327,21 +2337,21 @@ projectsList.addEventListener('click', (e) => {
     const exists = sessionEndpoints[project].endpoints.some(ep => ep.path === endpointPath);
 
     if (!exists) {
-        const obfuscatedPath = "/api/" + Math.random().toString(36).substr(2, 10) + Math.random().toString(36).substr(2, 10);
-        const newEndpoint = {
-            path: endpointPath,
-            obfuscatedPath: obfuscatedPath,
-            request: {
-                headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
-                cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
-                body: { whitelist: [], blacklist: [], mode: 'blacklist' }
-            },
-            response: {
-                headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
-                cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
-                body: { whitelist: [], blacklist: [], mode: 'blacklist' }
-            }
-        };
+      const obfuscatedPath = "/api/" + Math.random().toString(36).substr(2, 10) + Math.random().toString(36).substr(2, 10);
+      const newEndpoint = {
+        path: endpointPath,
+        obfuscatedPath: obfuscatedPath,
+        request: {
+          headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
+          cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
+          body: { whitelist: [], blacklist: [], mode: 'blacklist' }
+        },
+        response: {
+          headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
+          cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
+          body: { whitelist: [], blacklist: [], mode: 'blacklist' }
+        }
+      };
       sessionEndpoints[project].endpoints.push(newEndpoint);
       saveProjectEndpoints(project);
       renderEndpoints(project);
@@ -2366,7 +2376,7 @@ projectsList.addEventListener('click', (e) => {
     endpointsList.innerHTML = '<li>Select a project to see endpoints.</li>';
     currentProjectDisplay.textContent = 'Currently Editing Project: None';
     endpointSettingsSection.classList.add('hidden');
-
+    document.getElementById('ipsTab').classList.add('hidden')
     endpointsTab.classList.add('hidden');
     proxyTab.classList.add('hidden');
     // guideTab remains visible
@@ -2423,6 +2433,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   if (currentlyEditingProject) {
     currentProjectDisplay.textContent = `Currently Editing Project: ${currentlyEditingProject}`;
     endpointsTab.classList.remove('hidden');
+    document.getElementById('ipsTab').classList.remove('hidden')
     proxyTab.classList.remove('hidden');
     loadProjectEndpoints(currentlyEditingProject);
     renderEndpoints(currentlyEditingProject);
@@ -2452,7 +2463,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Start performance monitoring if proxy is active on load
   const savedProxyState = loadProxyState();
   if (savedProxyState.isRunning && savedProxyState.port) {
-      startPerformanceMonitoring(savedProxyState.port);
+    startPerformanceMonitoring(savedProxyState.port);
   }
 
   // Tutorial button event listener
@@ -2775,76 +2786,91 @@ document.getElementById('tutorial-prev').addEventListener('click', prevTutorialS
 
 // Performance monitoring functions
 async function startPerformanceMonitoring(port) {
-    stopPerformanceMonitoring(); // Clear any existing interval
+  stopPerformanceMonitoring(); // Clear any existing interval
 
-    const performanceStatus = document.getElementById('proxyPerformanceStatus');
-    if (!performanceStatus) return;
+  const performanceStatus = document.getElementById('proxyPerformanceStatus');
+  if (!performanceStatus) return;
 
-    performanceStatus.textContent = 'Performance: Checking...';
+  performanceStatus.textContent = 'Performance: Checking...';
 
-    performanceMonitorInterval = setInterval(async () => {
-        try {
-            const startTime = performance.now();
-            const response = await fetch(`http://localhost:${port}/api/proxy/status`, {
-                method: 'GET',
-                signal: AbortSignal.timeout(5000), // 5 second timeout
-                headers: {
-                    'Accept': 'application/json'
-                }
-            });
-            const endTime = performance.now();
-            const responseTime = endTime - startTime;
-
-            if (response.ok) {
-                const data = await response.json();
-                if (data.status === 'running' && data.enabled === true) {
-                    // Determine performance status based on response time
-                    let performanceText = '';
-                    let color = '#64ffda'; // Default green
-
-                    if (responseTime < 100) {
-                        performanceText = 'Excellent';
-                        color = '#4CAF50'; // Green
-                    } else if (responseTime < 300) {
-                        performanceText = 'Good';
-                        color = '#64ffda'; // Cyan
-                    } else if (responseTime < 1000) {
-                        performanceText = 'Fair';
-                        color = '#ff9800'; // Orange
-                    } else if (responseTime < 3000) {
-                        performanceText = 'Slow';
-                        color = '#ff5757'; // Red
-                    } else {
-                        performanceText = 'Very Slow';
-                        color = '#c30000'; // Dark red
-                    }
-
-                    performanceStatus.textContent = `Performance: ${performanceText} (${Math.round(responseTime)}ms)`;
-                    performanceStatus.style.color = color;
-                } else {
-                    performanceStatus.textContent = 'Performance: Proxy disabled';
-                    performanceStatus.style.color = '#ff5757';
-                }
-            } else {
-                performanceStatus.textContent = 'Performance: Error checking status';
-                performanceStatus.style.color = '#ff5757';
-            }
-        } catch (error) {
-            console.log('Performance check failed:', error.message);
-            performanceStatus.textContent = 'Performance: Unable to check';
-            performanceStatus.style.color = '#ff5757';
+  performanceMonitorInterval = setInterval(async () => {
+    try {
+      const startTime = performance.now();
+      const response = await fetch(`http://localhost:${port}/api/proxy/status`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(5000), // 5 second timeout
+        headers: {
+          'Accept': 'application/json'
         }
-    }, 5000); // Check every 5 seconds
+      });
+      const endTime = performance.now();
+      const responseTime = endTime - startTime;
+
+      if (response.ok) {
+        const data = await response.json();
+        if (data.status === 'running' && data.enabled === true) {
+          // Determine performance status based on response time
+          let performanceText = '';
+          let color = '#64ffda'; // Default green
+
+          if (responseTime < 100) {
+            performanceText = 'Excellent';
+            color = '#4CAF50'; // Green
+          } else if (responseTime < 300) {
+            performanceText = 'Good';
+            color = '#64ffda'; // Cyan
+          } else if (responseTime < 1000) {
+            performanceText = 'Fair';
+            color = '#ff9800'; // Orange
+          } else if (responseTime < 3000) {
+            performanceText = 'Slow';
+            color = '#ff5757'; // Red
+          } else {
+            performanceText = 'Very Slow';
+            color = '#c30000'; // Dark red
+          }
+
+          performanceStatus.textContent = `Performance: ${performanceText} (${Math.round(responseTime)}ms)`;
+          performanceStatus.style.color = color;
+        } else {
+          performanceStatus.textContent = 'Performance: Proxy disabled';
+          performanceStatus.style.color = '#ff5757';
+        }
+      } else {
+        performanceStatus.textContent = 'Performance: Error checking status';
+        performanceStatus.style.color = '#ff5757';
+      }
+    } catch (error) {
+      console.log('Performance check failed:', error.message);
+      performanceStatus.textContent = 'Performance: Unable to check';
+      performanceStatus.style.color = '#ff5757';
+    }
+  }, 5000); // Check every 5 seconds
 }
 
 function stopPerformanceMonitoring() {
-    if (performanceMonitorInterval) {
-        clearInterval(performanceMonitorInterval);
-        performanceMonitorInterval = null;
-    }
+  if (performanceMonitorInterval) {
+    clearInterval(performanceMonitorInterval);
+    performanceMonitorInterval = null;
+  }
 }
 
+function saveIpSettings(project) {
+  let saveLimit = document.getElementById("saveLimit").value;
+  let autoBlockEnabled = document.getElementById("autoBlock").checked;
+  let autoBlockThreshhold = document.getElementById("reputationThreshold").value;
+  const ipSettings = {
+    saveLimit: saveLimit,
+    autoBlockEnabled: autoBlockEnabled,
+    autoBlockThreshhold: autoBlockThreshhold
+  };
+  localStorage.setItem(`ips_${project}`, JSON.stringify(ipSettings))
 
+  console.log("saved ip settings:", ipSettings);
 
+}
+
+document.getElementById("saveSettingsBtn").onclick = () => {saveIpSettings(currentlyEditingProject)
+};
 // Tutorial check moved inside DOMContentLoaded
 

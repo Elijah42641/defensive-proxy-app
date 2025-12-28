@@ -1,0 +1,8 @@
+ips tab:
+
+project id field and project password to make supabase url for connecting,
+ips display with pagination, 
+save limit, 
+auto block check box,
+reputation for auto block, 
+reputation lost rule in endpoints tab
