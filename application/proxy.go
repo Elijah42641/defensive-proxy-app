@@ -14,6 +14,7 @@ import (
 	"regexp"
 	"strings"
 	"time"
+	"net"
 )
 
 var endpoints []Endpoint
