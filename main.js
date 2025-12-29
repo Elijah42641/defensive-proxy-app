@@ -1,4 +1,5 @@
 let disableProxyOnLoad = false; // Flag to control disabling proxy on app load
+let proxyEnabled;
 
 window.addEventListener('load', () => {
   console.log('Page loaded');
@@ -239,7 +240,8 @@ function getCurrentProxySettings() {
 
 function loadProjectEndpoints(projectName) {
   try {
-    const rawEndpoints = localStorage.getItem(`endpoints_${projectName}`);
+    const project676767 = currentlyEditingProject;
+    const rawEndpoints = localStorage.getItem(`endpoints_${project676767}`);
     const endpoints = rawEndpoints ? JSON.parse(rawEndpoints) : [];
     sessionEndpoints[projectName] = { endpoints: [] };
     endpoints.forEach(ep => {
@@ -297,7 +299,7 @@ function renderProjectsList() {
 
 function renderEndpoints(projectName) {
   endpointsList.innerHTML = '';
-  const eps = sessionEndpoints[projectName]?.endpoints || [];
+  const eps = sessionEndpoints[currentlyEditingProject]?.endpoints || [];
   if (eps.length === 0) {
     endpointsList.innerHTML = '<li>No endpoints added yet.</li>';
     return;
@@ -318,7 +320,7 @@ function renderEndpoints(projectName) {
     editBtn.className = 'small-btn btn-primary';
     editBtn.onclick = (e) => {
       e.stopPropagation();
-      selectedEndpoint = sessionEndpoints[projectName].endpoints.find(item => item.path === ep.path);
+      selectedEndpoint = sessionEndpoints[currentlyEditingProject].endpoints.find(item => item.path === ep.path);
       selectedEndpointPath = ep.path;
       localStorage.setItem('selectedEndpointPath', selectedEndpointPath);
 
@@ -372,131 +374,25 @@ function saveProxyState(isRunning, port = null, project = null, serverPort = nul
   console.log('Saved proxy state:', state);
 }
 
-function loadProxyState() {
-  try {
-    const state = localStorage.getItem('proxyState');
-    if (state) {
-      return JSON.parse(state);
-    }
-  } catch (e) {
-    console.error('Failed to load proxy state:', e);
-  }
-  return { isRunning: false, port: null, project: null, serverPort: null };
-}
+
 
 function clearProxyState() {
   localStorage.removeItem('proxyState');
 }
 
-// Check if proxy is actually running by attempting to connect
-async function checkProxyStatus(port) {
-  if (!port) return false;
 
-  const portStr = port.toString();
-  console.log('Checking proxy status on port:', portStr);
 
-  try {
-    // Try to fetch from the proxy status endpoint first
-    const response = await fetch(`http://localhost:${portStr}/api/proxy/status`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(2000), // 2 second timeout
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
 
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Proxy status response:', data);
-      // Check both that the server is running AND that proxy is enabled
-      return data.status === 'running' && data.enabled === true;
-    }
-    return false;
-  } catch (e) {
-    console.log('Status endpoint failed, trying fallback check:', e.message);
-
-    // If status endpoint fails, try a simple connection test
-    try {
-      const testResponse = await fetch(`http://localhost:${portStr}/`, {
-        method: 'HEAD',
-        signal: AbortSignal.timeout(1000),
-        mode: 'no-cors' // Allow cross-origin requests
-      });
-      console.log('Fallback check response status:', testResponse.status);
-      // In no-cors mode, we can't read the status, but if we get here without error, something is listening
-      return true;
-    } catch (fallbackError) {
-      console.log('Fallback check also failed:', fallbackError.message);
-      return false;
-    }
-  }
-}
-
-// Enhanced proxy status check with multiple fallback methods
-async function checkProxyStatusEnhanced(port) {
-  if (!port) return false;
-
-  const portStr = port.toString();
-  console.log('Enhanced proxy status check on port:', portStr);
-
-  // Method 1: Try status endpoint
-  try {
-    const response = await fetch(`http://localhost:${portStr}/api/proxy/status`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(1500),
-      headers: {
-        'Accept': 'application/json'
-      }
-    });
-
-    if (response.ok) {
-      const data = await response.json();
-      console.log('Proxy status endpoint response:', data);
-      // Check both that the server is running AND that proxy is enabled
-      return data.status === 'running' && data.enabled === true;
-    }
-  } catch (e) {
-    console.log('Status endpoint check failed:', e.message);
-  }
-
-  // Method 2: Try a simple HEAD request to root
-  try {
-    const response = await fetch(`http://localhost:${portStr}/`, {
-      method: 'HEAD',
-      signal: AbortSignal.timeout(1000),
-      mode: 'no-cors'
-    });
-    console.log('HEAD request to root successful');
-    return true;
-  } catch (e) {
-    console.log('HEAD request failed:', e.message);
-  }
-
-  // Method 3: Try to connect to a common proxy endpoint
-  try {
-    const response = await fetch(`http://localhost:${portStr}/health`, {
-      method: 'GET',
-      signal: AbortSignal.timeout(1000),
-      mode: 'no-cors'
-    });
-    console.log('Health check successful');
-    return true;
-  } catch (e) {
-    console.log('Health check failed:', e.message);
-  }
-
-  console.log('All proxy status checks failed');
-  return false;
-}
 
 // Function to update status display by fetching from API
 async function updateStatusDisplay() {
   try {
-    const response = await fetch('/api/proxy/status');
+    const proxyPort = document.getElementById('proxyPort').value;
+    const response = await fetch(`http://localhost:${proxyPort}/api/proxy/status`);
     if (response.ok) {
       const data = await response.json();
       // Only show active if the proxy is running for the currently editing project
-      const isActiveForCurrent = data.enabled && data.project === currentlyEditingProject;
+      const isActiveForCurrent = data.isRunning && data.project === currentlyEditingProject;
       updateProxyUI(isActiveForCurrent);
       // Sync localStorage with server state only if it's for the current project
       if (currentlyEditingProject && data.project === currentlyEditingProject) {
@@ -544,7 +440,7 @@ function updateProxyUI(isActive) {
     statusIndicator.style.backgroundColor = '#4CAF50';
 
     if (proxyProjectDisplay) {
-      proxyProjectDisplay.textContent = `Proxy Project: ${proxyActiveProject}`;
+      proxyProjectDisplay.textContent = `Proxy Project: ${currentlyEditingProject}`;
       proxyProjectDisplay.style.display = 'block';
     }
 
@@ -570,6 +466,11 @@ function updateProxyUI(isActive) {
 
     if (performanceStatus) {
       performanceStatus.textContent = 'Performance: Not monitoring';
+    }
+
+    // Ensure localStorage reflects the disabled state
+    if (currentlyEditingProject) {
+      localStorage.setItem('enabled_' + currentlyEditingProject, 'false');
     }
   }
 }
@@ -1326,6 +1227,7 @@ function switchTab(tabId) {
               proxyEnableFeedbackShown = true;
             }
 
+
             // Save the state.
             const settings = getCurrentProxySettings();
             saveProxySettings(settings, currentlyEditingProject);
@@ -1394,17 +1296,30 @@ function switchTab(tabId) {
       }
     });
 
-    // Restore proxy state when switching to proxy tab
-    restoreProxyStateOnLoad();
+    async function proxyStatusUpdate() {
+      try {
 
-    // Start performance monitoring if proxy is active
-    const savedProxyState = loadProxyState();
-    if (savedProxyState.isRunning && savedProxyState.port) {
-      startPerformanceMonitoring(savedProxyState.port);
+        const proxyPort123123123 = document.getElementById('proxyPort').value;
+        const response = await fetch(`http://localhost:${proxyPort123123123}/api/proxy/status`);
+        const data = await response.json();
+
+        if (data.status == "running" && data.project === currentlyEditingProject) {
+          updateProxyUI(true);
+          proxyEnabled = true;
+        }
+        else {
+          updateProxyUI(false);
+          proxyEnabled = false;
+        }
+      }
+      catch (e) {
+        console.log('Failed to fetch proxy status:', e);
+      }
     }
-
     // Append the proxyContainer to the proxyTab so the UI is visible
     proxyTab.appendChild(proxyContainer);
+    proxyStatusUpdate();
+
   }
 
   if (tabId === "ips") {
@@ -1428,10 +1343,15 @@ function switchTab(tabId) {
     updateThreshold(); // Initial call
   }
 
+  if (tabId === "endpoints") {
+    endpointSettingsSection.classList.add('hidden');
+    renderEndpoints();
+  }
+
 }
 
 async function reloadProxyEndpoints() {
-  const state = loadProxyState();
+  const state = proxyEnabled;
   if (state.isRunning && state.port) {
     try {
       await fetch(`http://localhost:${state.port}/api/reload-endpoints`, { method: 'POST' });
@@ -2028,18 +1948,9 @@ function addRule(key, value, ruleType, keyRuleType, dataType, type, listType, no
   const currentRules = selectedEndpoint[type][dataType][listType];
   // Check if a similar rule already exists to prevent duplicates
   const ruleExists = currentRules.some(item => {
-    if (isBody) {
-      if (ruleObj.key && ruleObj.value) {
-        return item.key === ruleObj.key && item.value === ruleObj.value;
-      } else if (ruleObj.key) {
-        return item.key === ruleObj.key;
-      } else if (ruleObj.value) {
-        return item.value === ruleObj.value;
-      }
-      return false;
-    } else {
-      return item.value === ruleObj.value;
-    }
+    const keyMatch = ruleObj.key ? item.key === ruleObj.key : true;
+    const valueMatch = ruleObj.value ? item.value === ruleObj.value : true;
+    return keyMatch && valueMatch;
   });
 
   if (!ruleExists) {
@@ -2294,6 +2205,9 @@ function initializeEventHandlers() {
       // Restore proxy UI state for this project
       restoreProxyStateForProject(projectName);
 
+      // Update visual indicators for the selected project after all other updates
+      renderProjectsList();
+
     } else if (e.target.classList.contains('delete-btn')) {
       const projectName = e.target.dataset.project;
 
@@ -2471,11 +2385,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Restore proxy state on page load (independent of tab switching)
-  restoreProxyStateOnLoad();
 
   // Start performance monitoring if proxy is active on load
-  const savedProxyState = loadProxyState();
+  const savedProxyState = proxyEnabled;
   if (savedProxyState.isRunning && savedProxyState.port) {
     startPerformanceMonitoring(savedProxyState.port);
   }
@@ -2488,85 +2400,6 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 });
 
-// Function to restore proxy state when page loads or tab switches
-async function restoreProxyStateOnLoad() {
-  const savedProxyState = loadProxyState();
-  console.log('Restoring proxy state:', savedProxyState);
-
-  if (savedProxyState.isRunning && savedProxyState.port) {
-    // Check if the saved state is not too old (clear after 1 hour)
-    const now = Date.now();
-    const stateAge = now - (savedProxyState.timestamp || 0);
-    const maxAge = 60 * 60 * 1000; // 1 hour in milliseconds
-
-    if (stateAge > maxAge) {
-      console.log('Saved proxy state is too old, clearing it');
-      clearProxyState();
-      updateProxyUIWithRetry(false);
-      return;
-    }
-
-    // Always check if proxy is actually still running, regardless of current port
-    console.log('Checking if proxy is still running on port:', savedProxyState.port);
-    try {
-      // Wait up to 4 seconds to confirm proxy is not running before clearing state
-      const isStillRunning = await new Promise(async (resolve) => {
-        let resolved = false;
-        const timeout = setTimeout(() => {
-          if (!resolved) {
-            console.log('Proxy status check timeout, assuming not running');
-            resolved = true;
-            resolve(false);
-          }
-        }, 4000);
-
-        try {
-          const running = await checkProxyStatusEnhanced(savedProxyState.port);
-          if (!resolved) {
-            clearTimeout(timeout);
-            resolved = true;
-            // Fix: Only resolve true if running is true, otherwise resolve false
-            resolve(running === true);
-          }
-        } catch (e) {
-          if (!resolved) {
-            clearTimeout(timeout);
-            resolved = true;
-            resolve(false);
-          }
-        }
-      });
-
-      console.log('Enhanced proxy status check result:', isStillRunning);
-
-      if (isStillRunning) {
-        console.log('Proxy is still running, restoring state');
-        proxyActiveProject = savedProxyState.project;
-        const isActiveForCurrent = (proxyActiveProject === currentlyEditingProject);
-        updateProxyUIWithRetry(isActiveForCurrent);
-        // Also update the UI toggle button text to "Disable in Browser" if in Electron environment and active for current
-        const toggleBtn = document.getElementById('toggleProxyBtn');
-        if (toggleBtn && window.require && isActiveForCurrent) {
-          toggleBtn.textContent = 'Disable in Browser';
-          toggleBtn.classList.add('disable-proxy');
-          toggleBtn.classList.remove('enable-proxy');
-          toggleBtn.disabled = true;
-        }
-      } else {
-        console.log('Proxy is not running, clearing stale state');
-        clearProxyState();
-        updateProxyUIWithRetry(false);
-      }
-    } catch (error) {
-      console.log('Error checking proxy status:', error);
-      // On error, be conservative and clear the state
-      clearProxyState();
-      updateProxyUIWithRetry(false);
-    }
-  } else {
-    console.log('No saved proxy state found or proxy not running');
-  }
-}
 
 // Helper function to update proxy UI with retry mechanism
 function updateProxyUIWithRetry(isActive) {
@@ -2822,7 +2655,7 @@ async function startPerformanceMonitoring(port) {
 
       if (response.ok) {
         const data = await response.json();
-        if (data.status === 'running' && data.enabled === true) {
+        if (data.status === 'running') {
           // Determine performance status based on response time
           let performanceText = '';
           let color = '#64ffda'; // Default green
@@ -2885,7 +2718,7 @@ function saveIpSettings(project) {
 
 document.getElementById("saveSettingsBtn").onclick = () => {
   if (!document.getElementById("saveLimit").value ||
-    !document.getElementById("reputationThreshold").value 
+    !document.getElementById("reputationThreshold").value
   ) { showFeedback("Fill out each field first") } else {
     saveIpSettings(currentlyEditingProject)
   }

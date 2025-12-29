@@ -32,9 +32,13 @@ function createWindow() {
 app.whenReady().then(() => {
   createWindow();
 
-  tray = new Tray(path.join(__dirname, 'icon.png'));
-
-  // You can add tray menu if you want here
+  try {
+    tray = new Tray(path.join(__dirname, 'icon.png'));
+    // You can add tray menu if you want here
+  } catch (error) {
+    console.warn('Failed to create tray icon:', error.message);
+    // Continue without tray
+  }
 });
 
 // IPC listener: open folder dialog

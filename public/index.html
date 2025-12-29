@@ -125,7 +125,7 @@
     <h1>Defensive Proxy App</h1>
     <p>Open the browser console to see request logs.</p>
 
-    <button id="toggleProxyBtn">Enable Proxy</button>
+    <button id="toggleProxyBtn">Disable proxy</button>
     <div id="proxyStatus">Proxy Status: Unknown</div>
 
     <div class="tabs">
@@ -144,13 +144,9 @@
         function updateProxyUI() {
             const btn = document.getElementById('toggleProxyBtn');
             const statusDiv = document.getElementById('proxyStatus');
-            if (proxyEnabled) {
                 btn.textContent = 'Disable Proxy';
                 statusDiv.textContent = 'Proxy Status: Enabled';
-            } else {
-                btn.textContent = 'Enable Proxy';
-                statusDiv.textContent = 'Proxy Status: Disabled';
-            }
+         
         }
 
         function fetchProxyStatus() {
@@ -228,7 +224,7 @@
         }
 
         document.getElementById('toggleProxyBtn').addEventListener('click', () => {
-            const endpoint = proxyEnabled ? '/api/proxy/disable' : '/api/proxy/enable';
+            const endpoint = '/api/proxy/disable';
             const method = proxyEnabled ? 'POST' : 'POST'; // both are POST
             fetch(endpoint, { method: method })
                 .then(response => response.json())

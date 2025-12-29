@@ -105,12 +105,7 @@ func main() {
 
 		bodyBytes := bodyBuf.Bytes()
 
-		// Replace original request body so it can be read again later
-		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		// Create a new reader from the byte slice to replace the original request body.
-		// This allows the body to be read again by the proxy later.
-		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
 		// Re-assign the body reader to the request.
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
@@ -134,11 +129,7 @@ func main() {
 			return
 		}
 
-		if !proxyEnabled {
-			w.WriteHeader(http.StatusServiceUnavailable)
-			w.Write([]byte("Proxy is disabled"))
-			return
-		}
+	
 
 		// Check for endpoint match first
 		path := strings.TrimPrefix(r.URL.Path, "/")
