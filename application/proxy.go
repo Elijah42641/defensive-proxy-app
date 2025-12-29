@@ -110,8 +110,17 @@ func main() {
 		// Re-assign the body reader to the request.
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
+		// Extract IP from remote address for loopback checks
+		host := r.RemoteAddr
+		if strings.Contains(host, ":") {
+			host = strings.Split(host, ":")[0]
+		}
+		ip := net.ParseIP(host)
+
+		// Make sure sure that files are only served for loopback addresses
+
 		// Allow static files to be served regardless of project
-		if len(r.URL.Path) >= 8 && r.URL.Path[:8] == "/public/" {
+		if len(r.URL.Path) >= 8 && ip.IsLoopback() && r.URL.Path[:8] == "/public/" {
 			http.StripPrefix("/public/", http.FileServer(http.Dir("../public"))).ServeHTTP(w, r)
 			return
 		}
