@@ -133,12 +133,16 @@ func main() {
 			internalAPI = true
 		}
 
-		if internalAPI {
+userIsLocal := strings.Contains(r.RemoteAddr, "127.0.0.1") ||
+               strings.Contains(r.RemoteAddr, "::1") ||
+               ip.IsLoopback()
+		log.Printf("User is local: %v, Internal API: %v, Host: %v", userIsLocal, internalAPI, r.RemoteAddr)
+
+		if internalAPI && userIsLocal {
 			// Internal API requests are handled by their specific handlers
 			http.DefaultServeMux.ServeHTTP(w, r)
 			return
-		}
-
+		};
 	
 
 		// Check for endpoint match first
