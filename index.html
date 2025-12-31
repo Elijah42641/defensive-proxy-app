@@ -996,7 +996,7 @@
     <section id="ips" class="tab-content">
       <div class="section-header">
         <h2>IP Management</h2>
-        <button class="small-btn" id="refreshIPsBtn">Refresh IPs</button>
+        <button class="add-btn" id="refreshIPsBtn">Refresh IPs</button>
       </div>
 
       <div class="settings-panel">
@@ -1010,7 +1010,10 @@
           <label for="projectPassword">Project Password</label>
           <input type="password" id="projectPassword" class="form-input" placeholder="Enter your project password" />
         </div>
-        <button class="btn-primary" id="connectSupabaseBtn">Connect to Supabase</button>
+        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <button class="add-btn" id="saveCredentialsBtn">Save Credentials</button>
+          <button class="btn-primary" id="connectSupabaseBtn">Connect to Supabase</button>
+        </div>
       </div>
 
       <div class="settings-panel">

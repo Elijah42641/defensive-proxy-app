@@ -1,8 +1,4 @@
-security change needed in proxy.go
+supabase apis
 
-need to make it so that requests to apis will only be served if user is internal
+need to make button connect to supabase work
 
-after im sure that i did it correct i will flip the logic so that internal users will be treated
-like external, i will know that ive done it right when the rules for the endpoints work, and 
-that with the flipped logic internal requests cant trigger apis, then when it isnt flipped i can
-access the internal apis, which should mean the logic is correct

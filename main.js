@@ -1341,13 +1341,29 @@ function switchTab(tabId) {
 
     autoBlockCheckbox.addEventListener('change', updateThreshold);
     updateThreshold(); // Initial call
+
+    document.getElementById('projectId').value = localStorage.getItem(`projectId_${currentlyEditingProject}`) || '';
+    document.getElementById('projectPassword').value = localStorage.getItem(`projectPassword_${currentlyEditingProject}`) || '';
+
+    if (document.getElementById('projectId').value == '' || document.getElementById('projectPassword').value == '') {
+      document.getElementById('projectId').readOnly = false;
+      document.getElementById('projectPassword').readOnly = false;
+
+      document.getElementById('saveCredentialsBtn').textContent = 'Save Credentials';
+    }
+    else {
+      document.getElementById('projectId').readOnly = true;
+      document.getElementById('projectPassword').readOnly = true;
+
+      document.getElementById('saveCredentialsBtn').textContent = 'Edit Credentials';
+    }
   }
 
   if (tabId === "endpoints") {
     endpointSettingsSection.classList.add('hidden');
     renderEndpoints();
   }
-
+  
 }
 
 async function reloadProxyEndpoints() {
@@ -2726,3 +2742,25 @@ document.getElementById("saveSettingsBtn").onclick = () => {
 };
 // Tutorial check moved inside DOMContentLoaded
 
+const saveCredentialsbtn = document.getElementById('saveCredentialsBtn');
+saveCredentialsbtn.onclick = () => {
+  if (saveCredentialsbtn.textContent === 'Save Credentials') { 
+    if (document.getElementById('projectId').value === '' || document.getElementById('projectPassword').value === '') {
+      showFeedback('Please fill out both fields before saving.');
+      return;
+    }
+    else {
+      localStorage.setItem(`projectId_${currentlyEditingProject}`, document.getElementById('projectId').value);
+      localStorage.setItem(`projectPassword_${currentlyEditingProject}`, document.getElementById('projectPassword').value);
+      showFeedback('Credentials saved successfully!');
+        document.getElementById('projectId').readOnly = true;
+    document.getElementById('projectPassword').readOnly = true;
+      saveCredentialsbtn.textContent = 'Edit Credentials';
+    }
+  }
+  else {
+    document.getElementById('projectId').readOnly = false;
+    document.getElementById('projectPassword').readOnly = false;
+    saveCredentialsbtn.textContent = 'Save Credentials';
+  }
+}

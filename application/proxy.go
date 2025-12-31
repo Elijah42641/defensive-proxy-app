@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/http/httputil"
 	"net/url"
@@ -14,7 +15,8 @@ import (
 	"regexp"
 	"strings"
 	"time"
-	"net"
+
+	"github.com/jackc/pgx/v5/pgxpool"
 )
 
 var endpoints []Endpoint
@@ -106,8 +108,6 @@ func main() {
 
 		bodyBytes := bodyBuf.Bytes()
 
-
-
 		// Re-assign the body reader to the request.
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
@@ -129,21 +129,20 @@ func main() {
 		// Check if this is an internal proxy API request (always allow API calls)
 		internalAPI := false
 		apiPath := r.URL.Path
-		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" {
+		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/supabase/connect" {
 			internalAPI = true
 		}
 
-userIsLocal := strings.Contains(r.RemoteAddr, "127.0.0.1") ||
-               strings.Contains(r.RemoteAddr, "::1") ||
-               ip.IsLoopback()
+		userIsLocal := strings.Contains(r.RemoteAddr, "127.0.0.1") ||
+			strings.Contains(r.RemoteAddr, "::1") ||
+			ip.IsLoopback()
 		log.Printf("User is local: %v, Internal API: %v, Host: %v", userIsLocal, internalAPI, r.RemoteAddr)
 
 		if internalAPI && userIsLocal {
 			// Internal API requests are handled by their specific handlers
 			http.DefaultServeMux.ServeHTTP(w, r)
 			return
-		};
-	
+		}
 
 		// Check for endpoint match first
 		path := strings.TrimPrefix(r.URL.Path, "/")
@@ -350,6 +349,65 @@ userIsLocal := strings.Contains(r.RemoteAddr, "127.0.0.1") ||
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Endpoints reloaded"})
+	})
+
+	http.HandleFunc("/api/supabase/connect", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", 500)
+			return
+		}
+
+		var body map[string]interface{}
+
+		//parse body
+		err = json.Unmarshal(data, &body)
+
+		if err != nil {
+			http.Error(w, "invalid JSON", 400)
+			return
+		}
+
+		password := body["password"]
+		projectId := body["projectId"]
+		connectionUrl := fmt.Sprintf(`postgresql://postgres:%s@db.%s.supabase.co:5432/postgres`, password, projectId)
+
+		// create a context with timeout that cancels when finished
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		// create connection pool
+		pool, err := pgxpool.New(ctx, connectionUrl)
+		if err != nil {
+			log.Fatalf("failed to create pool: %v", err)
+		}
+		defer pool.Close()
+
+		// ping supabase url
+		err = pool.Ping(ctx)
+		if err != nil {
+			http.Error(w, "failed to connect to database", 500)
+			return
+		}
+
+		w.Write([]byte("Successfully connected to Supabase database"))
+
 	})
 
 	// Create server
