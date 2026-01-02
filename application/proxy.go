@@ -22,6 +22,7 @@ import (
 var endpoints []Endpoint
 var proxyEnabled = false
 var currentServerPort string
+var supabaseConnected = false
 
 var server *http.Server
 
@@ -83,9 +84,6 @@ func main() {
 
 	// Main handler
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Log remote address and origin for debugging
-		log.Printf("Request from remote addr: %s, Origin: %s, Host: %s, URL: %s", r.RemoteAddr, r.Header.Get("Origin"), r.Host, r.URL.Path)
-
 		// instead of taking the whole body it safely chunks it
 		defer r.Body.Close()
 
@@ -136,7 +134,6 @@ func main() {
 		userIsLocal := strings.Contains(r.RemoteAddr, "127.0.0.1") ||
 			strings.Contains(r.RemoteAddr, "::1") ||
 			ip.IsLoopback()
-		log.Printf("User is local: %v, Internal API: %v, Host: %v", userIsLocal, internalAPI, r.RemoteAddr)
 
 		if internalAPI && userIsLocal {
 			// Internal API requests are handled by their specific handlers
@@ -155,17 +152,18 @@ func main() {
 		}
 
 		if matchingEndpoint != nil {
-			log.Printf("Checking rules for endpoint path: %s", matchingEndpoint.Path)
 			result := checkRequestRules(r, matchingEndpoint.Request, bodyBytes)
-			log.Printf("checkRequestRules result: %v", result)
 			if !result {
-				log.Printf("Request blocked: %s %s", r.Method, r.URL.Path)
-
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("Request blocked by defensive proxy"))
+
+				// here is where we will have the ip saved or not
+				if supabaseConnected {
+
+				}
+
 				return
 			}
-			log.Printf("Request allowed: %s %s", r.Method, r.URL.Path)
 			proxy.ServeHTTP(w, r)
 			return
 		}
@@ -177,7 +175,6 @@ func main() {
 		}
 
 		// Forward non-matching requests
-		log.Printf("Request forwarded: endpoint not defined %s %s", r.Method, r.URL.Path)
 		proxy.ServeHTTP(w, r)
 	})
 
@@ -384,9 +381,10 @@ func main() {
 			return
 		}
 
-		password := body["password"]
-		projectId := body["projectId"]
-		connectionUrl := fmt.Sprintf(`postgresql://postgres:%s@db.%s.supabase.co:5432/postgres`, password, projectId)
+		password := body["password"].(string)
+		passWordEncoded := url.QueryEscape(password)
+		projectId := body["projectId"].(string)
+		connectionUrl := fmt.Sprintf(`postgresql://postgres:%s@db.%s.supabase.co:5432/postgres`, passWordEncoded, projectId)
 
 		// create a context with timeout that cancels when finished
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -402,12 +400,47 @@ func main() {
 		// ping supabase url
 		err = pool.Ping(ctx)
 		if err != nil {
-			http.Error(w, "failed to connect to database", 500)
+			http.Error(w, fmt.Sprintf("failed to connect to database: %v", err), 500)
 			return
 		}
 
-		w.Write([]byte("Successfully connected to Supabase database"))
+		var exists bool
 
+		err = pool.QueryRow(
+			ctx,
+			`
+    SELECT EXISTS (
+        SELECT 1
+        FROM information_schema.tables
+        WHERE table_schema = $1
+          AND table_name = $2
+    )
+    `,
+			"public",
+			"ips",
+		).Scan(&exists)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		if exists {
+			w.Write([]byte("Successfully connected to Supabase database"))
+			return
+		} else {
+			w.Write([]byte(`Please run this sql to create the ips table in schema public: create table public.ips (
+  id serial not null,
+  ip character varying(45) not null,
+  score integer null default 0,
+  last_seen timestamp without time zone null default CURRENT_TIMESTAMP,
+  blocked boolean null default false,
+  created_at timestamp without time zone null default CURRENT_TIMESTAMP,
+  constraint ips_pkey primary key (id),
+  constraint ips_ip_key unique (ip)
+) TABLESPACE pg_default;`))
+		}
+
+		supabaseConnected = true
 	})
 
 	// Create server
@@ -517,15 +550,10 @@ func saveProxyEnabled(enabled bool) {
 
 // checkRuleMatch attempts to match a request component (header/cookie/body key/value) against a rule.
 func checkRuleMatch(rule Rule, componentKey, componentValue string) bool {
-	log.Printf("=== DEBUG checkRuleMatch ===")
-	log.Printf("Rule: key='%s' keyRuleType='%s' value='%s' ruleType='%s'", rule.Key, rule.KeyRuleType, rule.Value, rule.RuleType)
-	log.Printf("Component: key='%s' value='%s'", componentKey, componentValue)
-
 	trimmedRuleKey := strings.TrimSpace(rule.Key)
 	trimmedRuleValue := strings.TrimSpace(rule.Value)
 
 	if trimmedRuleKey == "" && trimmedRuleValue == "" {
-		log.Printf("Result: FALSE (both rule key and value are empty)")
 		return false
 	}
 

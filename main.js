@@ -2764,3 +2764,29 @@ saveCredentialsbtn.onclick = () => {
     saveCredentialsbtn.textContent = 'Save Credentials';
   }
 }
+
+document.getElementById('connectSupabaseBtn').onclick = () => {
+  if (document.getElementById('projectId').value === '' || document.getElementById('projectPassword').value === '') {
+    showFeedback('Please fill out both fields.');
+    return;
+  } else {
+    proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
+    fetch(`http://localhost:${proxyPort}/api/supabase/connect`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        projectId: document.getElementById('projectId').value,
+        password: document.getElementById('projectPassword').value
+      })
+    })
+      .then(response => response.text())
+      .then(text => {
+       showFeedback(text);
+      })
+      .catch(error => {
+        showFeedback(`Error connecting to Supabase: ${error.message}`);
+      });
+  }
+ }
