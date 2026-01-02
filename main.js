@@ -70,7 +70,6 @@ const newEndpointInput = document.getElementById('newEndpointInput');
 const endpointSettingsSection = document.getElementById('endpointSettings');
 const feedbackDisplay = document.getElementById('feedback-display');
 const detailsPopup = document.createElement('div');
-
 // Add IPS tab button dynamically
 const ipsTabBtn = document.createElement('button');
 ipsTabBtn.className = 'tab-btn';
@@ -483,6 +482,9 @@ if (window.require) {
     updateProxyUI(isActiveForCurrent);
     if (!data.isActive) {
       showFeedback('Proxy has been stopped.');
+      localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
+      document.getElementById('connStatus').textContent = 'Not connected to Supabase';
+      document.getElementById('connStatus').style.color = '#ff5757';
     }
   });
   ipcRenderer.on('proxy-stopped', () => {
@@ -491,6 +493,9 @@ if (window.require) {
     updateProxyUI(false);
     clearProxyState();
     showFeedback('Proxy has been stopped.');
+    localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
+    document.getElementById('connStatus').textContent = 'Not connected to Supabase';
+    document.getElementById('connStatus').style.color = '#ff5757';
   });
 }
 
@@ -1310,6 +1315,7 @@ function switchTab(tabId) {
         else {
           updateProxyUI(false);
           proxyEnabled = false;
+          localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
         }
       }
       catch (e) {
@@ -1357,6 +1363,48 @@ function switchTab(tabId) {
 
       document.getElementById('saveCredentialsBtn').textContent = 'Edit Credentials';
     }
+
+    if (localStorage.getItem(`supabaseConnected_${currentlyEditingProject}`) == 'true') {
+      document.getElementById('connStatus').textContent = 'Connected to Supabase';
+      document.getElementById('connStatus').style.color = '#4CAF50';
+    } else {
+      document.getElementById('connStatus').textContent = 'Not connected to Supabase';
+      document.getElementById('connStatus').style.color = '#ff5757';
+    }
+async function checkProxyEnabled() {
+  const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
+  const connStatus = document.getElementById('connStatus');
+
+  // Create an abort controller for the timeout
+  const controller = new AbortController();
+  const timeout = setTimeout(() => {
+    controller.abort(); // abort the fetch after 2 seconds
+  }, 2000);
+
+  try {
+    const response = await fetch(`http://localhost:${proxyPort}/api/proxy/status`, {
+      method: 'GET',
+      signal: controller.signal
+    });
+
+    const data = await response.json();
+
+    if (data.status !== "running" || data.project !== currentlyEditingProject) {
+      localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
+      connStatus.textContent = 'Not connected to Supabase';
+      connStatus.style.color = '#ff5757';
+    }
+  } catch (err) {
+    // Handles timeout, server offline, or JSON parse errors
+    console.error('Failed to check proxy status:', err);
+    localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
+    connStatus.textContent = 'Not connected to Supabase';
+    connStatus.style.color = '#ff5757';
+  } finally {
+    clearTimeout(timeout); // clear the timeout if fetch completes
+  }
+}
+      checkProxyEnabled();
   }
 
   if (tabId === "endpoints") {
@@ -2788,9 +2836,22 @@ document.getElementById('connectSupabaseBtn').onclick = () => {
       .then(response => response.text())
       .then(text => {
         showFeedback(text);
+        if (text.includes('Successfully')) {
+          document.getElementById('connStatus').textContent = 'Status: Connected';
+          document.getElementById('connStatus').style.color = '#64ffda';
+          localStorage.setItem(`supabaseConnected_${currentlyEditingProject}`, 'true');
+        } else {
+          document.getElementById('connStatus').textContent = 'Status: Not Connected';
+          document.getElementById('connStatus').style.color = '#ff5757';
+          localStorage.setItem(`supabaseConnected_${currentlyEditingProject}`, 'false');
+        }
       })
       .catch(error => {
         showFeedback(`Error connecting to Supabase: ${error.message}`);
+        document.getElementById('connStatus').textContent = 'Status: Not Connected';
+        document.getElementById('connStatus').style.color = '#ff5757';
+        localStorage.setItem(`supabaseConnected_${currentlyEditingProject}`, 'false')
+
       });
   }
 }

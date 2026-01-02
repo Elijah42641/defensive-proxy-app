@@ -14,6 +14,9 @@ let goProcess = null;
 let proxyProcess = null; // Separate variable for proxy process
 let terminalShell = null; // Variable to hold the child_process for the terminal
 
+
+
+
 function createWindow() {
   win = new BrowserWindow({
     width: 800,
@@ -52,6 +55,8 @@ ipcMain.on('open-folder-dialog', async (event) => {
     event.sender.send('folder-selected', null);
   }
 });
+
+
 
 // IPC listener: start the Go server (Your original logic)
 ipcMain.on('run-go-server', (event, projectPath) => {
@@ -94,40 +99,40 @@ ipcMain.on('kill-go-server', () => {
 
 // IPC listener to start the interactive terminal
 ipcMain.on('start-terminal', (event, projectPath) => {
-    // If a terminal is already running, kill it before starting a new one
-    if (terminalShell) {
-        terminalShell.kill();
-    }
-    
-    // Create the interactive shell process
-    terminalShell = spawn(shell, [], { cwd: projectPath });
+  // If a terminal is already running, kill it before starting a new one
+  if (terminalShell) {
+    terminalShell.kill();
+  }
 
-    // Send the shell's output to the renderer
-    terminalShell.stdout.on('data', (data) => {
-        event.sender.send('terminal-output', data.toString());
-    });
-    
-    // Send the shell's errors to the renderer
-    terminalShell.stderr.on('data', (data) => {
-        event.sender.send('terminal-output', data.toString());
-    });
+  // Create the interactive shell process
+  terminalShell = spawn(shell, [], { cwd: projectPath });
 
-    terminalShell.on('close', (code) => {
-        event.sender.send('terminal-output', `Shell exited with code ${code}`);
-        terminalShell = null;
-    });
+  // Send the shell's output to the renderer
+  terminalShell.stdout.on('data', (data) => {
+    event.sender.send('terminal-output', data.toString());
+  });
 
-    terminalShell.on('error', (err) => {
-        event.sender.send('terminal-output', `Failed to start shell: ${err.message}`);
-        terminalShell = null;
-    });
+  // Send the shell's errors to the renderer
+  terminalShell.stderr.on('data', (data) => {
+    event.sender.send('terminal-output', data.toString());
+  });
+
+  terminalShell.on('close', (code) => {
+    event.sender.send('terminal-output', `Shell exited with code ${code}`);
+    terminalShell = null;
+  });
+
+  terminalShell.on('error', (err) => {
+    event.sender.send('terminal-output', `Failed to start shell: ${err.message}`);
+    terminalShell = null;
+  });
 });
 
 // IPC listener: takes input from the renderer and writes it to the shell's stdin
 ipcMain.on('terminal-input', (event, input) => {
-    if (terminalShell) {
-        terminalShell.stdin.write(input);
-    }
+  if (terminalShell) {
+    terminalShell.stdin.write(input);
+  }
 });
 
 ipcMain.on('start-proxy', (event, { projectPath, proxyPort, serverPort, currentProject }) => {

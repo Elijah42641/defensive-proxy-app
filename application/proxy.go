@@ -23,6 +23,9 @@ var endpoints []Endpoint
 var proxyEnabled = false
 var currentServerPort string
 var supabaseConnected = false
+var connpool *pgxpool.Pool
+var saveLimit int
+var cancel context.CancelFunc
 
 var server *http.Server
 
@@ -157,12 +160,40 @@ func main() {
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("Request blocked by defensive proxy"))
 
-				// here is where we will have the ip saved or not
-				if supabaseConnected {
+				// here is where I will have the ip saved or not
+				var limitReached bool
 
+				if connpool == nil {
+					log.Println("pool is nil — Supabase not connected")
+					return
+				} else {
+					dbCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+					defer cancel()
+					err := connpool.QueryRow(dbCtx, `
+    SELECT EXISTS (
+        SELECT 1
+        FROM public.ips
+        OFFSET $1
+    )
+`, saveLimit-1).Scan(&limitReached)
+
+					if err != nil {
+						log.Printf("query failed: %v", err)
+						return
+					}
+
+					if !limitReached {
+						_, err = connpool.Exec(dbCtx, `
+			INSERT INTO public.ips (ip, score, blocked, last_seen)
+			VALUES ($1, $2, $3, NOW())
+			ON CONFLICT (ip) DO UPDATE
+			SET score = public.ips.score + 1,
+				last_seen = NOW(),
+				blocked = true;
+		`, host, 1, true)
+					}
+					return
 				}
-
-				return
 			}
 			proxy.ServeHTTP(w, r)
 			return
@@ -288,6 +319,12 @@ func main() {
 			}
 		}
 
+		if connpool != nil {
+			connpool.Close()
+			connpool = nil
+			log.Println("Supabase connection pool closed")
+		}
+
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "Proxy disabled"})
@@ -404,14 +441,13 @@ func main() {
 		defer cancel()
 
 		// create connection pool
-		pool, err := pgxpool.New(ctx, connectionUrl)
+		connpool, err = pgxpool.New(ctx, connectionUrl)
 		if err != nil {
 			log.Fatalf("failed to create pool: %v", err)
 		}
-		defer pool.Close()
 
 		// ping supabase url
-		err = pool.Ping(ctx)
+		err = connpool.Ping(ctx)
 		if err != nil {
 			http.Error(w, fmt.Sprintf("failed to connect to database: %v", err), 500)
 			return
@@ -419,7 +455,7 @@ func main() {
 
 		var exists bool
 
-		err = pool.QueryRow(
+		err = connpool.QueryRow(
 			ctx,
 			`
     SELECT EXISTS (
@@ -439,6 +475,8 @@ func main() {
 
 		if exists {
 			w.Write([]byte("Successfully connected to Supabase database"))
+			saveLimit = supabaseFields.SaveLimit
+
 			return
 		} else {
 			w.Write([]byte(`Please run this sql to create the ips table in schema public: create table public.ips (
@@ -453,7 +491,10 @@ func main() {
 ) TABLESPACE pg_default;`))
 		}
 
-		supabaseConnected = true
+		connpool.Close()
+		connpool = nil
+		return
+
 	})
 
 	// Create server
@@ -587,18 +628,14 @@ func checkRuleMatch(rule Rule, componentKey, componentValue string) bool {
 			regexPattern := "(?i)" + trimmedRuleKey
 			if re, err := regexp.Compile(regexPattern); err == nil {
 				keyMatch = re.MatchString(componentKey)
-				log.Printf("Key regex match (case-insensitive): '%s' against '%s' = %v", regexPattern, componentKey, keyMatch)
 			} else {
-				log.Printf("Key regex compilation failed: %v", err)
 				return false
 			}
 		} else {
 			keyMatch = strings.EqualFold(componentKey, trimmedRuleKey)
-			log.Printf("Key exact match (case-insensitive): '%s' against '%s' = %v", trimmedRuleKey, componentKey, keyMatch)
 		}
 	} else {
 		keyMatch = true
-		log.Printf("No key rule, keyMatch = true")
 	}
 
 	// Check value match (case-sensitive for values, since they might contain sensitive data)
@@ -606,23 +643,17 @@ func checkRuleMatch(rule Rule, componentKey, componentValue string) bool {
 		if rule.RuleType == "regex" {
 			if re, err := regexp.Compile(trimmedRuleValue); err == nil {
 				valueMatch = re.MatchString(componentValue)
-				log.Printf("Value regex match: '%s' against '%s' = %v", trimmedRuleValue, componentValue, valueMatch)
 			} else {
-				log.Printf("Value regex compilation failed: %v", err)
 				return false
 			}
 		} else {
 			valueMatch = strings.Contains(componentValue, trimmedRuleValue)
-			log.Printf("Value contains match: '%s' in '%s' = %v", trimmedRuleValue, componentValue, valueMatch)
 		}
 	} else {
 		valueMatch = true
-		log.Printf("No value rule, valueMatch = true")
 	}
 
 	result := keyMatch && valueMatch
-	log.Printf("Final result: keyMatch=%v && valueMatch=%v = %v", keyMatch, valueMatch, result)
-	log.Printf("=== END DEBUG ===")
 
 	return result
 }
@@ -638,7 +669,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 		for k, v := range r.Header {
 			for _, val := range v {
 				if checkRuleMatch(rule, k, val) {
-					log.Printf("Blocked by blacklist header rule: key=%s, value=%s", rule.Key, rule.Value)
 					return false
 				}
 			}
@@ -649,7 +679,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 	for _, rule := range reqRules.Cookies.Blacklist {
 		for _, c := range r.Cookies() {
 			if checkRuleMatch(rule, c.Name, c.Value) {
-				log.Printf("Blocked by blacklist cookie rule: key=%s, value=%s", rule.Key, rule.Value)
 				return false
 			}
 		}
@@ -690,7 +719,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 				}
 				for _, val := range vals {
 					if checkRuleMatch(rule, k, val) {
-						log.Printf("Blocked by blacklist body rule: key=%s, value=%s", rule.Key, rule.Value)
 						return false
 					}
 				}
@@ -721,7 +749,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 			}
 		}
 		if !found {
-			log.Printf("Blocked: no whitelist header rule matched")
 			return false
 		}
 	} else if reqRules.Headers.Mode == "blacklist" {
@@ -736,7 +763,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 					}
 				}
 				if !found {
-					log.Printf("Blocked: header '%s: %s' not explicitly whitelisted in headers blacklist mode", k, val)
 					return false
 				}
 			}
@@ -759,7 +785,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 			}
 		}
 		if !found {
-			log.Printf("Blocked: no whitelist cookie rule matched")
 			return false
 		}
 	} else if reqRules.Cookies.Mode == "blacklist" {
@@ -773,7 +798,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 				}
 			}
 			if !found {
-				log.Printf("Blocked: cookie '%s=%s' not explicitly whitelisted in cookies blacklist mode", c.Name, c.Value)
 				return false
 			}
 		}
@@ -806,7 +830,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 			}
 		}
 		if !found {
-			log.Printf("Blocked: no whitelist body rule matched")
 			return false
 		}
 	} else if reqRules.Body.Mode == "blacklist" && bodyData != nil {
@@ -827,7 +850,6 @@ func checkRequestRules(r *http.Request, reqRules struct {
 					}
 				}
 				if !found {
-					log.Printf("Blocked: body field '%s=%s' not explicitly whitelisted in body blacklist mode", k, val)
 					return false
 				}
 			}

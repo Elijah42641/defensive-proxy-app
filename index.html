@@ -1002,8 +1002,9 @@
       <div class="settings-panel">
         <h3>Supabase Connection</h3>
         <p>Configure your project credentials to connect to Supabase for IP data retrieval.</p>
+        <p style="color:rgb(173, 16, 16);"><br><strong>Important: the supabase connection is saved by what credentials were used when you last clicked connect to supabase, not what is saved</strong></p>
         <div class="form-group">
-          <label for="projectId">Project ID</label>
+          <label for="projectId"><br>Project ID</label>
           <input type="text" id="projectId" class="form-input" placeholder="e.g., your-project-id" />
         </div>
         <div class="form-group">
@@ -1011,6 +1012,7 @@
           <input type="password" id="projectPassword" class="form-input" placeholder="Enter your project password" />
         </div>
         <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+          <p id="connStatus" style="flex-grow: 1; align-self: center;">Status: Not Connected</p>
           <button class="add-btn" id="saveCredentialsBtn">Save Credentials</button>
           <button class="btn-primary" id="connectSupabaseBtn">Connect to Supabase</button>
         </div>
