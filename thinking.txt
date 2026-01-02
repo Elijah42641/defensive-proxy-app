@@ -1,4 +1,4 @@
 supabase apis
 
-need to make button connect to supabase work
-
+now that i have if supabase is connected or not i need to get it to add an ip if blocked request
+and if save limit hasnt been reached

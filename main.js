@@ -1363,7 +1363,7 @@ function switchTab(tabId) {
     endpointSettingsSection.classList.add('hidden');
     renderEndpoints();
   }
-  
+
 }
 
 async function reloadProxyEndpoints() {
@@ -2744,7 +2744,7 @@ document.getElementById("saveSettingsBtn").onclick = () => {
 
 const saveCredentialsbtn = document.getElementById('saveCredentialsBtn');
 saveCredentialsbtn.onclick = () => {
-  if (saveCredentialsbtn.textContent === 'Save Credentials') { 
+  if (saveCredentialsbtn.textContent === 'Save Credentials') {
     if (document.getElementById('projectId').value === '' || document.getElementById('projectPassword').value === '') {
       showFeedback('Please fill out both fields before saving.');
       return;
@@ -2753,8 +2753,8 @@ saveCredentialsbtn.onclick = () => {
       localStorage.setItem(`projectId_${currentlyEditingProject}`, document.getElementById('projectId').value);
       localStorage.setItem(`projectPassword_${currentlyEditingProject}`, document.getElementById('projectPassword').value);
       showFeedback('Credentials saved successfully!');
-        document.getElementById('projectId').readOnly = true;
-    document.getElementById('projectPassword').readOnly = true;
+      document.getElementById('projectId').readOnly = true;
+      document.getElementById('projectPassword').readOnly = true;
       saveCredentialsbtn.textContent = 'Edit Credentials';
     }
   }
@@ -2766,8 +2766,8 @@ saveCredentialsbtn.onclick = () => {
 }
 
 document.getElementById('connectSupabaseBtn').onclick = () => {
-  if (document.getElementById('projectId').value === '' || document.getElementById('projectPassword').value === '') {
-    showFeedback('Please fill out both fields.');
+  if (document.getElementById('projectId').value === '' || document.getElementById('projectPassword').value === '' || document.getElementById("saveLimit").value === '' || document.getElementById("reputationThreshold").value === '') {
+    showFeedback('Please fill out each supabase field.');
     return;
   } else {
     proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
@@ -2778,15 +2778,19 @@ document.getElementById('connectSupabaseBtn').onclick = () => {
       },
       body: JSON.stringify({
         projectId: document.getElementById('projectId').value,
-        password: document.getElementById('projectPassword').value
+        password: document.getElementById('projectPassword').value,
+        saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
+        autoBlockEnabled: document.getElementById("autoBlock").checked,
+        autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10)
       })
+
     })
       .then(response => response.text())
       .then(text => {
-       showFeedback(text);
+        showFeedback(text);
       })
       .catch(error => {
         showFeedback(`Error connecting to Supabase: ${error.message}`);
       });
   }
- }
+}

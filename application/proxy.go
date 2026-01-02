@@ -381,10 +381,23 @@ func main() {
 			return
 		}
 
-		password := body["password"].(string)
-		passWordEncoded := url.QueryEscape(password)
-		projectId := body["projectId"].(string)
-		connectionUrl := fmt.Sprintf(`postgresql://postgres:%s@db.%s.supabase.co:5432/postgres`, passWordEncoded, projectId)
+		type RequestBody struct {
+			Password           string `json:"password"`
+			ProjectId          string `json:"projectId"`
+			SaveLimit          int    `json:"saveLimit"`
+			AutoBlockEnabled   bool   `json:"autoBlockEnabled"`
+			AutoBlockThreshold int    `json:"autoBlockThreshhold"`
+		}
+
+		var supabaseFields RequestBody
+		err = json.Unmarshal(data, &supabaseFields)
+		if err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		passWordEncoded := url.QueryEscape(supabaseFields.Password)
+		connectionUrl := fmt.Sprintf(`postgresql://postgres:%s@db.%s.supabase.co:5432/postgres`, passWordEncoded, supabaseFields.ProjectId)
 
 		// create a context with timeout that cancels when finished
 		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
