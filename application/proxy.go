@@ -169,13 +169,9 @@ func main() {
 				} else {
 					dbCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
-					err := connpool.QueryRow(dbCtx, `
-    SELECT EXISTS (
-        SELECT 1
-        FROM public.ips
-        OFFSET $1
-    )
-`, saveLimit-1).Scan(&limitReached)
+					err := connpool.QueryRow(
+						dbCtx, CHECK_PUBLIC_IP_EXISTENCE_SQL, saveLimit-1,
+					).Scan(&limitReached)
 
 					if err != nil {
 						log.Printf("query failed: %v", err)
@@ -183,14 +179,7 @@ func main() {
 					}
 
 					if !limitReached {
-						_, err = connpool.Exec(dbCtx, `
-			INSERT INTO public.ips (ip, score, blocked, last_seen)
-			VALUES ($1, $2, $3, NOW())
-			ON CONFLICT (ip) DO UPDATE
-			SET score = public.ips.score + 1,
-				last_seen = NOW(),
-				blocked = true;
-		`, host, 1, true)
+						_, err = connpool.Exec(dbCtx, INSERT_PUBLIC_IP_SQL, host, 1, true)
 					}
 					return
 				}
@@ -457,14 +446,7 @@ func main() {
 
 		err = connpool.QueryRow(
 			ctx,
-			`
-    SELECT EXISTS (
-        SELECT 1
-        FROM information_schema.tables
-        WHERE table_schema = $1
-          AND table_name = $2
-    )
-    `,
+			CHECK_PUBLIC_IPS_TABLE_EXISTENCE_SQL,
 			"public",
 			"ips",
 		).Scan(&exists)
@@ -479,22 +461,10 @@ func main() {
 
 			return
 		} else {
-			w.Write([]byte(`Please run this sql to create the ips table in schema public: create table public.ips (
-  id serial not null,
-  ip character varying(45) not null,
-  score integer null default 0,
-  last_seen timestamp without time zone null default CURRENT_TIMESTAMP,
-  blocked boolean null default false,
-  created_at timestamp without time zone null default CURRENT_TIMESTAMP,
-  constraint ips_pkey primary key (id),
-  constraint ips_ip_key unique (ip)
-) TABLESPACE pg_default;`))
+			w.Write([]byte(DB_SETUP_RESPONSE))
 		}
-
 		connpool.Close()
 		connpool = nil
-		return
-
 	})
 
 	// Create server
