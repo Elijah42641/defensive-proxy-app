@@ -2,4 +2,4 @@ BIN_DIR := bin
 
 build:
 	mkdir -p $(BIN_DIR)
-	go build -o $(BIN_DIR)/proxy application/proxy.go 
+	go build -o $(BIN_DIR)/proxy application/*.go 
