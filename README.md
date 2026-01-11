@@ -10,6 +10,14 @@ cd defensive-proxy-app
 npm install
 npm start
   </pre>
+  For daemon:
+  <pre>
+    git clone https://github.com/Elijah42641/defensive-proxy-app
+cd defensive-proxy-app
+    node webInterface.js
+  </pre>
+  
+If you see any bugs let me know I just added this and it might still be buggy
 
   <h2>Use cases:</h2>
   <ul>
