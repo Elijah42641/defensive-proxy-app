@@ -1,4 +1,3 @@
-let disableProxyOnLoad = false; // Flag to control disabling proxy on app load
 let proxyEnabled;
 
 window.addEventListener('load', () => {
@@ -50,11 +49,26 @@ XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   return originalXHROpen.apply(this, [method, url, ...rest]);
 };
 
-const fs = require('fs');
-const path = require('path');
-const { ipcRenderer } = window.require('electron');
-const currentProjectFilePath = path.join(__dirname, 'public', 'current_project.json');
-const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
+const isElectron = !!(typeof process !== 'undefined' && process.versions && process.versions.electron);
+
+
+let updateCurrentProjectFile
+if (isElectron) {
+  updateCurrentProjectFile = require('./updateCurrentProject.js').updateCurrentProjectFile;
+}
+else {
+  updateCurrentProjectFile = function (projectName, endpoints = null, proxyEnabled = null) {
+    fetch('/api/project/update-current', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ projectName, endpoints, proxyEnabled })
+    })
+  };
+}
+let ruleDetails;
+
+let selectedEndpointPath = null;
+
 const projectsList = document.getElementById('projectsList');
 const folderInput = document.getElementById('folderInput');
 const endpointsList = document.getElementById('endpointsList');
@@ -335,20 +349,53 @@ function renderEndpoints(projectName) {
     delBtn.className = 'small-btn btn-danger';
     delBtn.onclick = (e) => {
       e.stopPropagation();
-      sessionEndpoints[projectName].endpoints = sessionEndpoints[projectName].endpoints.filter(item => item.path !== ep.path);
+      projectName = currentlyEditingProject;
+
+
+
+
+      if (!sessionEndpoints[projectName]) {
+        console.warn("Project missing, initializing:", projectName);
+        sessionEndpoints[projectName] = { endpoints: [] };
+      }
+
+
+      sessionEndpoints[projectName].endpoints =
+        sessionEndpoints[projectName].endpoints.filter(e => {
+          const match =
+            e.method === ep.method &&
+            e.path === ep.path;
+
+
+
+          return !match;
+        });
+
+
+
       saveProjectEndpoints(projectName);
+
       const proxySettings = loadProxySettings(currentlyEditingProject);
-      updateCurrentProjectFile(currentlyEditingProject, sessionEndpoints[currentlyEditingProject].endpoints, proxySettings.isEnabled);
+      updateCurrentProjectFile(
+        currentlyEditingProject,
+        sessionEndpoints[currentlyEditingProject].endpoints,
+        proxySettings.isEnabled
+      );
+
       reloadProxyEndpoints();
 
       if (selectedEndpoint && selectedEndpoint.path === ep.path) {
+        console.log("Clearing selected endpoint:", selectedEndpoint);
         selectedEndpoint = null;
         selectedEndpointPath = null;
         localStorage.removeItem('selectedEndpointPath');
         endpointSettingsSection.classList.add('hidden');
       }
+
       renderEndpoints(projectName);
+      console.groupEnd();
     };
+
 
     buttonGroup.appendChild(editBtn);
     buttonGroup.appendChild(delBtn);
@@ -431,7 +478,7 @@ function updateProxyUI(isActive) {
   const configuredServerPort = settings.serverPort;
 
   if (isActive) {
-    toggleBtn.textContent = window.require ? 'Disable in Browser' : 'Disable Proxy';
+    toggleBtn.textContent = 'Disable in Browser';
     toggleBtn.className = 'toggle-btn disable-proxy';
     toggleBtn.disabled = window.require ? true : false;
     toggleBtn.style.display = 'block';
@@ -1182,122 +1229,152 @@ function switchTab(tabId) {
 
     // Event listener for toggle button
     toggleBtn.addEventListener('click', async () => {
-      console.log('Toggle proxy button clicked');
-      const proxyPort = proxyPortInput.value || '8080';
-      const serverPort = serverPortInput.value || '3000';
-      console.log(`Proxy port: ${proxyPort}, Server port: ${serverPort}`);
+      if (isElectron) {
+        console.log('Toggle proxy button clicked');
+        const proxyPort = proxyPortInput.value || '8080';
+        const serverPort = serverPortInput.value || '3000';
+        console.log(`Proxy port: ${proxyPort}, Server port: ${serverPort}`);
 
-      // Check if the app is in the Electron environment.
-      if (window.require) {
-        // If the proxy is not running, start it.
-        if (!proxyProcess) {
-          if (!currentlyEditingProject) {
-            showFeedback('Please select a project before enabling proxy.');
-            return;
-          }
-
-          // Check if proxy port and server port are the same
-          if (proxyPort === serverPort) {
-            showFeedback('Proxy port and server port cannot be the same.');
-            return;
-          }
-
-          try {
-            const path = window.require('path');
-            const { ipcRenderer } = window.require('electron');
-            const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
-
-            // Save localStorage endpoints to JSON file before starting proxy
-            if (sessionEndpoints[currentlyEditingProject] && sessionEndpoints[currentlyEditingProject].endpoints) {
-              const proxySettings = loadProxySettings(currentlyEditingProject);
-              updateCurrentProjectFile(currentlyEditingProject, sessionEndpoints[currentlyEditingProject].endpoints, proxySettings.isEnabled);
+        // Check if the app is in the Electron environment.
+        if (window.require) {
+          // If the proxy is not running, start it.
+          if (!proxyProcess) {
+            if (!currentlyEditingProject) {
+              showFeedback('Please select a project before enabling proxy.');
+              return;
             }
 
-            // Set the active project for proxy (fixed when proxy is enabled)
-            proxyActiveProject = currentlyEditingProject;
-
-            // Send IPC message to start proxy with the fixed project
-            ipcRenderer.send('start-proxy', {
-              projectPath: path.join(__dirname, 'application'),
-              proxyPort: proxyPort,
-              serverPort: serverPort,
-              currentProject: proxyActiveProject
-            });
-
-            proxyProcess = true; // Indicate proxy is started
-
-            updateProxyUI(true);
-            if (!proxyEnableFeedbackShown) {
-              showFeedback(`Proxy started for project: ${proxyActiveProject}! Please go to your browser to disable it.`);
-              proxyEnableFeedbackShown = true;
+            // Check if proxy port and server port are the same
+            if (proxyPort === serverPort) {
+              showFeedback('Proxy port and server port cannot be the same.');
+              return;
             }
 
+            try {
+              const { ipcRenderer } = window.require('electron');
+              const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
 
-            // Save the state.
-            const settings = getCurrentProxySettings();
-            saveProxySettings(settings, currentlyEditingProject);
+              // Save localStorage endpoints to JSON file before starting proxy
+              if (sessionEndpoints[currentlyEditingProject] && sessionEndpoints[currentlyEditingProject].endpoints) {
+                const proxySettings = loadProxySettings(currentlyEditingProject);
+                updateCurrentProjectFile(currentlyEditingProject, sessionEndpoints[currentlyEditingProject].endpoints, proxySettings.isEnabled);
+              }
 
-          } catch (err) {
-            showFeedback('Failed to start proxy: ' + err);
+              // Set the active project for proxy (fixed when proxy is enabled)
+              proxyActiveProject = currentlyEditingProject;
+
+              // Send IPC message to start proxy with the fixed project
+              ipcRenderer.send('start-proxy', {
+                projectPath: path.join(__dirname, 'application'),
+                proxyPort: proxyPort,
+                serverPort: serverPort,
+                currentProject: proxyActiveProject
+              });
+
+              proxyProcess = true; // Indicate proxy is started
+
+              updateProxyUI(true);
+              if (!proxyEnableFeedbackShown) {
+                showFeedback(`Proxy started for project: ${proxyActiveProject}! Please go to your browser to disable it.`);
+                proxyEnableFeedbackShown = true;
+              }
+
+
+              // Save the state.
+              const settings = getCurrentProxySettings();
+              saveProxySettings(settings, currentlyEditingProject);
+
+            } catch (err) {
+              showFeedback('Failed to start proxy: ' + err);
+            }
+          }
+        } else {
+          // Browser environment.
+          const isRunning = toggleBtn.textContent.includes('Disable');
+          if (!isRunning) {
+            // Browser: call backend API to enable proxy
+            try {
+              const res = await fetch(window.location.origin + '/api/proxy/enable', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                  proxyPort: proxyPort,
+                  serverPort: serverPort,
+                  project: currentlyEditingProject,
+                  endpoints: sessionEndpoints[currentlyEditingProject]?.endpoints || []
+                })
+              });
+              if (res.ok) {
+                // Set the active project for proxy
+                proxyActiveProject = currentlyEditingProject;
+                updateProxyUI(true);
+                if (!proxyEnableFeedbackShown) {
+                  showFeedback('Proxy enabled!');
+                  proxyEnableFeedbackShown = true;
+                }
+                // Save the state.
+                const settings = getCurrentProxySettings();
+                saveProxySettings(settings, currentlyEditingProject);
+              } else {
+                showFeedback('Failed to enable proxy.');
+              }
+            } catch (err) {
+              showFeedback('Error enabling proxy: ' + err);
+            }
+          } else {
+            // Browser: call backend API to disable proxy
+            try {
+              const res = await fetch(window.location.origin + '/api/proxy/disable', {
+                method: 'POST'
+              });
+              if (res.ok) {
+                proxyActiveProject = null; // Clear active project when proxy is disabled
+                await updateStatusDisplay();
+                clearProxyState(); // Clear proxy state on disable
+                showFeedback('Proxy disabled!');
+
+                // Save the state.
+                const settings = getCurrentProxySettings();
+                saveProxySettings(settings, currentlyEditingProject);
+              } else {
+                showFeedback('Failed to disable proxy.');
+              }
+            } catch (err) {
+              showFeedback('Error disabling proxy: ' + err);
+            }
           }
         }
       } else {
-        // Browser environment.
-        const isRunning = toggleBtn.textContent.includes('Disable');
-        if (!isRunning) {
-          // Browser: call backend API to enable proxy
-          try {
-            const res = await fetch(window.location.origin + '/api/proxy/enable', {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json'
-              },
-              body: JSON.stringify({
-                proxyPort: proxyPort,
-                serverPort: serverPort,
-                project: currentlyEditingProject,
-                endpoints: sessionEndpoints[currentlyEditingProject]?.endpoints || []
-              })
-            });
-            if (res.ok) {
-              // Set the active project for proxy
-              proxyActiveProject = currentlyEditingProject;
-              updateProxyUI(true);
-              if (!proxyEnableFeedbackShown) {
-                showFeedback('Proxy enabled!');
-                proxyEnableFeedbackShown = true;
-              }
-              // Save the state.
-              const settings = getCurrentProxySettings();
-              saveProxySettings(settings, currentlyEditingProject);
-            } else {
-              showFeedback('Failed to enable proxy.');
-            }
-          } catch (err) {
-            showFeedback('Error enabling proxy: ' + err);
+        // api call to backend for enable proxy 
+        fetch('/api/proxy/enable', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            proxyPort: proxyPortInput.value || '8080',
+            serverPort: serverPortInput.value || '3000',
+            currentProject: currentlyEditingProject,
+            endpoints: sessionEndpoints[currentlyEditingProject]?.endpoints || []
+          })
+        }).then(response => {
+          if (response.ok) {
+            proxyActiveProject = currentlyEditingProject;
+            updateProxyUI(true);
+            const settings = getCurrentProxySettings();
+            saveProxySettings(settings, currentlyEditingProject);
+            toggleBtn.disabled = true; // Disable button to prevent multiple clicks
+            toggleBtn.textContent = 'Disable in browser';
+            toggleBtn.color = ''
+            showFeedback('Proxy enabled!');
+          } else {
+            showFeedback('Failed to enable proxy.');
           }
-        } else {
-          // Browser: call backend API to disable proxy
-          try {
-            const res = await fetch(window.location.origin + '/api/proxy/disable', {
-              method: 'POST'
-            });
-            if (res.ok) {
-              proxyActiveProject = null; // Clear active project when proxy is disabled
-              await updateStatusDisplay();
-              clearProxyState(); // Clear proxy state on disable
-              showFeedback('Proxy disabled!');
+        })
 
-              // Save the state.
-              const settings = getCurrentProxySettings();
-              saveProxySettings(settings, currentlyEditingProject);
-            } else {
-              showFeedback('Failed to disable proxy.');
-            }
-          } catch (err) {
-            showFeedback('Error disabling proxy: ' + err);
-          }
-        }
+
       }
     });
 
@@ -1371,40 +1448,40 @@ function switchTab(tabId) {
       document.getElementById('connStatus').textContent = 'Not connected to Supabase';
       document.getElementById('connStatus').style.color = '#ff5757';
     }
-async function checkProxyEnabled() {
-  const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
-  const connStatus = document.getElementById('connStatus');
+    async function checkProxyEnabled() {
+      const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
+      const connStatus = document.getElementById('connStatus');
 
-  // Create an abort controller for the timeout
-  const controller = new AbortController();
-  const timeout = setTimeout(() => {
-    controller.abort(); // abort the fetch after 2 seconds
-  }, 2000);
+      // Create an abort controller for the timeout
+      const controller = new AbortController();
+      const timeout = setTimeout(() => {
+        controller.abort(); // abort the fetch after 2 seconds
+      }, 2000);
 
-  try {
-    const response = await fetch(`http://localhost:${proxyPort}/api/proxy/status`, {
-      method: 'GET',
-      signal: controller.signal
-    });
+      try {
+        const response = await fetch(`http://localhost:${proxyPort}/api/proxy/status`, {
+          method: 'GET',
+          signal: controller.signal
+        });
 
-    const data = await response.json();
+        const data = await response.json();
 
-    if (data.status !== "running" || data.project !== currentlyEditingProject) {
-      localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
-      connStatus.textContent = 'Not connected to Supabase';
-      connStatus.style.color = '#ff5757';
+        if (data.status !== "running" || data.project !== currentlyEditingProject) {
+          localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
+          connStatus.textContent = 'Not connected to Supabase';
+          connStatus.style.color = '#ff5757';
+        }
+      } catch (err) {
+        // Handles timeout, server offline, or JSON parse errors
+        console.error('Failed to check proxy status:', err);
+        localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
+        connStatus.textContent = 'Not connected to Supabase';
+        connStatus.style.color = '#ff5757';
+      } finally {
+        clearTimeout(timeout); // clear the timeout if fetch completes
+      }
     }
-  } catch (err) {
-    // Handles timeout, server offline, or JSON parse errors
-    console.error('Failed to check proxy status:', err);
-    localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
-    connStatus.textContent = 'Not connected to Supabase';
-    connStatus.style.color = '#ff5757';
-  } finally {
-    clearTimeout(timeout); // clear the timeout if fetch completes
-  }
-}
-      checkProxyEnabled();
+    checkProxyEnabled();
   }
 
   if (tabId === "endpoints") {
@@ -1416,11 +1493,13 @@ async function checkProxyEnabled() {
 
 async function reloadProxyEndpoints() {
   const state = proxyEnabled;
-  if (state.isRunning && state.port) {
-    try {
-      await fetch(`http://localhost:${state.port}/api/reload-endpoints`, { method: 'POST' });
-    } catch (e) {
-      console.log('Failed to reload proxy endpoints:', e);
+  if (state != undefined) {
+    if (state.isRunning && state.port) {
+      try {
+        await fetch(`http://localhost:${state.port}/api/reload-endpoints`, { method: 'POST' });
+      } catch (e) {
+        console.log('Failed to reload proxy endpoints:', e);
+      }
     }
   }
 }
@@ -2410,7 +2489,6 @@ try {
   console.error('Failed to load selected endpoint path from localStorage:', err);
 }
 let selectedEndpoint = null;
-let selectedEndpointPath = null;
 
 document.addEventListener('DOMContentLoaded', async () => {
   // State variables are now global
@@ -2452,8 +2530,10 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Start performance monitoring if proxy is active on load
   const savedProxyState = proxyEnabled;
-  if (savedProxyState.isRunning && savedProxyState.port) {
-    startPerformanceMonitoring(savedProxyState.port);
+  if (savedProxyState != undefined) {
+    if (savedProxyState.isRunning && savedProxyState.port) {
+      startPerformanceMonitoring(savedProxyState.port);
+    }
   }
 
   // Tutorial button event listener
