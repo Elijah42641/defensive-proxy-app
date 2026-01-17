@@ -49,12 +49,15 @@ XMLHttpRequest.prototype.open = function (method, url, ...rest) {
   return originalXHROpen.apply(this, [method, url, ...rest]);
 };
 
+// Check if running in Electron
 const isElectron = !!(typeof process !== 'undefined' && process.versions && process.versions.electron);
 
-
+let path;
 let updateCurrentProjectFile
 if (isElectron) {
+  path = require('path');
   updateCurrentProjectFile = require('./updateCurrentProject.js').updateCurrentProjectFile;
+
 }
 else {
   updateCurrentProjectFile = function (projectName, endpoints = null, proxyEnabled = null) {
@@ -1224,6 +1227,7 @@ function switchTab(tabId) {
       serverPortInput.value = '3000';
     });
 
+
     // Proxy enable feedback tracker
     let proxyEnableFeedbackShown = false;
 
@@ -1380,7 +1384,6 @@ function switchTab(tabId) {
 
     async function proxyStatusUpdate() {
       try {
-
         const proxyPort123123123 = document.getElementById('proxyPort').value;
         const response = await fetch(`http://localhost:${proxyPort123123123}/api/proxy/status`);
         const data = await response.json();
@@ -1394,14 +1397,26 @@ function switchTab(tabId) {
           proxyEnabled = false;
           localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
         }
+
+        // Check toggleBtn state AFTER updateProxyUI has set it up
+        const toggleBtn = document.getElementById('toggleProxyBtn');
+        if (toggleBtn) {
+          if (toggleBtn.textContent.includes('Disable')) {
+            toggleBtn.disabled = true;
+            toggleBtn.style.color = 'gray';
+          }
+        }
       }
       catch (e) {
         console.log('Failed to fetch proxy status:', e);
       }
     }
+
     // Append the proxyContainer to the proxyTab so the UI is visible
     proxyTab.appendChild(proxyContainer);
+
     proxyStatusUpdate();
+
 
   }
 
