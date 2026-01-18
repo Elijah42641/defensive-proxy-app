@@ -993,69 +993,191 @@
         request compromises the server.</p>
     </section>
 
-    <section id="ips" class="tab-content">
-      <div class="section-header">
-        <h2>IP Management</h2>
-        <button class="add-btn" id="refreshIPsBtn">Refresh IPs</button>
-      </div>
+   <section id="ips" class="tab-content">
+  <div class="section-header">
+    <h2>IP Management</h2>
+    <button class="add-btn" id="refreshIPsBtn">Refresh IPs</button>
+  </div>
 
-      <div class="settings-panel">
-        <h3>Supabase Connection</h3>
-        <p>Configure your project credentials to connect to Supabase for IP data retrieval.</p>
-        <p style="color:rgb(173, 16, 16);"><br><strong>Important: the supabase connection is saved by what credentials were used when you last clicked connect to supabase, not what is saved</strong></p>
-        <div class="form-group">
-          <label for="projectId"><br>Project ID</label>
-          <input type="text" id="projectId" class="form-input" placeholder="e.g., your-project-id" />
-        </div>
-        <div class="form-group">
-          <label for="projectPassword">Project Password</label>
-          <input type="password" id="projectPassword" class="form-input" placeholder="Enter your project password" />
-        </div>
-        <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-          <p id="connStatus" style="flex-grow: 1; align-self: center;">Status: Not Connected</p>
-          <button class="add-btn" id="saveCredentialsBtn">Save Credentials</button>
-          <button class="btn-primary" id="connectSupabaseBtn">Connect to Supabase</button>
-        </div>
-      </div>
+  <!-- ================= REDIS CONFIG ================= -->
+  <div class="settings-panel">
+    <h3>Redis Configuration</h3>
+    <p>Configure Redis for caching, synchronization, and shared state.</p>
 
-      <div class="settings-panel">
-        <h3>IP Settings</h3>
-        <p>Manage IP blocking and reputation thresholds.</p>
-        <div class="form-group">
-          <label  for="saveLimit">Save Limit (Max IPs to Store)</label>
-          <input type="number" id="saveLimit" class="form-input" placeholder="e.g., 1000" min="1" value="1000" />
-        </div>
-        <div class="form-group">
-          <label class="checkbox-label">
-            <input type="checkbox" id="autoBlock" checked />
-            <span>Enable Auto Block</span>
-          </label>
-        </div>
-        <div class="form-group">
-          <label for="reputationThreshold">Reputation Threshold for Auto Block</label>
-          <input type="number" id="reputationThreshold" class="form-input" placeholder="e.g., 50" min="0" max="100"
-            value="50" />
-          <small style="color: var(--text-color); opacity: 0.7;">IPs with reputation below this value will be
-            auto-blocked.</small>
-        </div>
-        <button class="btn-primary" id="saveSettingsBtn">Save Settings</button>
-      </div>
+    <div class="form-group">
+      <label for="redisHost">Redis Host</label>
+      <input
+        type="text"
+        id="redisHost"
+        class="form-input"
+        placeholder="e.g., localhost or redis.example.com"
+      />
+    </div>
 
-      <div class="settings-panel">
-        <h3>IP List</h3>
-        <p>View and manage blocked IPs with pagination.</p>
-        <div id="ipsContainer" class="endpoints-list-container">
-          <ul class="endpoints-list" id="ipsList">
-            <li>Loading IP data...</li>
-          </ul>
-        </div>
-        <div class="pagination-controls">
-          <button class="small-btn" id="prevPage">Previous</button>
-          <span id="pageInfo" class="page-info">Page 1 of 1</span>
-          <button class="small-btn" id="nextPage">Next</button>
-        </div>
-      </div>
-    </section>
+    <div class="form-group">
+      <label for="redisPort">Redis Port</label>
+      <input
+        type="number"
+        id="redisPort"
+        class="form-input"
+        value="6379"
+        min="1"
+        max="65535"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="redisUsername">Redis Username (optional)</label>
+      <input
+        type="text"
+        id="redisUsername"
+        class="form-input"
+        placeholder="default"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="redisPassword">Redis Password</label>
+      <input
+        type="password"
+        id="redisPassword"
+        class="form-input"
+        placeholder="Leave empty if none"
+      />
+    </div>
+
+    <div class="form-group">
+      <label id = "redisDatabase" for="redisDB">Redis Database (Standalone only)</label>
+      <input
+        type="number"
+        id="redisDB"
+        class="form-input"
+        value="0"
+        min="0"
+      />
+      <small style="opacity: 0.7;">
+        Ignored when using Redis Cluster.
+      </small>
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="redisTLS" />
+        <span>Use TLS (Cloud / Managed Redis)</span>
+      </label>
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+      <p id="redisStatus" style="flex-grow: 1; align-self: center;">
+        Status: Not Connected
+      </p>
+      <button class="add-btn" id="saveRedisSettingsBtn">Save Redis Settings</button>
+      <button class="btn-primary" id="testRedisConnectionBtn">Test Connection</button>
+    </div>
+  </div>
+
+    <!-- ================= IP SETTINGS ================= -->
+  <div class="settings-panel">
+    <h3>IP Settings</h3>
+    <p>Manage IP blocking and reputation thresholds.</p>
+
+    <div class="form-group">
+      <label for="saveLimit">Save Limit (Max IPs to Store)</label>
+      <input
+        type="number"
+        id="saveLimit"
+        class="form-input"
+        min="1"
+        value="1000"
+      />
+    </div>
+
+    <div class="form-group">
+      <label class="checkbox-label">
+        <input type="checkbox" id="autoBlock" checked />
+        <span>Enable Auto Block</span>
+      </label>
+    </div>
+
+    <div class="form-group">
+      <label for="reputationThreshold">Reputation Threshold for Auto Block</label>
+      <input
+        type="number"
+        id="reputationThreshold"
+        class="form-input"
+        min="0"
+        max="100"
+        value="50"
+      />
+      <small style="opacity: 0.7;">
+        IPs with reputation below this value will be auto-blocked.
+      </small>
+    </div>
+
+    <button class="btn-primary" id="saveSettingsBtn">Save Settings</button>
+  </div>
+
+  <!-- ================= SUPABASE CONFIG ================= -->
+  <div class="settings-panel">
+    <h3>Supabase Connection</h3>
+    <p>Configure your project credentials to connect to Supabase for IP data retrieval.</p>
+    <p style="color: rgb(173, 16, 16);">
+      <br><strong>
+        Important: the Supabase connection uses the credentials present when you click
+        “Connect to Supabase”, not what is currently saved.
+      </strong>
+    </p>
+
+    <div class="form-group">
+      <label for="projectId"><br>Project ID</label>
+      <input
+        type="text"
+        id="projectId"
+        class="form-input"
+        placeholder="e.g., your-project-id"
+      />
+    </div>
+
+    <div class="form-group">
+      <label for="projectPassword">Project Password</label>
+      <input
+        type="password"
+        id="projectPassword"
+        class="form-input"
+        placeholder="Enter your project password"
+      />
+    </div>
+
+    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
+      <p id="connStatus" style="flex-grow: 1; align-self: center;">
+        Status: Not Connected
+      </p>
+      <button class="add-btn" id="saveCredentialsBtn">Save Credentials</button>
+      <button class="btn-primary" id="connectSupabaseBtn">Connect to Supabase</button>
+    </div>
+  </div>
+
+
+
+  <!-- ================= IP LIST ================= -->
+  <div class="settings-panel">
+    <h3>IP List</h3>
+    <p>View and manage blocked IPs with pagination.</p>
+
+    <div id="ipsContainer" class="endpoints-list-container">
+      <ul class="endpoints-list" id="ipsList">
+        <li>Loading IP data...</li>
+      </ul>
+    </div>
+
+    <div class="pagination-controls">
+      <button class="small-btn" id="prevPage">Previous</button>
+      <span id="pageInfo" class="page-info">Page 1 of 1</span>
+      <button class="small-btn" id="nextPage">Next</button>
+    </div>
+  </div>
+</section>
+
 
     <section id="logs" class="tab-content">
       <div class="section-header">

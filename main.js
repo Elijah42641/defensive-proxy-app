@@ -1463,6 +1463,15 @@ function switchTab(tabId) {
       document.getElementById('connStatus').textContent = 'Not connected to Supabase';
       document.getElementById('connStatus').style.color = '#ff5757';
     }
+    
+    localStorage.getItem('redisSettings_' + currentlyEditingProject);
+    document.getElementById('redisHost').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.host || '';
+    document.getElementById('redisPort').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.port || '';
+    document.getElementById('redisPassword').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.password || '';
+    document.getElementById('redisUsername').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.username || '';
+    document.getElementById('redisDatabase').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.database || '';
+    document.getElementById('redisTLS').checked = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.tls || false;
+    
     async function checkProxyEnabled() {
       const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
       const connStatus = document.getElementById('connStatus');
@@ -2949,4 +2958,29 @@ document.getElementById('connectSupabaseBtn').onclick = () => {
 
       });
   }
+}
+
+document.getElementById('saveRedisSettingsBtn').onclick = () => {
+  const redisHost = document.getElementById('redisHost').value;
+  const redisPort = document.getElementById('redisPort').value;
+  const redisPassword = document.getElementById('redisPassword').value;
+  const redisUsername = document.getElementById('redisUsername').value;
+  const redisDatabase = document.getElementById('redisDatabase').value || '0'
+
+  if (!redisHost || !redisPort) {
+    showFeedback('Please fill out required Redis fields.');
+    return;
+  }
+
+  localStorage.setItem(`redisSettings_${currentlyEditingProject}`, JSON.stringify({
+    host: redisHost,
+    port: redisPort,
+    password: redisPassword,
+    username: redisUsername,
+    database: redisDatabase,
+    tls: document.getElementById('redisTLS').checked
+  }));
+
+  showFeedback('Redis settings saved successfully!');
+
 }
