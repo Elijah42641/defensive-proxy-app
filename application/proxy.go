@@ -568,7 +568,7 @@ func main() {
 		redisTLS := redisFields.RedisTLS
 
 		// Build address
-		redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
+		redisAddr := fmt.Sprintf("%s:%d", redisHost, redisPort)
 
 		// Configure options
 		options := &redis.Options{

@@ -1471,7 +1471,13 @@ function switchTab(tabId) {
     document.getElementById('redisUsername').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.username || '';
     document.getElementById('redisDatabase').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.database || '';
     document.getElementById('redisTLS').checked = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.tls || false;
-
+    if (localStorage.getItem('redisConnected_' + currentlyEditingProject) == 'true') {
+      document.getElementById('redisStatus').textContent = 'Connected to Redis';
+      document.getElementById('redisStatus').style.color = '#4CAF50';
+    } else {
+      document.getElementById('redisStatus').textContent = 'Not connected to Redis';
+      document.getElementById('redisStatus').style.color = '#ff5757';
+    }
     async function checkProxyEnabled() {
       const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
       const connStatus = document.getElementById('connStatus');
@@ -3032,7 +3038,7 @@ document.getElementById('connectToRedisBtn').onclick = () => {
     .then(response => response.text())
     .then(text => {
       showFeedback(text);
-      const statusElem = document.getElementById('redisConnStatus') || document.getElementById('redisStatus');
+      const statusElem =  document.getElementById('redisStatus');
       if (text.includes('Successfully')) {
         statusElem.textContent = 'Status: Connected';
         statusElem.style.color = '#64ffda';
