@@ -1463,7 +1463,7 @@ function switchTab(tabId) {
       document.getElementById('connStatus').textContent = 'Not connected to Supabase';
       document.getElementById('connStatus').style.color = '#ff5757';
     }
-    
+
     localStorage.getItem('redisSettings_' + currentlyEditingProject);
     document.getElementById('redisHost').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.host || '';
     document.getElementById('redisPort').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.port || '';
@@ -1471,7 +1471,7 @@ function switchTab(tabId) {
     document.getElementById('redisUsername').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.username || '';
     document.getElementById('redisDatabase').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.database || '';
     document.getElementById('redisTLS').checked = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.tls || false;
-    
+
     async function checkProxyEnabled() {
       const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
       const connStatus = document.getElementById('connStatus');
@@ -2983,4 +2983,68 @@ document.getElementById('saveRedisSettingsBtn').onclick = () => {
 
   showFeedback('Redis settings saved successfully!');
 
+}
+
+document.getElementById('connectToRedisBtn').onclick = () => {
+  const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
+  let redisSettings = {};
+
+  // Safe JSON parse
+  try {
+    const stored = localStorage.getItem(`redisSettings_${currentlyEditingProject}`);
+    if (stored) redisSettings = JSON.parse(stored);
+  } catch (e) {
+    console.warn("Failed to parse Redis settings from localStorage, using defaults", e);
+    redisSettings = {};
+  }
+
+  // Ensure correct types
+  const redisHost = String(redisSettings.host || 'localhost');
+  const redisPort = Number(redisSettings.port) || 6379;
+  const redisPassword = String(redisSettings.password || '');
+  const redisUsername = String(redisSettings.username || '');
+  const redisDatabase = Number(redisSettings.database) || 0;
+  const redisTLS = Boolean(redisSettings.tls) || false;
+
+  console.log(`redis host: ${redisHost}, port: ${redisPort}, username: ${redisUsername}, database: ${redisDatabase}, tls: ${redisTLS}`);
+
+  // Validate required fields
+  if (!redisHost || !redisPort) {
+    showFeedback('Please fill out required Redis fields and save settings before connecting.');
+    return;
+  }
+
+  // Send properly typed JSON to backend
+  fetch(`http://localhost:${proxyPort}/api/redis/connect`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      host: redisHost,
+      port: redisPort,
+      password: redisPassword,
+      username: redisUsername,
+      database: redisDatabase,
+      tls: redisTLS
+    })
+  })
+    .then(response => response.text())
+    .then(text => {
+      showFeedback(text);
+      const statusElem = document.getElementById('redisConnStatus') || document.getElementById('redisStatus');
+      if (text.includes('Successfully')) {
+        statusElem.textContent = 'Status: Connected';
+        statusElem.style.color = '#64ffda';
+        localStorage.setItem(`redisConnected_${currentlyEditingProject}`, 'true');
+      } else {
+        statusElem.textContent = 'Status: Not Connected';
+        statusElem.style.color = '#ff5757';
+        localStorage.setItem(`redisConnected_${currentlyEditingProject}`, 'false');
+      }
+    })
+    .catch(err => {
+      console.error("Redis connection failed:", err);
+      showFeedback("Redis connection failed: " + err.message);
+    });
 }

@@ -1,4 +1,1 @@
-supabase apis
-
-now that i have if supabase is connected or not i need to get it to add an ip if blocked request
-and if save limit hasnt been reached
+need to add functionality for connect to redis

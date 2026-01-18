@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -17,6 +18,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/redis/go-redis/v9"
 )
 
 var endpoints []Endpoint
@@ -168,7 +170,7 @@ func main() {
 		// Check if this is an internal proxy API request (always allow API calls)
 		internalAPI := false
 		apiPath := r.URL.Path
-		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/supabase/connect" {
+		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/supabase/connect" {
 			internalAPI = true
 		}
 
@@ -503,6 +505,96 @@ func main() {
 		}
 		connpool.Close()
 		connpool = nil
+	})
+
+	http.HandleFunc("/api/redis/connect", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		// Handle Redis connection here
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", 500)
+			return
+		}
+
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
+		var body map[string]interface{}
+
+		//parse body
+		err = json.Unmarshal(data, &body)
+
+		if err != nil {
+			http.Error(w, "invalid JSON", 400)
+			return
+		}
+
+		type RequestBody struct {
+			RedisHost     string `json:"host"`
+			RedisPort     int    `json:"port"`
+			RedisUsername string `json:"username"`
+			RedisPassword string `json:"password"`
+			RedisDatabase int    `json:"database"`
+			RedisTLS      bool   `json:"tls"`
+		}
+
+		var redisFields RequestBody
+		err = json.Unmarshal(data, &redisFields)
+		if err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		redisHost := redisFields.RedisHost
+		redisPort := redisFields.RedisPort
+		redisUsername := redisFields.RedisUsername
+		redisPassword := redisFields.RedisPassword
+		redisDatabase := redisFields.RedisDatabase
+		redisTLS := redisFields.RedisTLS
+
+		// Build address
+		redisAddr := fmt.Sprintf("%s:%s", redisHost, redisPort)
+
+		// Configure options
+		options := &redis.Options{
+			Addr:     redisAddr,
+			Username: redisUsername, // optional, only if Redis uses ACL
+			Password: redisPassword, // optional
+			DB:       redisDatabase, // optional
+		}
+
+		// Enable TLS if required
+		if redisTLS {
+			options.TLSConfig = &tls.Config{
+				InsecureSkipVerify: true, // set to false in production with valid certs
+			}
+		}
+
+		// Connect to Redis
+		rdb := redis.NewClient(options)
+
+		ping, err := rdb.Ping(ctx).Result()
+		if err != nil {
+			panic(err)
+		}
+		fmt.Println("Connected to Redis:", ping)
+
+		w.Write([]byte("Successfully connected to Redis database"))
 	})
 
 	// Create server
