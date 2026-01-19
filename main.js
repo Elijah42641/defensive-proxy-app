@@ -1422,23 +1422,9 @@ function switchTab(tabId) {
 
   if (tabId === "ips") {
     document.getElementById("saveLimit").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).saveLimit;
-    document.getElementById("autoBlock").checked = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockEnabled;
     document.getElementById("reputationThreshold").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockThreshhold;
 
-    const autoBlockCheckbox = document.getElementById("autoBlock");
-    const thresholdInput = document.getElementById("reputationThreshold");
 
-    function updateThreshold() {
-      if (!autoBlockCheckbox.checked) {
-        thresholdInput.value = '0';
-        thresholdInput.readOnly = true;
-      } else {
-        thresholdInput.readOnly = false;
-      }
-    }
-
-    autoBlockCheckbox.addEventListener('change', updateThreshold);
-    updateThreshold(); // Initial call
 
     document.getElementById('projectId').value = localStorage.getItem(`projectId_${currentlyEditingProject}`) || '';
     document.getElementById('projectPassword').value = localStorage.getItem(`projectPassword_${currentlyEditingProject}`) || '';
@@ -2878,11 +2864,9 @@ function stopPerformanceMonitoring() {
 
 function saveIpSettings(project) {
   let saveLimit = document.getElementById("saveLimit").value;
-  let autoBlockEnabled = document.getElementById("autoBlock").checked;
   let autoBlockThreshhold = document.getElementById("reputationThreshold").value;
   const ipSettings = {
     saveLimit: saveLimit,
-    autoBlockEnabled: autoBlockEnabled,
     autoBlockThreshhold: autoBlockThreshhold
   };
   localStorage.setItem(`ips_${project}`, JSON.stringify(ipSettings))
@@ -2928,7 +2912,7 @@ document.getElementById('connectSupabaseBtn').onclick = () => {
     showFeedback('Please fill out each supabase field.');
     return;
   } else {
-    proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
+    const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
     fetch(`http://localhost:${proxyPort}/api/supabase/connect`, {
       method: 'POST',
       headers: {
@@ -2938,7 +2922,6 @@ document.getElementById('connectSupabaseBtn').onclick = () => {
         projectId: document.getElementById('projectId').value,
         password: document.getElementById('projectPassword').value,
         saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
-        autoBlockEnabled: document.getElementById("autoBlock").checked,
         autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10)
       })
 
@@ -3032,7 +3015,9 @@ document.getElementById('connectToRedisBtn').onclick = () => {
       password: redisPassword,
       username: redisUsername,
       database: redisDatabase,
-      tls: redisTLS
+      tls: redisTLS,
+      saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
+      autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10)
     })
   })
     .then(response => response.text())

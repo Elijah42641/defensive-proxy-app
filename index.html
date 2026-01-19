@@ -1002,7 +1002,8 @@
   <!-- ================= REDIS CONFIG ================= -->
   <div class="settings-panel">
     <h3>Redis Configuration</h3>
-    <p>Configure Redis for caching, synchronization, and shared state.</p>
+    <p>For redis to work it will have to recieve requests before the server and proxy, and forward requests to the proxy </p>
+    <p><br>Configure Redis for caching, synchronization, and shared state.</p>
 
     <div class="form-group">
       <label for="redisHost">Redis Host</label>
@@ -1082,7 +1083,7 @@
     <p>Manage IP blocking and reputation thresholds.</p>
 
     <div class="form-group">
-      <label for="saveLimit">Save Limit (Max IPs to Store)</label>
+      <label for="saveLimit">Save Limit (Max IPs to Store, set to -1 or less to save everything)</label>
       <input
         type="number"
         id="saveLimit"
@@ -1092,12 +1093,7 @@
       />
     </div>
 
-    <div class="form-group">
-      <label class="checkbox-label">
-        <input type="checkbox" id="autoBlock" checked />
-        <span>Enable Auto Block</span>
-      </label>
-    </div>
+  
 
     <div class="form-group">
       <label for="reputationThreshold">Reputation Threshold for Auto Block</label>

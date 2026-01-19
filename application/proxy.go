@@ -14,6 +14,7 @@ import (
 	"net/url"
 	"os"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -21,6 +22,9 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+var saveLocalIp = true
+var redisConnected = false
+var rdb *redis.Client
 var endpoints []Endpoint
 var proxyEnabled = false
 var currentServerPort string
@@ -28,6 +32,7 @@ var supabaseConnected = false
 var connpool *pgxpool.Pool
 var saveLimit int
 var cancel context.CancelFunc
+var autoBlockThreshhold int
 
 var server *http.Server
 
@@ -127,6 +132,39 @@ func main() {
 
 	// Main handler
 	mainHandler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// here is where we will check if the ip is blocked in the cache
+		if redisConnected {
+			ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+
+			// Extract IP only (no port)
+			ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
+			if err != nil {
+				ipStr = r.RemoteAddr
+			}
+
+			reputationStr, err := rdb.Get(ctx, ipStr).Result()
+
+			if err == redis.Nil {
+			} else if err != nil {
+				fmt.Println("Redis GET error:", err)
+			} else {
+
+				// Key exists now parse reputation
+				reputation, err := strconv.Atoi(reputationStr)
+				if err != nil {
+					fmt.Println("Invalid reputation value:", reputationStr)
+					return
+				}
+
+				// Block if below threshold
+				if reputation <= autoBlockThreshhold {
+					w.WriteHeader(http.StatusForbidden)
+					return
+				}
+			}
+		}
+
 		// instead of taking the whole body it safely chunks it
 		defer r.Body.Close()
 
@@ -199,31 +237,67 @@ func main() {
 			if !result {
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("Request blocked by defensive proxy"))
-
-				// here is where I will have the ip saved or not
-				var limitReached bool
-
-				if connpool == nil {
-					log.Println("pool is nil — Supabase not connected")
-					return
-				} else {
-					dbCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+				if redisConnected {
+					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
-					err := connpool.QueryRow(
-						dbCtx, CHECK_PUBLIC_IP_EXISTENCE_SQL, saveLimit-1,
-					).Scan(&limitReached)
 
+					// Extract IP from RemoteAddr
+					ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
 					if err != nil {
-						log.Printf("query failed: %v", err)
+						ipStr = r.RemoteAddr
+					}
+
+					ip := net.ParseIP(ipStr)
+					if ip == nil {
+						fmt.Println("Invalid IP:", ipStr)
 						return
 					}
 
-					if !limitReached {
-						_, err = connpool.Exec(dbCtx, INSERT_PUBLIC_IP_SQL, host, 1, true)
+					repStr, err := rdb.Get(ctx, ipStr).Result()
+					if err == redis.Nil {
+						// Key does not exist
+						count, err := rdb.DBSize(ctx).Result()
+						if err != nil {
+							fmt.Println("Redis error:", err)
+							return
+						}
+
+						if saveLimit <= -1 || count < int64(saveLimit) {
+							// Add IP
+							err := rdb.Set(ctx, ipStr, 0, 0).Err()
+							if saveLocalIp {
+								if strings.Contains(r.RemoteAddr, "127.0.0.1") ||
+									strings.Contains(r.RemoteAddr, "::1") ||
+									ip.IsLoopback() {
+									saveLocalIp = false
+								}
+							}
+							if err != nil {
+								fmt.Println("Error adding IP:", err)
+							} else {
+								fmt.Println("Added new IP:", ipStr)
+							}
+						} else {
+							fmt.Println("Save limit reached")
+						}
+					} else if err != nil {
+						fmt.Println("Redis GET error:", err)
+					} else {
+						// Increment reputation by penalty
+						rep, _ := strconv.Atoi(repStr)
+						rep -= 1
+						err := rdb.Set(ctx, ipStr, rep, 0).Err()
+						if err != nil {
+							fmt.Println("Error updating IP reputation:", err)
+						} else {
+							fmt.Println("Updated IP reputation:", ipStr, "to", rep)
+						}
 					}
-					return
 				}
+
+				return
 			}
+
 			proxy.ServeHTTP(w, r)
 			return
 		}
@@ -451,7 +525,6 @@ func main() {
 			Password           string `json:"password"`
 			ProjectId          string `json:"projectId"`
 			SaveLimit          int    `json:"saveLimit"`
-			AutoBlockEnabled   bool   `json:"autoBlockEnabled"`
 			AutoBlockThreshold int    `json:"autoBlockThreshhold"`
 		}
 
@@ -545,12 +618,14 @@ func main() {
 		}
 
 		type RequestBody struct {
-			RedisHost     string `json:"host"`
-			RedisPort     int    `json:"port"`
-			RedisUsername string `json:"username"`
-			RedisPassword string `json:"password"`
-			RedisDatabase int    `json:"database"`
-			RedisTLS      bool   `json:"tls"`
+			RedisHost           string `json:"host"`
+			RedisPort           int    `json:"port"`
+			RedisUsername       string `json:"username"`
+			RedisPassword       string `json:"password"`
+			RedisDatabase       int    `json:"database"`
+			RedisTLS            bool   `json:"tls"`
+			SaveLimit           int    `json:"saveLimit"`
+			AutoBlockThreshhold int    `json:"autoBlockThreshhold"`
 		}
 
 		var redisFields RequestBody
@@ -566,6 +641,8 @@ func main() {
 		redisPassword := redisFields.RedisPassword
 		redisDatabase := redisFields.RedisDatabase
 		redisTLS := redisFields.RedisTLS
+		saveLimit = redisFields.SaveLimit
+		autoBlockThreshhold = redisFields.AutoBlockThreshhold
 
 		// Build address
 		redisAddr := fmt.Sprintf("%s:%d", redisHost, redisPort)
@@ -586,13 +663,14 @@ func main() {
 		}
 
 		// Connect to Redis
-		rdb := redis.NewClient(options)
+		rdb = redis.NewClient(options)
 
 		ping, err := rdb.Ping(ctx).Result()
 		if err != nil {
 			panic(err)
 		}
 		fmt.Println("Connected to Redis:", ping)
+		redisConnected = true
 
 		w.Write([]byte("Successfully connected to Redis database"))
 	})
