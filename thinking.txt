@@ -1,3 +1,0 @@
-right now the redis works mostly except it doesnt subtract threshold by custom amount
-
-need to add a field for each rule thats rep lost, shows if redis is connected

@@ -532,9 +532,7 @@ if (window.require) {
     updateProxyUI(isActiveForCurrent);
     if (!data.isActive) {
       showFeedback('Proxy has been stopped.');
-      localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
-      document.getElementById('connStatus').textContent = 'Not connected to Supabase';
-      document.getElementById('connStatus').style.color = '#ff5757';
+    
     }
   });
   ipcRenderer.on('proxy-stopped', () => {
@@ -543,9 +541,7 @@ if (window.require) {
     updateProxyUI(false);
     clearProxyState();
     showFeedback('Proxy has been stopped.');
-    localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
-    document.getElementById('connStatus').textContent = 'Not connected to Supabase';
-    document.getElementById('connStatus').style.color = '#ff5757';
+ 
   });
 }
 
@@ -1395,7 +1391,6 @@ function switchTab(tabId) {
         else {
           updateProxyUI(false);
           proxyEnabled = false;
-          localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
         }
 
         // Check toggleBtn state AFTER updateProxyUI has set it up
@@ -1423,32 +1418,10 @@ function switchTab(tabId) {
   if (tabId === "ips") {
     document.getElementById("saveLimit").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).saveLimit;
     document.getElementById("reputationThreshold").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockThreshhold;
+    document.getElementById("timeToBlockIP").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockTime
 
 
-
-    document.getElementById('projectId').value = localStorage.getItem(`projectId_${currentlyEditingProject}`) || '';
-    document.getElementById('projectPassword').value = localStorage.getItem(`projectPassword_${currentlyEditingProject}`) || '';
-
-    if (document.getElementById('projectId').value == '' || document.getElementById('projectPassword').value == '') {
-      document.getElementById('projectId').readOnly = false;
-      document.getElementById('projectPassword').readOnly = false;
-
-      document.getElementById('saveCredentialsBtn').textContent = 'Save Credentials';
-    }
-    else {
-      document.getElementById('projectId').readOnly = true;
-      document.getElementById('projectPassword').readOnly = true;
-
-      document.getElementById('saveCredentialsBtn').textContent = 'Edit Credentials';
-    }
-
-    if (localStorage.getItem(`supabaseConnected_${currentlyEditingProject}`) == 'true') {
-      document.getElementById('connStatus').textContent = 'Connected to Supabase';
-      document.getElementById('connStatus').style.color = '#4CAF50';
-    } else {
-      document.getElementById('connStatus').textContent = 'Not connected to Supabase';
-      document.getElementById('connStatus').style.color = '#ff5757';
-    }
+  
 
     localStorage.getItem('redisSettings_' + currentlyEditingProject);
     document.getElementById('redisHost').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.host || '';
@@ -1464,40 +1437,7 @@ function switchTab(tabId) {
       document.getElementById('redisStatus').textContent = 'Not connected to Redis';
       document.getElementById('redisStatus').style.color = '#ff5757';
     }
-    async function checkProxyEnabled() {
-      const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
-      const connStatus = document.getElementById('connStatus');
-
-      // Create an abort controller for the timeout
-      const controller = new AbortController();
-      const timeout = setTimeout(() => {
-        controller.abort(); // abort the fetch after 2 seconds
-      }, 2000);
-
-      try {
-        const response = await fetch(`http://localhost:${proxyPort}/api/proxy/status`, {
-          method: 'GET',
-          signal: controller.signal
-        });
-
-        const data = await response.json();
-
-        if (data.status !== "running" || data.project !== currentlyEditingProject) {
-          localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
-          connStatus.textContent = 'Not connected to Supabase';
-          connStatus.style.color = '#ff5757';
-        }
-      } catch (err) {
-        // Handles timeout, server offline, or JSON parse errors
-        console.error('Failed to check proxy status:', err);
-        localStorage.setItem('supabaseConnected_' + currentlyEditingProject, 'false');
-        connStatus.textContent = 'Not connected to Supabase';
-        connStatus.style.color = '#ff5757';
-      } finally {
-        clearTimeout(timeout); // clear the timeout if fetch completes
-      }
-    }
-    checkProxyEnabled();
+ 
   }
 
   if (tabId === "endpoints") {
@@ -2865,9 +2805,11 @@ function stopPerformanceMonitoring() {
 function saveIpSettings(project) {
   let saveLimit = document.getElementById("saveLimit").value;
   let autoBlockThreshhold = document.getElementById("reputationThreshold").value;
+  let autoBlockTime = document.getElementById("timeToBlockIP").value
   const ipSettings = {
     saveLimit: saveLimit,
-    autoBlockThreshhold: autoBlockThreshhold
+    autoBlockThreshhold: autoBlockThreshhold,
+    autoBlockTime: autoBlockTime
   };
   localStorage.setItem(`ips_${project}`, JSON.stringify(ipSettings))
 
@@ -2876,78 +2818,17 @@ function saveIpSettings(project) {
 
 document.getElementById("saveSettingsBtn").onclick = () => {
   if (!document.getElementById("saveLimit").value ||
-    !document.getElementById("reputationThreshold").value
-  ) { showFeedback("Fill out each field first") } else {
+    !document.getElementById("reputationThreshold").value ||
+    !document.getElementById("timeToBlockIP").value
+  ) { showFeedback("Fill out each field first");  } else {
     saveIpSettings(currentlyEditingProject)
   }
 
 };
 // Tutorial check moved inside DOMContentLoaded
 
-const saveCredentialsbtn = document.getElementById('saveCredentialsBtn');
-saveCredentialsbtn.onclick = () => {
-  if (saveCredentialsbtn.textContent === 'Save Credentials') {
-    if (document.getElementById('projectId').value === '' || document.getElementById('projectPassword').value === '') {
-      showFeedback('Please fill out both fields before saving.');
-      return;
-    }
-    else {
-      localStorage.setItem(`projectId_${currentlyEditingProject}`, document.getElementById('projectId').value);
-      localStorage.setItem(`projectPassword_${currentlyEditingProject}`, document.getElementById('projectPassword').value);
-      showFeedback('Credentials saved successfully!');
-      document.getElementById('projectId').readOnly = true;
-      document.getElementById('projectPassword').readOnly = true;
-      saveCredentialsbtn.textContent = 'Edit Credentials';
-    }
-  }
-  else {
-    document.getElementById('projectId').readOnly = false;
-    document.getElementById('projectPassword').readOnly = false;
-    saveCredentialsbtn.textContent = 'Save Credentials';
-  }
-}
 
-document.getElementById('connectSupabaseBtn').onclick = () => {
-  if (document.getElementById('projectId').value === '' || document.getElementById('projectPassword').value === '' || document.getElementById("saveLimit").value === '' || document.getElementById("reputationThreshold").value === '') {
-    showFeedback('Please fill out each supabase field.');
-    return;
-  } else {
-    const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
-    fetch(`http://localhost:${proxyPort}/api/supabase/connect`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({
-        projectId: document.getElementById('projectId').value,
-        password: document.getElementById('projectPassword').value,
-        saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
-        autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10)
-      })
 
-    })
-      .then(response => response.text())
-      .then(text => {
-        showFeedback(text);
-        if (text.includes('Successfully')) {
-          document.getElementById('connStatus').textContent = 'Status: Connected';
-          document.getElementById('connStatus').style.color = '#64ffda';
-          localStorage.setItem(`supabaseConnected_${currentlyEditingProject}`, 'true');
-        } else {
-          document.getElementById('connStatus').textContent = 'Status: Not Connected';
-          document.getElementById('connStatus').style.color = '#ff5757';
-          localStorage.setItem(`supabaseConnected_${currentlyEditingProject}`, 'false');
-        }
-      })
-      .catch(error => {
-        showFeedback(`Error connecting to Supabase: ${error.message}`);
-        document.getElementById('connStatus').textContent = 'Status: Not Connected';
-        document.getElementById('connStatus').style.color = '#ff5757';
-        localStorage.setItem(`supabaseConnected_${currentlyEditingProject}`, 'false')
-
-      });
-  }
-}
 
 document.getElementById('saveRedisSettingsBtn').onclick = () => {
   const redisHost = document.getElementById('redisHost').value;
@@ -3017,7 +2898,8 @@ document.getElementById('connectToRedisBtn').onclick = () => {
       database: redisDatabase,
       tls: redisTLS,
       saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
-      autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10)
+      autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10),
+      timeToBlock: parseInt(document.getElementById("timeToBlockIP").value, 10)
     })
   })
     .then(response => response.text())
@@ -3028,10 +2910,14 @@ document.getElementById('connectToRedisBtn').onclick = () => {
         statusElem.textContent = 'Status: Connected';
         statusElem.style.color = '#64ffda';
         localStorage.setItem(`redisConnected_${currentlyEditingProject}`, 'true');
+        // Update Redis options visibility
+        updateRedisReputationOptionsVisibility();
       } else {
         statusElem.textContent = 'Status: Not Connected';
         statusElem.style.color = '#ff5757';
         localStorage.setItem(`redisConnected_${currentlyEditingProject}`, 'false');
+        // Update Redis options visibility
+        updateRedisReputationOptionsVisibility();
       }
     })
     .catch(err => {
@@ -3039,3 +2925,141 @@ document.getElementById('connectToRedisBtn').onclick = () => {
       showFeedback("Redis connection failed: " + err.message);
     });
 }
+
+// Function to update Redis reputation options visibility based on Redis connection status
+function updateRedisReputationOptionsVisibility() {
+  const redisConnected = localStorage.getItem('redisConnected_' + currentlyEditingProject) === 'true';
+  const redisRepOptions = document.getElementById('redisRepOptions');
+  const redisOnlyOption = document.querySelector('.redis-only-option');
+  
+  if (redisRepOptions) {
+    if (redisConnected) {
+      redisRepOptions.classList.remove('hidden');
+    } else {
+      redisRepOptions.classList.add('hidden');
+    }
+  }
+  
+  if (redisOnlyOption) {
+    if (redisConnected) {
+      redisOnlyOption.style.display = 'block';
+    } else {
+      redisOnlyOption.style.display = 'none';
+    }
+  }
+}
+
+// Function to save reputation lost rule settings
+function saveReputationLostRuleSettings() {
+  const ruleType = document.getElementById('reputationLostRuleType')?.value || 'value';
+  const ruleValue = document.getElementById('reputationLostRule')?.value || '';
+  const redisAction = document.getElementById('redisRepAction')?.value || 'cache-invalidate';
+  const redisThreshold = document.getElementById('redisRepThreshold')?.value || '50';
+  const redisTTL = document.getElementById('redisRepTTL')?.value || '3600';
+  
+  const repLostSettings = {
+    ruleType: ruleType,
+    ruleValue: ruleValue,
+    redisAction: redisAction,
+    redisThreshold: parseInt(redisThreshold, 10),
+    redisTTL: parseInt(redisTTL, 10)
+  };
+  
+  localStorage.setItem(`repLostRule_${currentlyEditingProject}`, JSON.stringify(repLostSettings));
+  showFeedback('Reputation Lost Rule settings saved successfully!');
+}
+
+// Function to load reputation lost rule settings
+function loadReputationLostRuleSettings() {
+  try {
+    const stored = localStorage.getItem(`repLostRule_${currentlyEditingProject}`);
+    if (stored) {
+      const settings = JSON.parse(stored);
+      
+      const ruleTypeSelect = document.getElementById('reputationLostRuleType');
+      const ruleValueInput = document.getElementById('reputationLostRule');
+      const redisActionSelect = document.getElementById('redisRepAction');
+      const redisThresholdInput = document.getElementById('redisRepThreshold');
+      const redisTTLInput = document.getElementById('redisRepTTL');
+      
+      if (ruleTypeSelect) ruleTypeSelect.value = settings.ruleType || 'value';
+      if (ruleValueInput) ruleValueInput.value = settings.ruleValue || '';
+      if (redisActionSelect) redisActionSelect.value = settings.redisAction || 'cache-invalidate';
+      if (redisThresholdInput) redisThresholdInput.value = settings.redisThreshold || '50';
+      if (redisTTLInput) redisTTLInput.value = settings.redisTTL || '3600';
+    }
+  } catch (e) {
+    console.warn("Failed to load reputation lost rule settings:", e);
+  }
+  
+  // Update visibility based on Redis connection status
+  updateRedisReputationOptionsVisibility();
+}
+
+// Add event listeners for reputation lost rule settings
+function initializeReputationLostRuleHandlers() {
+  // Listen for rule type changes
+  const ruleTypeSelect = document.getElementById('reputationLostRuleType');
+  if (ruleTypeSelect) {
+    ruleTypeSelect.addEventListener('change', () => {
+      // Show/hide Redis options when redis-action is selected
+      if (ruleTypeSelect.value === 'redis-action') {
+        const redisRepOptions = document.getElementById('redisRepOptions');
+        if (redisRepOptions) {
+          redisRepOptions.classList.remove('hidden');
+        }
+      }
+      saveReputationLostRuleSettings();
+    });
+  }
+  
+  // Listen for rule value changes
+  const ruleValueInput = document.getElementById('reputationLostRule');
+  if (ruleValueInput) {
+    let timeout;
+    ruleValueInput.addEventListener('input', () => {
+      clearTimeout(timeout);
+      timeout = setTimeout(() => {
+        saveReputationLostRuleSettings();
+      }, 500);
+    });
+  }
+  
+  // Listen for Redis-specific option changes
+  const redisActionSelect = document.getElementById('redisRepAction');
+  const redisThresholdInput = document.getElementById('redisRepThreshold');
+  const redisTTLInput = document.getElementById('redisRepTTL');
+  
+  if (redisActionSelect) {
+    redisActionSelect.addEventListener('change', saveReputationLostRuleSettings);
+  }
+  if (redisThresholdInput) {
+    redisThresholdInput.addEventListener('change', saveReputationLostRuleSettings);
+  }
+  if (redisTTLInput) {
+    redisTTLInput.addEventListener('change', saveReputationLostRuleSettings);
+  }
+}
+
+// Initialize reputation lost rule handlers when DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+  // Wait a bit for other initialization to complete
+  setTimeout(() => {
+    initializeReputationLostRuleHandlers();
+    loadReputationLostRuleSettings();
+  }, 100);
+});
+
+// Also update visibility when switching to endpoints tab
+const originalSwitchTab = switchTab;
+switchTab = function(tabId) {
+  originalSwitchTab(tabId);
+  
+  if (tabId === 'endpoints' && currentlyEditingProject) {
+    // Update Redis options visibility when switching to endpoints tab
+    setTimeout(() => {
+      updateRedisReputationOptionsVisibility();
+      loadReputationLostRuleSettings();
+    }, 100);
+  }
+};

@@ -22,13 +22,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var saveLocalIp = true
+var timeToBlock int
 var redisConnected = false
 var rdb *redis.Client
 var endpoints []Endpoint
 var proxyEnabled = false
 var currentServerPort string
-var supabaseConnected = false
 var connpool *pgxpool.Pool
 var saveLimit int
 var cancel context.CancelFunc
@@ -208,7 +207,7 @@ func main() {
 		// Check if this is an internal proxy API request (always allow API calls)
 		internalAPI := false
 		apiPath := r.URL.Path
-		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/supabase/connect" {
+		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" {
 			internalAPI = true
 		}
 
@@ -241,7 +240,7 @@ func main() {
 					ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 					defer cancel()
 
-					// Extract IP from RemoteAddr
+					// Extract IP from RemoteAddr (no port)
 					ipStr, _, err := net.SplitHostPort(r.RemoteAddr)
 					if err != nil {
 						ipStr = r.RemoteAddr
@@ -254,8 +253,9 @@ func main() {
 					}
 
 					repStr, err := rdb.Get(ctx, ipStr).Result()
+
 					if err == redis.Nil {
-						// Key does not exist
+						// Key does not exist → add if under save limit
 						count, err := rdb.DBSize(ctx).Result()
 						if err != nil {
 							fmt.Println("Redis error:", err)
@@ -263,15 +263,7 @@ func main() {
 						}
 
 						if saveLimit <= -1 || count < int64(saveLimit) {
-							// Add IP
 							err := rdb.Set(ctx, ipStr, 0, 0).Err()
-							if saveLocalIp {
-								if strings.Contains(r.RemoteAddr, "127.0.0.1") ||
-									strings.Contains(r.RemoteAddr, "::1") ||
-									ip.IsLoopback() {
-									saveLocalIp = false
-								}
-							}
 							if err != nil {
 								fmt.Println("Error adding IP:", err)
 							} else {
@@ -280,17 +272,45 @@ func main() {
 						} else {
 							fmt.Println("Save limit reached")
 						}
+
 					} else if err != nil {
 						fmt.Println("Redis GET error:", err)
+						return
+
 					} else {
-						// Increment reputation by penalty
+						// Key exists → decrement reputation
 						rep, _ := strconv.Atoi(repStr)
 						rep -= 1
-						err := rdb.Set(ctx, ipStr, rep, 0).Err()
-						if err != nil {
-							fmt.Println("Error updating IP reputation:", err)
+
+						if rep <= autoBlockThreshhold {
+							// Apply block TTL
+							err := rdb.Set(
+								ctx,
+								ipStr,
+								rep,
+								time.Duration(timeToBlock)*time.Second,
+							).Err()
+							if err != nil {
+								fmt.Println("Error blocking IP:", err)
+							} else {
+								fmt.Println(
+									"Blocked IP:",
+									ipStr,
+									"rep:",
+									rep,
+									"for",
+									timeToBlock,
+									"seconds",
+								)
+							}
 						} else {
-							fmt.Println("Updated IP reputation:", ipStr, "to", rep)
+							// Normal update (no TTL)
+							err := rdb.Set(ctx, ipStr, rep, 0).Err()
+							if err != nil {
+								fmt.Println("Error updating IP reputation:", err)
+							} else {
+								fmt.Println("Updated IP reputation:", ipStr, "to", rep)
+							}
 						}
 					}
 				}
@@ -425,7 +445,6 @@ func main() {
 		if connpool != nil {
 			connpool.Close()
 			connpool = nil
-			log.Println("Supabase connection pool closed")
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -488,98 +507,6 @@ func main() {
 		json.NewEncoder(w).Encode(map[string]string{"message": "Endpoints reloaded"})
 	})
 
-	http.HandleFunc("/api/supabase/connect", func(w http.ResponseWriter, r *http.Request) {
-		// CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
-
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		if r.Method != http.MethodPost {
-			w.WriteHeader(http.StatusMethodNotAllowed)
-			w.Write([]byte("Method not allowed"))
-			return
-		}
-
-		data, err := io.ReadAll(r.Body)
-		if err != nil {
-			http.Error(w, "failed to read body", 500)
-			return
-		}
-
-		var body map[string]interface{}
-
-		//parse body
-		err = json.Unmarshal(data, &body)
-
-		if err != nil {
-			http.Error(w, "invalid JSON", 400)
-			return
-		}
-
-		type RequestBody struct {
-			Password           string `json:"password"`
-			ProjectId          string `json:"projectId"`
-			SaveLimit          int    `json:"saveLimit"`
-			AutoBlockThreshold int    `json:"autoBlockThreshhold"`
-		}
-
-		var supabaseFields RequestBody
-		err = json.Unmarshal(data, &supabaseFields)
-		if err != nil {
-			http.Error(w, "invalid JSON", http.StatusBadRequest)
-			return
-		}
-
-		passWordEncoded := url.QueryEscape(supabaseFields.Password)
-		connectionUrl := fmt.Sprintf(`postgresql://postgres:%s@db.%s.supabase.co:5432/postgres`, passWordEncoded, supabaseFields.ProjectId)
-
-		// create a context with timeout that cancels when finished
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		// create connection pool
-		connpool, err = pgxpool.New(ctx, connectionUrl)
-		if err != nil {
-			log.Fatalf("failed to create pool: %v", err)
-		}
-
-		// ping supabase url
-		err = connpool.Ping(ctx)
-		if err != nil {
-			http.Error(w, fmt.Sprintf("failed to connect to database: %v", err), 500)
-			return
-		}
-
-		var exists bool
-
-		err = connpool.QueryRow(
-			ctx,
-			CHECK_PUBLIC_IPS_TABLE_EXISTENCE_SQL,
-			"public",
-			"ips",
-		).Scan(&exists)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		if exists {
-			w.Write([]byte("Successfully connected to Supabase database"))
-			saveLimit = supabaseFields.SaveLimit
-
-			return
-		} else {
-			w.Write([]byte(DB_SETUP_RESPONSE))
-		}
-		connpool.Close()
-		connpool = nil
-	})
-
 	http.HandleFunc("/api/redis/connect", func(w http.ResponseWriter, r *http.Request) {
 		// CORS headers
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -626,6 +553,7 @@ func main() {
 			RedisTLS            bool   `json:"tls"`
 			SaveLimit           int    `json:"saveLimit"`
 			AutoBlockThreshhold int    `json:"autoBlockThreshhold"`
+			TimeToBlock         int    `json:"timeToBlock"`
 		}
 
 		var redisFields RequestBody
@@ -643,6 +571,7 @@ func main() {
 		redisTLS := redisFields.RedisTLS
 		saveLimit = redisFields.SaveLimit
 		autoBlockThreshhold = redisFields.AutoBlockThreshhold
+		timeToBlock = redisFields.TimeToBlock
 
 		// Build address
 		redisAddr := fmt.Sprintf("%s:%d", redisHost, redisPort)

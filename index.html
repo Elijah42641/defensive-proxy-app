@@ -981,7 +981,42 @@
         </div>
         <div class="form-group">
           <label for="reputationLostRule">Reputation Lost Rule</label>
-          <textarea id="reputationLostRule" class="form-input"></textarea>
+          
+          <!-- Rule Type Selection -->
+          <select id="reputationLostRuleType" class="form-input" style="margin-bottom: 0.5rem;">
+            <option value="value">Specific Value Match</option>
+            <option value="regex">Regex Pattern</option>
+            <option value="redis-action" class="redis-only-option" style="display: none;">Redis Action (Redis Connected)</option>
+          </select>
+          
+          <!-- Main Rule Input -->
+          <textarea id="reputationLostRule" class="form-input" placeholder="Enter rule value or pattern"></textarea>
+          
+          <!-- Redis-specific Options (only visible when Redis is connected) -->
+          <div id="redisRepOptions" class="hidden" style="margin-top: 1rem; padding: 1rem; background: var(--border-color); border-radius: 8px;">
+            <h5 style="color: var(--accent-color); margin-bottom: 0.5rem;">Redis Reputation Options</h5>
+            
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label for="redisRepAction">Action on Reputation Lost</label>
+              <select id="redisRepAction" class="form-input">
+                <option value="cache-invalidate">Cache Invalidation</option>
+                <option value="sync-supabase">Sync to Supabase</option>
+                <option value="log-event">Log Event Only</option>
+                <option value="custom-script">Execute Custom Script</option>
+              </select>
+            </div>
+            
+            <div class="form-group" style="margin-bottom: 0.5rem;">
+              <label for="redisRepThreshold">Reputation Threshold Trigger</label>
+              <input type="number" id="redisRepThreshold" class="form-input" placeholder="e.g., 50" min="0" max="100" value="50">
+              <small style="opacity: 0.7;">Trigger action when reputation drops below this value</small>
+            </div>
+            
+            <div class="form-group">
+              <label for="redisRepTTL">Cache TTL (seconds)</label>
+              <input type="number" id="redisRepTTL" class="form-input" placeholder="e.g., 3600" value="3600">
+            </div>
+          </div>
         </div>
       </div>
     </section>
@@ -1110,48 +1145,20 @@
       </small>
     </div>
 
+    <div class="form-group">
+      <label for="timeToBlock">Amount of time to block for (in seconds)</label>
+        <input
+        type="number"
+        id="timeToBlockIP"
+        class="form-input"
+        value = "100"
+      />
+    </div>
+
     <button class="btn-primary" id="saveSettingsBtn">Save Settings</button>
   </div>
 
-  <!-- ================= SUPABASE CONFIG ================= -->
-  <div class="settings-panel">
-    <h3>Supabase Connection</h3>
-    <p>Configure your project credentials to connect to Supabase for IP data retrieval.</p>
-    <p style="color: rgb(173, 16, 16);">
-      <br><strong>
-        Important: the Supabase connection uses the credentials present when you click
-        “Connect to Supabase”, not what is currently saved.
-      </strong>
-    </p>
-
-    <div class="form-group">
-      <label for="projectId"><br>Project ID</label>
-      <input
-        type="text"
-        id="projectId"
-        class="form-input"
-        placeholder="e.g., your-project-id"
-      />
-    </div>
-
-    <div class="form-group">
-      <label for="projectPassword">Project Password</label>
-      <input
-        type="password"
-        id="projectPassword"
-        class="form-input"
-        placeholder="Enter your project password"
-      />
-    </div>
-
-    <div style="display: flex; gap: 1rem; margin-top: 1rem;">
-      <p id="connStatus" style="flex-grow: 1; align-self: center;">
-        Status: Not Connected
-      </p>
-      <button class="add-btn" id="saveCredentialsBtn">Save Credentials</button>
-      <button class="btn-primary" id="connectSupabaseBtn">Connect to Supabase</button>
-    </div>
-  </div>
+  
 
 
 
