@@ -225,7 +225,7 @@ func main() {
 		path := strings.TrimPrefix(r.URL.Path, "/")
 		var matchingEndpoint *Endpoint
 		for _, ep := range endpoints {
-			if path == ep.Path {
+			if matchEndpointPath(path, ep.Path) {
 				matchingEndpoint = &ep
 				break
 			}
@@ -764,6 +764,42 @@ func checkRuleMatch(rule Rule, componentKey, componentValue string) bool {
 
 	return result
 }
+
+// matchEndpointPath matches a request path against an endpoint pattern with $$ wildcard support.
+// $$ matches any sequence of characters (including empty) between parts of the pattern.
+// Example: "/api/users/$$" matches "/api/users/123", "/api/users/abc" but NOT "/api/users/123/profile"
+// Example: "a$$f" matches "af", "a123f", "axyzf" but NOT "df" or "ag"
+// Example: "/api/$$/data" matches "/api/anything/data" but NOT "/api/a/b/data"
+func matchEndpointPath(requestPath, pattern string) bool {
+	// Exact match first for performance
+	if requestPath == pattern {
+		return true
+	}
+
+	// If no wildcard, no match (unless exact match which we already checked)
+	if !strings.Contains(pattern, "$$") {
+		return false
+	}
+
+	// Convert $$ pattern to regex
+	// $$ means "anything or nothing" - like .* in regex
+	// Escape special regex characters first
+	escaped := regexp.QuoteMeta(pattern)
+	// Replace $$ with .* (matches any characters including empty)
+	regexPattern := strings.ReplaceAll(escaped, "\\$\\$", ".*")
+
+	// Anchor the pattern to match the entire string
+	regexPattern = "^" + regexPattern + "$"
+
+	re, err := regexp.Compile(regexPattern)
+	if err != nil {
+		log.Printf("Invalid regex pattern in endpoint match: %s, error: %v", regexPattern, err)
+		return false
+	}
+
+	return re.MatchString(requestPath)
+}
+
 func checkRequestRules(r *http.Request, reqRules struct {
 	Headers RulesObj `json:"headers"`
 	Cookies RulesObj `json:"cookies"`

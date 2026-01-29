@@ -959,7 +959,12 @@
         <div class="add-endpoint-group">
           <input type="text" id="newEndpointInput" class="form-input" placeholder="e.g. /api/users" />
           <button class="small-btn" id="addEndpointBtn">+ Add Endpoint</button>
+          <small style="color: var(--accent-color); font-size: 0.85rem; margin-top: 0.5rem; display: block;">
+            💡 Tip: Use <code>$$</code> as a wildcard for matching anything (or nothing) between characters.<br>
+            Example: <code>a$$f</code> matches <code>af</code>, <code>a123f</code>, but NOT <code>df</code> or <code>ag</code>
+          </small>
         </div>
+
       </div>
 
       <div class="endpoints-list-container">
@@ -1546,6 +1551,7 @@
       });
     });
   </script>
+  <script src="ips.js"></script>
 </body>
 
 </html>
