@@ -5,11 +5,32 @@
 Blocks requests based on absolute values and regex <br>
 in either the body, headers, or cookies <br>
 <br>
-Cool features: <br>
-.Can block ips for a custom time after they've been blocked a custom amount of times <br>
-.Recommends rules based on endpoint path (auth,file, etc) <br>
-.Http request analyzer: analyzes request and recommends rules or provides business logic advice eg: validate certain field server side only <br>
-.Rule guide for security beginners <br>
+<h2>Cool Features</h2>
+
+<ul>
+  <li>
+    Blocks IPs for a configurable amount of time after they are blocked a
+    configurable number of times
+  </li>
+
+  <li>
+    Recommends security rules based on endpoint paths
+    (auth, file upload, etc.)
+  </li>
+
+  <li>
+    HTTP request analyzer – feed in a sample request to receive:
+    <ul>
+      <li>Recommended security rules</li>
+      <li>Business logic advice (e.g. validate certain fields server-side only)</li>
+    </ul>
+  </li>
+
+  <li>
+    Built-in security rule guide for beginners
+  </li>
+</ul>
+
 
   <pre>
 git clone https://github.com/Elijah42641/defensive-proxy-app
