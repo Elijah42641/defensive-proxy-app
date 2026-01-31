@@ -173,6 +173,390 @@ const regexTemplates = {
   'number-validation': /^\d+$/
 };
 
+// --- Keyword-Based Rule Recommendations ---
+// Maps keywords to recommended security rules
+const ruleRecommendations = {
+  // Authentication endpoints
+  'auth': {
+    name: 'Authentication Endpoint',
+    description: 'Authentication endpoints require strong protection against brute force and injection attacks.',
+    keywords: ['auth', 'login', 'signin', 'register', 'signup', 'password', 'credential', 'oauth', 'token'],
+    rules: {
+      request: {
+        body: [
+          { key: '', keyRuleType: 'value', value: '(SELECT|UNION|INSERT|DROP|DELETE|UPDATE|EXEC|--|#|/\\*|\\*/)', ruleType: 'regex', listType: 'blacklist', notes: 'Block SQL injection patterns in authentication forms' },
+          { key: '', keyRuleType: 'value', value: '<script|javascript:|vbscript:|on(load|click|mouse|error|submit)=', ruleType: 'regex', listType: 'blacklist', notes: 'Block XSS attempts in credentials' },
+          { key: 'Content-Type', keyRuleType: 'value', value: 'application/json', ruleType: 'value', listType: 'whitelist', notes: 'Only allow JSON content type for auth endpoints' }
+        ],
+        headers: [
+          { key: '', keyRuleType: 'value', value: '(curl|wget|python-requests|bot|crawler|scraper)', ruleType: 'regex', listType: 'blacklist', notes: 'Block automated tools from authentication endpoints' }
+        ]
+      }
+    }
+  },
+
+  // File upload endpoints
+  'file': {
+    name: 'File Upload Endpoint',
+    description: 'File upload endpoints need protection against malicious file types and path traversal attacks.',
+    keywords: ['file', 'upload', 'image', 'document', 'media', 'attachment', 'photo', 'video'],
+    rules: {
+      request: {
+        headers: [
+          { key: 'Content-Type', keyRuleType: 'value', value: 'multipart/form-data', ruleType: 'value', listType: 'whitelist', notes: 'Only allow multipart form data for uploads' }
+        ],
+        body: [
+          { key: '', keyRuleType: 'value', value: '\\.\\.\\/|\\.\\.\\\\', ruleType: 'regex', listType: 'blacklist', notes: 'Block path traversal attempts' },
+          { key: '', keyRuleType: 'value', value: '\\.(exe|bat|cmd|sh|php|pl|cgi|asp|jsp|jar|war)', ruleType: 'regex', listType: 'blacklist', notes: 'Block executable file extensions' },
+          { key: '', keyRuleType: 'value', value: '<script|<?php|<%|\\$\\{', ruleType: 'regex', listType: 'blacklist', notes: 'Block embedded script patterns in files' }
+        ]
+      }
+    }
+  },
+
+  // API endpoints
+  'api': {
+    name: 'API Endpoint',
+    description: 'API endpoints should have proper content-type validation and rate limiting considerations.',
+    keywords: ['api', 'v1', 'v2', 'rest', 'graphql', 'endpoint', 'service'],
+    rules: {
+      request: {
+        headers: [
+          { key: 'Content-Type', keyRuleType: 'value', value: '(application/json|application/xml)', ruleType: 'regex', listType: 'whitelist', notes: 'Only allow proper API content types' },
+          { key: 'Authorization', keyRuleType: 'value', value: 'Bearer .+', ruleType: 'regex', listType: 'whitelist', notes: 'Require Bearer token authorization' }
+        ],
+        body: [
+          { key: '', keyRuleType: 'value', value: '\\$where|\\$ne|\\$gt|\\$lt|\\$regex', ruleType: 'regex', listType: 'blacklist', notes: 'Block NoSQL injection operators' }
+        ]
+      }
+    }
+  },
+
+  // Payment/sensitive data endpoints
+  'payment': {
+    name: 'Payment/Sensitive Data Endpoint',
+    description: 'Payment endpoints require strict validation and logging for PCI compliance.',
+    keywords: ['payment', 'pay', 'billing', 'credit', 'card', 'subscription', 'invoice', 'transaction', 'money', 'checkout'],
+    rules: {
+      request: {
+        headers: [
+          { key: '', keyRuleType: 'value', value: '(curl|wget|python|bot|scraper)', ruleType: 'regex', listType: 'blacklist', notes: 'Block automated access to payment endpoints' },
+          { key: 'Content-Type', keyRuleType: 'value', value: 'application/json', ruleType: 'value', listType: 'whitelist', notes: 'Require JSON content type' }
+        ],
+        body: [
+          { key: '', keyRuleType: 'value', value: '\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}[-\\s]?\\d{4}', ruleType: 'regex', listType: 'blacklist', notes: 'Flag raw credit card numbers for logging' }
+        ]
+      }
+    }
+  },
+
+  // Search endpoints
+  'search': {
+    name: 'Search Endpoint',
+    description: 'Search endpoints need protection against injection attacks in query parameters.',
+    keywords: ['search', 'query', 'find', 'filter', 'list', 'results'],
+    rules: {
+      request: {
+        body: [
+          { key: '', keyRuleType: 'value', value: '(SELECT|UNION|INSERT|DROP|DELETE|UPDATE|--|#|/\\*)', ruleType: 'regex', listType: 'blacklist', notes: 'Block SQL injection in search queries' },
+          { key: '', keyRuleType: 'value', value: '[<>"\']', ruleType: 'regex', listType: 'blacklist', notes: 'Block dangerous characters in search terms' }
+        ]
+      }
+    }
+  },
+
+  // User data endpoints
+  'user': {
+    name: 'User Data Endpoint',
+    description: 'User endpoints should validate authorization and protect sensitive data.',
+    keywords: ['user', 'profile', 'account', 'settings', 'me', 'profile'],
+    rules: {
+      request: {
+        headers: [
+          { key: 'Authorization', keyRuleType: 'value', value: 'Bearer .+', ruleType: 'regex', listType: 'whitelist', notes: 'Require authentication token' }
+        ],
+        body: [
+          { key: '', keyRuleType: 'value', value: '<script|javascript:|on(error|click)=', ruleType: 'regex', listType: 'blacklist', notes: 'Block XSS in user data' }
+        ]
+      }
+    }
+  },
+
+  // Admin endpoints
+  'admin': {
+    name: 'Admin Endpoint',
+    description: 'Admin endpoints require stricter security controls and should be monitored.',
+    keywords: ['admin', 'administrator', 'dashboard', 'manage', 'control', 'settings', 'config'],
+    rules: {
+      request: {
+        headers: [
+          { key: '', keyRuleType: 'value', value: '(curl|wget|python|bot|scraper|anonymous)', ruleType: 'regex', listType: 'blacklist', notes: 'Block automated tools from admin area' },
+          { key: 'X-Admin-Key', keyRuleType: 'value', value: '.+', ruleType: 'regex', listType: 'whitelist', notes: 'Require admin access key header' }
+        ],
+        body: [
+          { key: '', keyRuleType: 'value', value: '(rm|rm -rf|dd|mkfs|chmod 777)', ruleType: 'regex', listType: 'blacklist', notes: 'Block destructive command patterns' }
+        ]
+      }
+    }
+  },
+
+  // Webhook endpoints
+  'webhook': {
+    name: 'Webhook Endpoint',
+    description: 'Webhooks should validate signatures and source authenticity.',
+    keywords: ['webhook', 'hook', 'callback', 'event', 'notify'],
+    rules: {
+      request: {
+        headers: [
+          { key: 'X-Webhook-Signature', keyRuleType: 'value', value: '.+', ruleType: 'regex', listType: 'whitelist', notes: 'Require webhook signature for validation' }
+        ]
+      }
+    }
+  }
+};
+
+// Keywords to detect in endpoint paths (simple strings to check)
+const endpointKeywords = Object.keys(ruleRecommendations);
+
+// Detect keywords in an endpoint path
+function detectKeywords(endpointPath) {
+  const detected = [];
+  const pathLower = endpointPath.toLowerCase();
+
+  endpointKeywords.forEach(keyword => {
+    const rec = ruleRecommendations[keyword];
+    // Check if any of the keyword synonyms appear in the path
+    const hasKeyword = rec.keywords.some(kw => pathLower.includes(kw));
+    if (hasKeyword) {
+      detected.push(keyword);
+    }
+  });
+
+  return detected;
+}
+
+// Create and show the recommendations popup
+function showRecommendationsPopup(endpointPath, detectedKeywords, callback) {
+  // Remove any existing recommendation popup
+  const existingPopup = document.getElementById('recommendationsPopup');
+  const existingOverlay = document.getElementById('recommendationsOverlay');
+  if (existingPopup) existingPopup.remove();
+  if (existingOverlay) existingOverlay.remove();
+
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'recommendationsOverlay';
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(20, 20, 40, 0.8); z-index: 9998;';
+
+  // Create popup container
+  const popup = document.createElement('div');
+  popup.id = 'recommendationsPopup';
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(145deg, #2a2a44, #20203a);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    padding: 2rem;
+    max-width: 600px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 9999;
+    color: #e0e0f0;
+    font-family: 'Inter', sans-serif;
+  `;
+
+  // Build the content
+  let rulesHTML = '';
+  let allRulesCount = 0;
+
+  detectedKeywords.forEach(keyword => {
+    const rec = ruleRecommendations[keyword];
+    const rules = rec.rules;
+
+    // Count rules
+    Object.values(rules).forEach(scopeRules => {
+      Object.values(scopeRules).forEach(ruleList => {
+        allRulesCount += ruleList.length;
+      });
+    });
+
+    rulesHTML += `
+      <div class="rec-category" style="background: rgba(100, 255, 218, 0.1); border: 1px solid rgba(100, 255, 218, 0.3); border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+        <h4 style="color: #64ffda; margin: 0 0 0.5rem 0;">🛡️ ${rec.name}</h4>
+        <p style="font-size: 0.9em; margin: 0 0 0.5rem 0; opacity: 0.8;">${rec.description}</p>
+        <div style="font-size: 0.85em; opacity: 0.7;">
+          <strong>Keywords detected:</strong> ${rec.keywords.join(', ')}
+        </div>
+      </div>
+    `;
+  });
+
+  popup.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h2 style="color: #64ffda; margin: 0;">🔐 Security Recommendations</h2>
+      <button id="recCloseBtn" style="background: transparent; border: none; color: #e0e0f0; font-size: 2rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+    </div>
+    
+    <p style="margin-bottom: 1rem;">
+      We detected <strong style="color: #64ffda;">${detectedKeywords.length}</strong> security context(s) in the endpoint 
+      <code style="background: #1a1a2e; padding: 0.2rem 0.5rem; border-radius: 4px;">${endpointPath}</code>
+    </p>
+    
+    <div style="margin-bottom: 1.5rem;">
+      ${rulesHTML}
+    </div>
+    
+    <div style="background: rgba(100, 255, 218, 0.1); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
+      <p style="margin: 0 0 0.5rem 0;"><strong>Total recommendations:</strong> ${allRulesCount} security rules</p>
+      <p style="margin: 0; font-size: 0.9em; opacity: 0.8;">These rules will help protect your endpoint against common attack patterns.</p>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+      <button id="recSkipBtn" style="padding: 0.8rem 1.5rem; border-radius: 8px; border: 1px solid #555; background: transparent; color: #e0e0f0; cursor: pointer; font-weight: 500;">Skip (Add without rules)</button>
+      <button id="recApplyAllBtn" style="padding: 0.8rem 1.5rem; border-radius: 8px; border: none; background: #64ffda; color: #23234a; cursor: pointer; font-weight: bold;">Apply All Recommendations</button>
+    </div>
+  `;
+
+  overlay.appendChild(popup);
+  document.body.appendChild(overlay);
+
+  // Event handlers
+  document.getElementById('recCloseBtn').addEventListener('click', () => {
+    overlay.remove();
+    callback(null, null); // User closed popup without applying
+  });
+
+  document.getElementById('recSkipBtn').addEventListener('click', () => {
+    overlay.remove();
+    callback('skip', null);
+  });
+
+  document.getElementById('recApplyAllBtn').addEventListener('click', () => {
+    const rules = collectRecommendedRules(detectedKeywords);
+    overlay.remove();
+    callback('apply', rules);
+  });
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      callback(null, null);
+    }
+  });
+
+  // Escape key closes popup
+  document.addEventListener('keydown', escHandler);
+  function escHandler(e) {
+    if (e.key === 'Escape') {
+      overlay.remove();
+      document.removeEventListener('keydown', escHandler);
+    }
+  }
+}
+
+// Collect all recommended rules from detected keywords
+function collectRecommendedRules(detectedKeywords) {
+  const collectedRules = {
+    request: {
+      headers: { whitelist: [], blacklist: [] },
+      cookies: { whitelist: [], blacklist: [] },
+      body: { whitelist: [], blacklist: [] }
+    },
+    response: {
+      headers: { whitelist: [], blacklist: [] },
+      cookies: { whitelist: [], blacklist: [] },
+      body: { whitelist: [], blacklist: [] }
+    }
+  };
+
+  const addedRules = new Set(); // Track to avoid duplicates
+
+  detectedKeywords.forEach(keyword => {
+    const rec = ruleRecommendations[keyword];
+    const rules = rec.rules;
+
+    Object.keys(rules).forEach(scope => {
+      Object.keys(rules[scope]).forEach(dataType => {
+        rules[scope][dataType].forEach(rule => {
+          // Create a unique key for this rule to avoid duplicates
+          const ruleKey = `${scope}_${dataType}_${rule.listType}_${rule.key}_${rule.value}`;
+
+          if (!addedRules.has(ruleKey)) {
+            addedRules.add(ruleKey);
+
+            const ruleObj = {
+              key: rule.key,
+              keyRuleType: rule.keyRuleType,
+              value: rule.value,
+              ruleType: rule.ruleType,
+              dateAdded: new Date().toLocaleString(),
+              notes: `[Auto] ${rule.notes} (${rec.name})`
+            };
+
+            collectedRules[scope][dataType][rule.listType].push(ruleObj);
+          }
+        });
+      });
+    });
+  });
+
+  return collectedRules;
+}
+
+// Apply recommended rules to an endpoint
+function applyRecommendedRules(endpoint, rules) {
+  // Apply request rules
+  ['headers', 'cookies', 'body'].forEach(dataType => {
+    // Whitelist rules
+    (rules.request[dataType]?.whitelist || []).forEach(rule => {
+      const exists = endpoint.request[dataType].whitelist.some(
+        r => r.key === rule.key && r.value === rule.value
+      );
+      if (!exists) {
+        endpoint.request[dataType].whitelist.push(rule);
+      }
+    });
+
+    // Blacklist rules
+    (rules.request[dataType]?.blacklist || []).forEach(rule => {
+      const exists = endpoint.request[dataType].blacklist.some(
+        r => r.key === rule.key && r.value === rule.value
+      );
+      if (!exists) {
+        endpoint.request[dataType].blacklist.push(rule);
+      }
+    });
+  });
+
+  // Apply response rules
+  ['headers', 'cookies', 'body'].forEach(dataType => {
+    // Whitelist rules
+    (rules.response[dataType]?.whitelist || []).forEach(rule => {
+      const exists = endpoint.response[dataType].whitelist.some(
+        r => r.key === rule.key && r.value === rule.value
+      );
+      if (!exists) {
+        endpoint.response[dataType].whitelist.push(rule);
+      }
+    });
+
+    // Blacklist rules
+    (rules.response[dataType]?.blacklist || []).forEach(rule => {
+      const exists = endpoint.response[dataType].blacklist.some(
+        r => r.key === rule.key && r.value === rule.value
+      );
+      if (!exists) {
+        endpoint.response[dataType].blacklist.push(rule);
+      }
+    });
+  });
+}
+
 let proxyUiCreated = false; // Add a flag to prevent creating the UI multiple times
 let performanceMonitorInterval = null; // Interval for monitoring proxy performance
 
@@ -532,7 +916,7 @@ if (window.require) {
     updateProxyUI(isActiveForCurrent);
     if (!data.isActive) {
       showFeedback('Proxy has been stopped.');
-    
+
     }
   });
   ipcRenderer.on('proxy-stopped', () => {
@@ -541,7 +925,7 @@ if (window.require) {
     updateProxyUI(false);
     clearProxyState();
     showFeedback('Proxy has been stopped.');
- 
+
   });
 }
 
@@ -1421,7 +1805,7 @@ function switchTab(tabId) {
     document.getElementById("timeToBlockIP").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockTime
 
 
-  
+
 
     localStorage.getItem('redisSettings_' + currentlyEditingProject);
     document.getElementById('redisHost').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.host || '';
@@ -1437,7 +1821,7 @@ function switchTab(tabId) {
       document.getElementById('redisStatus').textContent = 'Not connected to Redis';
       document.getElementById('redisStatus').style.color = '#ff5757';
     }
- 
+
   }
 
   if (tabId === "endpoints") {
@@ -2364,26 +2748,24 @@ function initializeEventHandlers() {
     const exists = sessionEndpoints[project].endpoints.some(ep => ep.path === endpointPath);
 
     if (!exists) {
-      const obfuscatedPath = "/api/" + Math.random().toString(36).substr(2, 10) + Math.random().toString(36).substr(2, 10);
-      const newEndpoint = {
-        path: endpointPath,
-        obfuscatedPath: obfuscatedPath,
-        request: {
-          headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
-          cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
-          body: { whitelist: [], blacklist: [], mode: 'blacklist' }
-        },
-        response: {
-          headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
-          cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
-          body: { whitelist: [], blacklist: [], mode: 'blacklist' }
-        }
-      };
-      sessionEndpoints[project].endpoints.push(newEndpoint);
-      saveProjectEndpoints(project);
-      renderEndpoints(project);
-      newEndpointInput.value = '';
-      showFeedback('Endpoint added successfully!');
+      // Detect keywords in the endpoint path
+      const detectedKeywords = detectKeywords(endpointPath);
+
+      // If keywords are detected, show recommendations popup
+      if (detectedKeywords.length > 0) {
+        showRecommendationsPopup(endpointPath, detectedKeywords, (action, rules) => {
+          if (action === 'apply' && rules) {
+            // Apply recommended rules
+            addEndpointWithRules(endpointPath, project, rules);
+          } else {
+            // Skip or close - add endpoint without rules
+            addEndpointWithRules(endpointPath, project, null);
+          }
+        });
+      } else {
+        // No keywords detected, add endpoint without rules
+        addEndpointWithRules(endpointPath, project, null);
+      }
     } else {
       showAlert('This endpoint already exists.');
       newEndpointInput.value = '';
@@ -2778,5 +3160,635 @@ function stopPerformanceMonitoring() {
     performanceMonitorInterval = null;
   }
 }
+
+// Helper function to add endpoint with optional rules
+function addEndpointWithRules(endpointPath, project, recommendedRules) {
+  const obfuscatedPath = "/api/" + Math.random().toString(36).substr(2, 10) + Math.random().toString(36).substr(2, 10);
+
+  const newEndpoint = {
+    path: endpointPath,
+    obfuscatedPath: obfuscatedPath,
+    request: {
+      headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
+      cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
+      body: { whitelist: [], blacklist: [], mode: 'blacklist' }
+    },
+    response: {
+      headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
+      cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
+      body: { whitelist: [], blacklist: [], mode: 'blacklist' }
+    }
+  };
+
+  // Apply recommended rules if provided
+  if (recommendedRules) {
+    applyRecommendedRules(newEndpoint, recommendedRules);
+  }
+
+  sessionEndpoints[project].endpoints.push(newEndpoint);
+  saveProjectEndpoints(project);
+  renderEndpoints(project);
+  newEndpointInput.value = '';
+
+  // Show appropriate feedback
+  if (recommendedRules) {
+    // Count applied rules
+    let ruleCount = 0;
+    Object.values(recommendedRules).forEach(scope => {
+      Object.values(scope).forEach(dataType => {
+        ruleCount += (dataType.whitelist?.length || 0) + (dataType.blacklist?.length || 0);
+      });
+    });
+    showFeedback(`Endpoint added with ${ruleCount} security rules!`);
+  } else {
+    showFeedback('Endpoint added successfully!');
+  }
+}
+
+// --- HTTP Request Vulnerability Analyzer ---
+
+// Analyze HTTP request for POTENTIAL VULNERABILITIES (hacking opportunities)
+// This identifies what fields could be exploited, not what attacks are present
+
+// Define field name arrays separately to avoid reference errors
+const sqlInjectionFieldNames = ['username', 'user', 'email', 'search', 'query', 'filter', 'id', 'uid', 'pid', 'category', 'sort', 'order', 'where', 'lookup', 'keyword', 'term', 's', 'q'];
+const xssFieldNames = ['content', 'body', 'text', 'message', 'comment', 'description', 'bio', 'about', 'title', 'name', 'firstName', 'lastName', 'display', 'input', 'value', 'html', 'richtext', 'summernote', 'ckeditor', 'tinymce'];
+const nosqlInjectionFieldNames = ['query', 'filter', 'criteria', 'conditions', 'match', 'where', 'find', 'search'];
+const pathTraversalFieldNames = ['file', 'path', 'filename', 'filepath', 'dir', 'directory', 'folder', 'location', 'url', 'uri', 'src', 'dest', 'destination', 'target', 'resource'];
+const commandInjectionFieldNames = ['command', 'cmd', 'exec', 'execute', 'shell', 'bash', 'system', 'eval', 'code', 'script', 'function', 'callback'];
+const authFieldNames = ['password', 'passwd', 'pwd', 'secret', 'token', 'apikey', 'api_key', 'authorization', 'auth', 'credential', 'session', 'jwt', 'oauth', 'access', 'key', 'private', 'crypt'];
+const fileUploadFieldNames = ['file', 'upload', 'image', 'photo', 'avatar', 'document', 'attachment', 'media', 'video', 'audio', 'pdf', 'doc', 'blob', 'data'];
+
+// Identifier fields that could indicate IDOR vulnerabilities
+const identifierFieldNames = ['user_id', 'uid', 'userid', 'account_id', 'accountid', 'profile_id', 'profileid', 'order_id', 'orderid', 'transaction_id', 'transactionid', 'id', 'pid', 'cid', 'customer_id', 'customerid', 'member_id', 'memberid', 'post_id', 'postid', 'item_id', 'itemid', 'product_id', 'productid', 'resource_id', 'resourceid', 'object_id', 'objectid', 'entity_id', 'entityid', 'record_id', 'recordid'];
+
+// Business logic fields that could indicate pricing/quantity manipulation
+const businessLogicFieldNames = ['price', 'cost', 'amount', 'quantity', 'qty', 'discount', 'tax', 'total', 'subtotal', 'balance', 'credit', 'debit', 'points', 'credits', 'status', 'role', 'level', 'tier', 'plan', 'subscription', 'permission', 'access_level', 'admin', 'is_admin', 'is_root', 'is_superuser', 'privilege'];
+
+const vulnerabilityPatterns = {
+  // Field names that suggest SQL injection opportunities
+  sqlInjectionFields: {
+    names: sqlInjectionFieldNames,
+    severity: 'high',
+    name: 'SQL Injection Risk',
+    check: (fieldNames) => fieldNames.some(f => sqlInjectionFieldNames.includes(f.toLowerCase())),
+    recommendation: 'User input fields detected - add SQL injection blocking rules',
+    suggestedRule: { key: '', keyRuleType: 'value', value: '(SELECT|UNION|INSERT|DROP|DELETE|UPDATE|EXEC|--|#|/\\*|\\*/|\\$\\{)', ruleType: 'regex', listType: 'blacklist', notes: 'Block SQL injection patterns in user input fields' }
+  },
+
+  // Field names that suggest XSS opportunities
+  xssFields: {
+    names: xssFieldNames,
+    severity: 'high',
+    name: 'XSS (Cross-Site Scripting) Risk',
+    check: (fieldNames) => fieldNames.some(f => xssFieldNames.includes(f.toLowerCase())),
+    recommendation: 'User content fields detected - add XSS blocking rules',
+    suggestedRule: { key: '', keyRuleType: 'value', value: '<script|<iframe|<object|<embed|javascript:|vbscript:|on\\w+\\s*=', ruleType: 'regex', listType: 'blacklist', notes: 'Block XSS patterns in user content' }
+  },
+
+  // Field names that suggest NoSQL injection opportunities
+  nosqlInjectionFields: {
+    names: nosqlInjectionFieldNames,
+    severity: 'high',
+    name: 'NoSQL Injection Risk',
+    check: (fieldNames) => fieldNames.some(f => nosqlInjectionFieldNames.includes(f.toLowerCase())),
+    recommendation: 'Query/filter fields detected - add NoSQL injection blocking rules',
+    suggestedRule: { key: '', keyRuleType: 'value', value: '\\$where|\\$ne|\\$gt|\\$lt|\\$regex|\\$in|\\$or', ruleType: 'regex', listType: 'blacklist', notes: 'Block NoSQL injection operators' }
+  },
+
+  // Field names that suggest file path manipulation
+  pathTraversalFields: {
+    names: pathTraversalFieldNames,
+    severity: 'high',
+    name: 'Path Traversal Risk',
+    check: (fieldNames) => fieldNames.some(f => pathTraversalFieldNames.includes(f.toLowerCase())),
+    recommendation: 'File/path fields detected - add path traversal blocking rules',
+    suggestedRule: { key: '', keyRuleType: 'value', value: '\\.\\.\\/|\\.\\.\\\\|%2e%2e|etc/passwd|windows/system', ruleType: 'regex', listType: 'blacklist', notes: 'Block path traversal attempts' }
+  },
+
+  // Field names that suggest command execution
+  commandInjectionFields: {
+    names: commandInjectionFieldNames,
+    severity: 'high',
+    name: 'Command Injection Risk',
+    check: (fieldNames) => fieldNames.some(f => commandInjectionFieldNames.includes(f.toLowerCase())),
+    recommendation: 'Command/execution fields detected - add command injection blocking rules',
+    suggestedRule: { key: '', keyRuleType: 'value', value: '(;|\\||&&|`|\\$\\(|\\$\\{).*(rm|cat|ls|wget|curl|nc|bash|sh)', ruleType: 'regex', listType: 'blacklist', notes: 'Block command injection patterns' }
+  },
+
+  // Field names related to authentication
+  authFields: {
+    names: authFieldNames,
+    severity: 'medium',
+    name: 'Sensitive Data Handling',
+    check: (fieldNames) => fieldNames.some(f => authFieldNames.includes(f.toLowerCase())),
+    recommendation: 'Authentication/secret fields detected - ensure proper logging/masking',
+    suggestedRule: { key: '', keyRuleType: 'value', value: '(password|secret|token|apikey|auth).*', ruleType: 'regex', listType: 'blacklist', notes: 'Flag sensitive data for logging' }
+  },
+
+  // File upload related fields
+  fileUploadFields: {
+    names: fileUploadFieldNames,
+    severity: 'medium',
+    name: 'File Upload Risk',
+    check: (fieldNames) => fieldNames.some(f => fileUploadFieldNames.includes(f.toLowerCase())),
+    recommendation: 'File upload fields detected - add file type validation rules',
+    suggestedRule: { key: 'Content-Type', keyRuleType: 'value', value: '(image/|application/pdf|text/|audio/|video/)', ruleType: 'regex', listType: 'whitelist', notes: 'Allow only safe file types for uploads' }
+  },
+
+  // HTTP/1.1 specific checks
+  http11Indicators: {
+    check: (headers) => {
+      const headerKeys = Object.keys(headers).map(h => h.toLowerCase());
+      return {
+        hasHost: headerKeys.includes('host'),
+        hasUserAgent: headerKeys.includes('user-agent'),
+        hasContentType: headerKeys.includes('content-type'),
+        hasAuthorization: headerKeys.includes('authorization'),
+        hasCookie: headerKeys.includes('cookie'),
+        hasOrigin: headerKeys.includes('origin'),
+        hasXForwarded: headerKeys.some(h => h.startsWith('x-forwarded')),
+        hasCustom: headerKeys.filter(h => !['host', 'user-agent', 'content-type', 'authorization', 'cookie', 'origin', 'accept', 'accept-language', 'accept-encoding', 'connection', 'content-length', 'cache-control', 'referer'].includes(h))
+      };
+    }
+  },
+
+  // Identifier fields that could indicate IDOR vulnerabilities
+  idorFields: {
+    names: identifierFieldNames,
+    severity: 'medium',
+    name: 'IDOR Risk (Insecure Direct Object Reference)',
+    check: (fieldNames) => fieldNames.some(f => identifierFieldNames.includes(f.toLowerCase())),
+    recommendation: 'Identifier fields detected - ensure proper authorization checks to prevent users from accessing other users data',
+    suggestedRule: null, // Cannot be blocked by regex, needs authorization logic
+    advice: 'Implement proper authorization checks. Verify that the authenticated user has permission to access or modify the requested resource. Use indirect references (mapping IDs to internal IDs) when possible.'
+  },
+
+  // Business logic fields that could indicate manipulation risks
+  businessLogicFields: {
+    names: businessLogicFieldNames,
+    severity: 'high',
+    name: 'Business Logic Manipulation Risk',
+    check: (fieldNames) => fieldNames.some(f => businessLogicFieldNames.includes(f.toLowerCase())),
+    recommendation: 'Business-critical fields detected - ensure proper server-side validation and authorization',
+    suggestedRule: null, // Cannot be blocked by regex, needs business logic validation
+    advice: 'Never trust client-provided values for price, quantity, or access levels. Validate all business logic on the server side. Implement proper authorization for role/permission changes. Use server-side calculations for totals and discounts.'
+  }
+};
+
+// Analyze request for potential vulnerabilities
+function analyzeRequestVulnerabilities(headers, body, endpointPath) {
+  const issues = [];
+
+  // Parse body to get field names
+  let fieldNames = [];
+  if (body && body.trim()) {
+    try {
+      const parsed = JSON.parse(body);
+      fieldNames = Object.keys(parsed);
+    } catch (e) {
+      // Not JSON, try to extract key-value pairs
+      const matches = body.match(/"([^"]+)"\s*:/g);
+      if (matches) {
+        fieldNames = matches.map(m => m.replace(/["\s:]/g, ''));
+      }
+    }
+  }
+
+  // Check header keys
+  const headerKeys = headers ? Object.keys(headers) : [];
+
+  // Check each vulnerability pattern
+  const patterns = ['sqlInjectionFields', 'xssFields', 'nosqlInjectionFields', 'pathTraversalFields', 'commandInjectionFields', 'authFields', 'fileUploadFields', 'idorFields', 'businessLogicFields'];
+
+  patterns.forEach(patternKey => {
+    const pattern = vulnerabilityPatterns[patternKey];
+    if (pattern.check && pattern.check(fieldNames)) {
+      issues.push({
+        type: patternKey,
+        name: pattern.name,
+        severity: pattern.severity,
+        recommendation: pattern.recommendation,
+        suggestedRule: pattern.suggestedRule,
+        advice: pattern.advice || null,
+        location: fieldNames.length > 0 ? 'body' : 'unknown'
+      });
+    }
+  });
+
+  // Analyze HTTP headers for security issues
+  if (headers) {
+    const headerAnalysis = vulnerabilityPatterns.http11Indicators.check(headers);
+
+    // Missing security headers
+    if (!headerAnalysis.hasAuthorization && !headerAnalysis.hasCookie) {
+      issues.push({
+        type: 'missingAuth',
+        name: 'No Authentication Headers',
+        severity: 'info',
+        recommendation: 'Consider requiring Authorization or Cookie headers for sensitive endpoints',
+        suggestedRule: { key: 'Authorization', keyRuleType: 'value', value: 'Bearer .+', ruleType: 'regex', listType: 'whitelist', notes: 'Require Bearer token' },
+        location: 'headers'
+      });
+    }
+
+    if (!headerAnalysis.hasContentType && fieldNames.length > 0) {
+      issues.push({
+        type: 'missingContentType',
+        name: 'No Content-Type Header',
+        severity: 'info',
+        recommendation: 'Add Content-Type header validation for API endpoints',
+        suggestedRule: { key: 'Content-Type', keyRuleType: 'value', value: 'application/json', ruleType: 'value', listType: 'whitelist', notes: 'Require JSON content type' },
+        location: 'headers'
+      });
+    }
+
+    // Custom/unusual headers that might be suspicious
+    if (headerAnalysis.hasCustom.length > 0) {
+      issues.push({
+        type: 'customHeaders',
+        name: `Custom Headers Detected (${headerAnalysis.hasCustom.length})`,
+        severity: 'low',
+        recommendation: `${headerAnalysis.hasCustom.join(', ')} - Review these custom headers for security implications`,
+        suggestedRule: null,
+        location: 'headers'
+      });
+    }
+
+    // X-Forwarded headers (potential IP spoofing)
+    if (headerAnalysis.hasXForwarded.length > 0) {
+      issues.push({
+        type: 'xForwardedHeaders',
+        name: 'X-Forwarded Headers Present',
+        severity: 'low',
+        recommendation: 'X-Forwarded headers can be spoofed - validate client IP from trusted source',
+        suggestedRule: { key: '', keyRuleType: 'value', value: 'X-Forwarded-For:\\s*\\d+\\.\\d+\\.\\d+\\.\\d+', ruleType: 'regex', listType: 'blacklist', notes: 'Block suspicious X-Forwarded patterns' },
+        location: 'headers'
+      });
+    }
+  }
+
+  // Check endpoint path context
+  const pathKeywords = detectKeywords(endpointPath);
+  pathKeywords.forEach(keyword => {
+    const rec = ruleRecommendations[keyword];
+    if (rec) {
+      issues.push({
+        type: 'endpointContext',
+        name: `${rec.name} Endpoint`,
+        severity: 'info',
+        recommendation: rec.description,
+        suggestedRule: null,
+        location: endpointPath || 'endpoint'
+      });
+    }
+  });
+
+  // Overall risk assessment
+  const highSeverityCount = issues.filter(i => i.severity === 'high').length;
+  const mediumSeverityCount = issues.filter(i => i.severity === 'medium').length;
+
+  if (highSeverityCount >= 2) {
+    issues.unshift({
+      type: 'riskAssessment',
+      name: '🔴 High Overall Risk',
+      severity: 'high',
+      recommendation: `This endpoint has ${highSeverityCount} high-severity vulnerability opportunities. Strong security rules recommended.`,
+      suggestedRule: null,
+      location: endpointPath || 'endpoint'
+    });
+  } else if (highSeverityCount >= 1 || mediumSeverityCount >= 2) {
+    issues.unshift({
+      type: 'riskAssessment',
+      name: '🟠 Medium Overall Risk',
+      severity: 'medium',
+      recommendation: 'This endpoint has some vulnerability opportunities. Standard security rules recommended.',
+      suggestedRule: null,
+      location: endpointPath || 'endpoint'
+    });
+  } else if (issues.length > 0) {
+    issues.unshift({
+      type: 'riskAssessment',
+      name: '🟡 Low Overall Risk',
+      severity: 'low',
+      recommendation: 'Minor vulnerability opportunities detected. Basic security rules should suffice.',
+      suggestedRule: null,
+      location: endpointPath || 'endpoint'
+    });
+  }
+
+  return issues;
+}
+
+// Create the HTTP Request Analyzer UI
+function createRequestAnalyzerUI() {
+  const analyzerSection = document.createElement('div');
+  analyzerSection.className = 'request-analyzer-section';
+  analyzerSection.style.cssText = `
+    background: #23234a;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1.5rem;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+  `;
+
+  analyzerSection.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+      <h4 style="color: #64ffda; margin: 0;">🔍 HTTP Request Analyzer</h4>
+      <button id="analyzerToggleBtn" class="small-btn btn-secondary" style="font-size: 0.8rem;">Expand</button>
+    </div>
+    
+    <div id="analyzerContent" style="display: none;">
+      <p style="font-size: 0.9em; color: #aaa; margin-bottom: 1rem;">
+        Paste a sample HTTP request (headers and body) to analyze security risks and get recommendations for rules to add.
+      </p>
+      
+      <div class="form-group">
+        <label for="sampleHeaders">Headers (JSON format):</label>
+        <textarea id="sampleHeaders" class="form-input" style="height: 100px; font-family: monospace;" placeholder='{
+  "Content-Type": "application/json",
+  "Authorization": "Bearer token123"
+}'></textarea>
+      </div>
+      
+      <div class="form-group">
+        <label for="sampleBody">Request Body:</label>
+        <textarea id="sampleBody" class="form-input" style="height: 150px; font-family: monospace;" placeholder='{"username": "test", "password": "password123"}'></textarea>
+      </div>
+      
+      <div style="display: flex; gap: 1rem; margin-bottom: 1rem;">
+        <button id="analyzeRequestBtn" class="small-btn btn-primary">Analyze Request</button>
+        <button id="clearAnalyzerBtn" class="small-btn btn-secondary">Clear</button>
+        <button id="loadSampleBtn" class="small-btn btn-secondary">Load Sample</button>
+      </div>
+      
+      <div id="analysisResults" style="display: none;"></div>
+      
+      <div id="applyRecommendationsSection" style="display: none; margin-top: 1rem;"></div>
+    </div>
+  `;
+
+  // Event handlers
+  const toggleBtn = analyzerSection.querySelector('#analyzerToggleBtn');
+  const content = analyzerSection.querySelector('#analyzerContent');
+
+  toggleBtn.addEventListener('click', () => {
+    const isHidden = content.style.display === 'none';
+    content.style.display = isHidden ? 'block' : 'none';
+    toggleBtn.textContent = isHidden ? 'Collapse' : 'Expand';
+  });
+
+  analyzerSection.querySelector('#analyzeRequestBtn').addEventListener('click', () => {
+    const headersText = analyzerSection.querySelector('#sampleHeaders').value.trim();
+    const bodyText = analyzerSection.querySelector('#sampleBody').value.trim();
+
+    let headers = null;
+    if (headersText) {
+      try {
+        headers = JSON.parse(headersText);
+      } catch (e) {
+        showAlert('Invalid JSON in headers field');
+        return;
+      }
+    }
+
+    const issues = analyzeRequestVulnerabilities(headers, bodyText, selectedEndpoint?.path || '');
+    displayAnalysisResults(issues, analyzerSection.querySelector('#analysisResults'), analyzerSection.querySelector('#applyRecommendationsSection'));
+  });
+
+  analyzerSection.querySelector('#clearAnalyzerBtn').addEventListener('click', () => {
+    analyzerSection.querySelector('#sampleHeaders').value = '';
+    analyzerSection.querySelector('#sampleBody').value = '';
+    analyzerSection.querySelector('#analysisResults').style.display = 'none';
+    analyzerSection.querySelector('#analysisResults').innerHTML = '';
+    analyzerSection.querySelector('#applyRecommendationsSection').style.display = 'none';
+    analyzerSection.querySelector('#applyRecommendationsSection').innerHTML = '';
+  });
+
+  analyzerSection.querySelector('#loadSampleBtn').addEventListener('click', () => {
+    analyzerSection.querySelector('#sampleHeaders').value = JSON.stringify({
+      'Content-Type': 'application/json',
+      'User-Agent': 'Mozilla/5.0',
+      'X-Forwarded-For': '192.168.1.1'
+    }, null, 2);
+
+    analyzerSection.querySelector('#sampleBody').value = JSON.stringify({
+      'username': "admin' OR 1=1--",
+      'email': '<script>alert(1)</script>',
+      'search': '../etc/passwd',
+      'password': 'secret123'
+    }, null, 2);
+  });
+
+  return analyzerSection;
+}
+
+// Display analysis results
+function displayAnalysisResults(issues, resultsContainer, applySection) {
+  resultsContainer.style.display = 'block';
+  applySection.style.display = 'none';
+  applySection.innerHTML = '';
+
+  if (issues.length === 0) {
+    resultsContainer.innerHTML = `
+      <div style="background: rgba(76, 175, 80, 0.2); border: 1px solid #4CAF50; border-radius: 8px; padding: 1rem;">
+        <h5 style="color: #4CAF50; margin: 0 0 0.5rem 0;">✅ No obvious security issues detected</h5>
+        <p style="margin: 0; font-size: 0.9em; color: #aaa;">
+          However, consider adding general security rules for your endpoint type.
+        </p>
+      </div>
+    `;
+    return;
+  }
+
+  // Group issues by severity
+  const highSeverity = issues.filter(i => i.severity === 'high');
+  const mediumSeverity = issues.filter(i => i.severity === 'medium');
+  const lowSeverity = issues.filter(i => i.severity === 'low');
+  const infoIssues = issues.filter(i => i.severity === 'info');
+
+  let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+
+  if (highSeverity.length > 0) {
+    html += `
+      <div style="background: rgba(255, 87, 87, 0.15); border: 1px solid #ff5757; border-radius: 8px; padding: 1rem;">
+        <h5 style="color: #ff5757; margin: 0 0 0.5rem 0;">🚨 High Severity Issues (${highSeverity.length})</h5>
+        ${highSeverity.map(issue => `
+          <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 87, 87, 0.1); border-radius: 4px;">
+            <strong>${issue.name}</strong> in ${issue.location}
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85em; color: #aaa;">${issue.recommendation}</p>
+            ${issue.advice ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #64ffda;"><strong>💡 Advice:</strong> ${issue.advice}</p>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  if (mediumSeverity.length > 0) {
+    html += `
+      <div style="background: rgba(255, 152, 0, 0.15); border: 1px solid #ff9800; border-radius: 8px; padding: 1rem;">
+        <h5 style="color: #ff9800; margin: 0 0 0.5rem 0;">⚠️ Medium Severity Issues (${mediumSeverity.length})</h5>
+        ${mediumSeverity.map(issue => `
+          <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 152, 0, 0.1); border-radius: 4px;">
+            <strong>${issue.name}</strong> in ${issue.location}
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85em; color: #aaa;">${issue.recommendation}</p>
+            ${issue.advice ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #64ffda;"><strong>💡 Advice:</strong> ${issue.advice}</p>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  if (lowSeverity.length > 0) {
+    html += `
+      <div style="background: rgba(255, 193, 7, 0.15); border: 1px solid #ffc107; border-radius: 8px; padding: 1rem;">
+        <h5 style="color: #ffc107; margin: 0 0 0.5rem 0;">ℹ️ Low Severity Issues (${lowSeverity.length})</h5>
+        ${lowSeverity.map(issue => `
+          <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255, 193, 7, 0.1); border-radius: 4px;">
+            <strong>${issue.name}</strong> in ${issue.location}
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85em; color: #aaa;">${issue.recommendation}</p>
+            ${issue.advice ? `<p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #64ffda;"><strong>💡 Advice:</strong> ${issue.advice}</p>` : ''}
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  if (infoIssues.length > 0) {
+    html += `
+      <div style="background: rgba(100, 255, 218, 0.1); border: 1px solid #64ffda; border-radius: 8px; padding: 1rem;">
+        <h5 style="color: #64ffda; margin: 0 0 0.5rem 0;">💡 Endpoint Context</h5>
+        ${infoIssues.map(issue => `
+          <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(100, 255, 218, 0.1); border-radius: 4px;">
+            <strong>${issue.name}</strong>
+            <p style="margin: 0.25rem 0 0 0; font-size: 0.85em; color: #aaa;">${issue.recommendation}</p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  html += '</div>';
+  resultsContainer.innerHTML = html;
+
+  // Collect suggested rules (only ones that can be applied)
+  const suggestedRules = [];
+  const adviceOnlyIssues = [];
+
+  issues.forEach(issue => {
+    if (issue.suggestedRule) {
+      suggestedRules.push(issue.suggestedRule);
+    } else if (issue.advice) {
+      adviceOnlyIssues.push(issue);
+    }
+  });
+
+  // Show apply recommendations section if there are rules to apply
+  if (suggestedRules.length > 0 && selectedEndpoint) {
+    applySection.style.display = 'block';
+    applySection.innerHTML = `
+      <div style="background: rgba(100, 255, 218, 0.1); border: 1px solid #64ffda; border-radius: 8px; padding: 1rem;">
+        <h5 style="color: #64ffda; margin: 0 0 0.5rem 0;">🛡️ Apply Security Rules (${suggestedRules.length} rules)</h5>
+        <p style="margin: 0 0 1rem 0; font-size: 0.9em; color: #aaa;">
+          Add the recommended security rules to this endpoint to address the detected issues.
+        </p>
+        <button id="applySuggestedRulesBtn" class="small-btn btn-primary">Apply All Rules</button>
+        <button id="skipRulesBtn" class="small-btn btn-secondary">Skip</button>
+      </div>
+    `;
+
+    applySection.querySelector('#applySuggestedRulesBtn').addEventListener('click', () => {
+      applySuggestedRulesToEndpoint(suggestedRules);
+      applySection.innerHTML = '<p style="color: #4CAF50; margin: 0;">✅ Security rules applied successfully!</p>';
+    });
+
+    applySection.querySelector('#skipRulesBtn').addEventListener('click', () => {
+      applySection.style.display = 'none';
+    });
+  } else if (adviceOnlyIssues.length > 0) {
+    // Show advice-only section when there are no rules to apply
+    applySection.style.display = 'block';
+    applySection.innerHTML = `
+      <div style="background: rgba(100, 255, 218, 0.1); border: 1px solid #64ffda; border-radius: 8px; padding: 1rem;">
+        <h5 style="color: #64ffda; margin: 0 0 0.5rem 0;">💡 Security Insights (${adviceOnlyIssues.length})</h5>
+        <p style="margin: 0 0 1rem 0; font-size: 0.9em; color: #aaa;">
+          The detected issues require server-side implementation changes rather than proxy rules. Review the advice above for security recommendations.
+        </p>
+        <button id="acknowledgeAdviceBtn" class="small-btn btn-primary">Got it</button>
+      </div>
+    `;
+
+    applySection.querySelector('#acknowledgeAdviceBtn').addEventListener('click', () => {
+      applySection.style.display = 'none';
+    });
+  }
+}
+
+// Apply suggested rules to the current endpoint
+function applySuggestedRulesToEndpoint(suggestedRules) {
+  if (!selectedEndpoint) {
+    showAlert('No endpoint selected');
+    return;
+  }
+
+  let rulesApplied = 0;
+
+  suggestedRules.forEach(rule => {
+    // Determine if it's whitelist or blacklist
+    const listType = rule.listType || 'blacklist';
+
+    // Determine where to add the rule
+    let targetList;
+
+    if (rule.location === 'headers' || rule.key) {
+      // For header rules
+      targetList = selectedEndpoint.request.headers[listType];
+    } else {
+      // For body rules
+      targetList = selectedEndpoint.request.body[listType];
+    }
+
+    // Check for duplicates
+    const exists = targetList.some(r =>
+      r.key === rule.key && r.value === rule.value
+    );
+
+    if (!exists) {
+      const ruleObj = {
+        key: rule.key || '',
+        keyRuleType: rule.keyRuleType || 'value',
+        value: rule.value,
+        ruleType: rule.ruleType || 'regex',
+        dateAdded: new Date().toLocaleString(),
+        notes: `[Analyzer] ${rule.notes}`
+      };
+      targetList.push(ruleObj);
+      rulesApplied++;
+    }
+  });
+
+  // Save and refresh UI
+  saveEndpointSettings();
+  renderEndpointSettings(selectedEndpoint);
+
+  showFeedback(`Applied ${rulesApplied} security rules to endpoint!`);
+}
+
+// Modify renderEndpointSettings to include the analyzer
+const originalRenderEndpointSettings = renderEndpointSettings;
+renderEndpointSettings = function (endpoint) {
+  // Call original function
+  originalRenderEndpointSettings(endpoint);
+
+  // Add analyzer if endpoint is selected
+  if (endpoint && endpointSettingsSection) {
+    // Check if analyzer already exists
+    const existingAnalyzer = endpointSettingsSection.querySelector('.request-analyzer-section');
+    if (!existingAnalyzer) {
+      const analyzer = createRequestAnalyzerUI();
+      endpointSettingsSection.appendChild(analyzer);
+    }
+  }
+};
 
 
