@@ -3,7 +3,9 @@
 
 
 Blocks requests based on absolute values and regex <br>
-in either the body, headers, or cookies <br>
+in either the body, headers, or cookies <br><br>
+Current objective: <br>
+Make the request analyzer as <strong>STRONG</strong> as possible
 <br>
 <h2>Cool Features</h2>
 
