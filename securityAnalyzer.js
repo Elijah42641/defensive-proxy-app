@@ -73,36 +73,12 @@ const pathAdviceOnly = {
     name: 'Transaction Endpoint',
     severity: 'high',
     advice: 'Transaction IDs to prevent double-submission. Proper rollback for failed transactions. Log all transaction details securely. Idempotency keys for API transactions.'
-  },
-  'password': {
-    name: 'Password Endpoint',
-    severity: 'high',
-    advice: 'Never log passwords. Use bcrypt/Argon2 for hashing. Minimum complexity requirements. Password change notifications. Consider 2FA for password changes.'
-  },
-  'reset': {
-    name: 'Password Reset Endpoint',
-    severity: 'high',
-    advice: 'Cryptographically secure random tokens for reset links. Short expiration times (15-30 minutes). Invalidate tokens after use. Email notifications. CAPTCHA to prevent abuse.'
-  },
-  'forgot': {
-    name: 'Password Recovery Endpoint',
-    severity: 'high',
-    advice: 'Rate limiting to prevent email enumeration. Secure tokens with short expiration. Never reveal whether an email exists in the system. Confirmation emails for all reset requests.'
-  },
-  'recover': {
-    name: 'Account Recovery Endpoint',
-    severity: 'high',
-    advice: 'Secure recovery codes with single-use restriction. Verify identity through multiple factors. Log all recovery attempts. Security questions with hashed answers.'
-  },
-  'change-password': {
-    name: 'Password Change Endpoint',
-    severity: 'high',
-    advice: 'Require current password for changes. Validate new password strength. Email/SMS notifications for password changes. Invalidate all existing sessions.'
   }
 };
 
 // Keywords that only get security advice (no proxy rules)
-const adviceOnlyKeywords = ['2fa', 'mfa', 'totp', 'otp', 'one-time-pass', 'authenticator', 'checkout', 'payment', 'pay', 'billing', 'subscription', 'invoice', 'transaction', 'password', 'reset', 'forgot', 'recover', 'change-password'];
+// NOTE: password, reset, forgot, recover, change-password are now handled by ruleRecommendations
+const adviceOnlyKeywords = ['2fa', 'mfa', 'totp', 'otp', 'one-time-pass', 'authenticator', 'checkout', 'payment', 'pay', 'billing', 'subscription', 'invoice', 'transaction'];
 
 // ============================================================================
 // Field Name Vulnerability Detection
@@ -129,7 +105,14 @@ const dollarParamAdvice = {
     name: 'Password Parameter with $$',
     severity: 'high',
     advice: '⚠️ This endpoint accepts passwords via dynamic parameter. Ensure proper hashing (bcrypt/Argon2), never log this value, and implement rate limiting to prevent brute force attacks.',
-    recommendation: 'Use secure password handling with hashing, rate limiting, and proper input sanitization.'
+    recommendation: 'Use secure password handling with hashing, rate limiting, and proper input sanitization.',
+    blockRules: [
+      // Password field-specific blocking rules
+      { value: '(SELECT|UNION|INSERT|UPDATE|DELETE|DROP|EXEC|--|/#|/\\*)', ruleType: 'regex', listType: 'blacklist', notes: 'Block SQL injection patterns in password field' },
+      { value: '<script|<iframe|<object|<embed|javascript:|vbscript:|on\\w+=', ruleType: 'regex', listType: 'blacklist', notes: 'Block XSS patterns in password field' },
+      { value: '\\$\\{|\\$\\(|`', ruleType: 'regex', listType: 'blacklist', notes: 'Block command injection patterns' },
+      { value: '^(.{0,3}|[^a-z]*|[^A-Z]*|[^0-9]*|[^!@#$%^&*]*)$', ruleType: 'regex', listType: 'blacklist', notes: 'Flag weak password patterns' }
+    ]
   },
   'passwd': {
     name: 'Password Parameter with $$',
@@ -572,7 +555,7 @@ function showDollarParamsPopup(endpointPath, dollarParamIssues, callback) {
     <div style="background: rgba(100, 255, 218, 0.05); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #64ffda;">
       <p style="margin: 0; font-size: 0.9em; opacity: 0.8;">
         <strong style="color: #64ffda;">Important:</strong> Parameters with <code style="background: #1a1a2e; padding: 0.1rem 0.3rem; border-radius: 3px;">=$$</code> accept dynamic values. 
-        These require <span style="color: #ff9800;">server-side security measures</span> that cannot be blocked by proxy rules alone.
+        These require <span style="color: #ff9800;">server-side security measures. <br></span> 
         Please review the security recommendations below and ensure they are implemented in your application code.
       </p>
     </div>
@@ -956,6 +939,39 @@ const ruleRecommendations = {
     }
   },
 
+  // Password endpoints
+  'password': {
+    name: 'Password Management Endpoint',
+    description: 'Password endpoints (reset, forgot, change, verify) require strict security controls to prevent credential stuffing, brute force attacks, and injection attacks.',
+    keywords: ['password', 'passwd', 'pwd', 'reset', 'forgot', 'recover', 'change-password', 'update-password', 'set-password', 'new-password', 'current-password', 'confirm-password'],
+    rules: {
+      request: {
+        headers: [
+          // Block automated tools
+          { key: '', keyRuleType: 'value', value: '(curl|wget|python-requests|python|bot|crawler|scraper|postman|insomnia|axios|fetch|node|java|perl|ruby)', ruleType: 'regex', listType: 'blacklist', notes: 'Block automated tools from password endpoints' },
+          // Require Content-Type
+          { key: 'Content-Type', keyRuleType: 'value', value: 'application/json', ruleType: 'value', listType: 'whitelist', notes: 'Require JSON content type for password operations' }
+        ],
+        body: [
+          // Block SQL injection patterns
+          { key: '', keyRuleType: 'value', value: '(SELECT|UNION|INSERT|UPDATE|DELETE|DROP|EXEC|--|/#|/\\*|\\*/|\\$\\{|or\\s+\\d+=\\d+)', ruleType: 'regex', listType: 'blacklist', notes: 'Block SQL injection in password forms' },
+          // Block XSS patterns
+          { key: '', keyRuleType: 'value', value: '<script|<iframe|<object|<embed|javascript:|vbscript:|on(load|click|mouse|error|submit|change|focus|blur)=', ruleType: 'regex', listType: 'blacklist', notes: 'Block XSS attempts in password fields' },
+          // Block NoSQL injection
+          { key: '', keyRuleType: 'value', value: '\\$where|\\$ne|\\$gt|\\$lt|\\$regex|\\$in|\\$or|\\$and|\\$not', ruleType: 'regex', listType: 'blacklist', notes: 'Block NoSQL injection operators' },
+          // Block path traversal (unlikely but possible)
+          { key: '', keyRuleType: 'value', value: '\\.\\.\\/|\\.\\.\\\\|%2e%2e', ruleType: 'regex', listType: 'blacklist', notes: 'Block path traversal attempts' },
+          // Block common weak/blank passwords (heuristic)
+          { key: '', keyRuleType: 'value', value: '^(123456|password|qwerty|abc123|letmein|admin|welcome|login|111111|123123|12345678|trustno1)$', ruleType: 'regex', listType: 'blacklist', notes: 'Block common weak passwords' },
+          // Block template injection
+          { key: '', keyRuleType: 'value', value: '\\{\\{.*\\}\\}|<%.*%>', ruleType: 'regex', listType: 'blacklist', notes: 'Block template injection patterns' },
+          // Block NULL bytes
+          { key: '', keyRuleType: 'value', value: '%00|\\x00', ruleType: 'regex', listType: 'blacklist', notes: 'Block NULL byte injection' }
+        ]
+      }
+    }
+  },
+
   // File upload endpoints
   'file': {
     name: 'File Upload Endpoint',
@@ -1154,5 +1170,85 @@ if (typeof window !== 'undefined') {
     hasDollarParams,
     showDollarParamsPopup
   };
+}
+
+// ============================================================================
+// Dollar Parameter Blocking Rules Helper Functions
+// ============================================================================
+
+/**
+ * Extract blocking rules for a dollar parameter name
+ * @param {string} paramName - The parameter name (e.g., 'password', 'role')
+ * @returns {Array} - Array of blocking rule objects
+ */
+function getDollarParamBlockRules(paramName) {
+  if (!paramName || typeof paramName !== 'string') {
+    return [];
+  }
+
+  const normalizedName = paramName.toLowerCase();
+
+  // Check for exact match first
+  if (dollarParamAdvice[normalizedName]?.blockRules) {
+    return dollarParamAdvice[normalizedName].blockRules;
+  }
+
+  // Check for partial matches
+  for (const [key, advice] of Object.entries(dollarParamAdvice)) {
+    if (key !== 'default' && normalizedName.includes(key) && advice.blockRules) {
+      return advice.blockRules;
+    }
+  }
+
+  return [];
+}
+
+/**
+ * Get all dollar parameter rules from an endpoint path
+ * @param {string} endpointPath - The endpoint path to analyze
+ * @returns {Object} - Object with 'advice' and 'rules' arrays
+ */
+function analyzeDollarParamsWithRules(endpointPath) {
+  const result = {
+    advice: [],
+    rules: []
+  };
+
+  const dollarParams = extractDollarParams(endpointPath);
+
+  dollarParams.forEach(paramName => {
+    const advice = getDollarParamAdvice(paramName);
+    const blockRules = getDollarParamBlockRules(paramName);
+
+    if (advice) {
+      result.advice.push({
+        paramName,
+        ...advice
+      });
+    }
+
+    if (blockRules.length > 0) {
+      result.rules.push({
+        paramName,
+        rules: blockRules
+      });
+    }
+  });
+
+  return result;
+}
+
+// Export helper functions for use in main.js
+if (typeof module !== 'undefined' && module.exports) {
+  module.exports = {
+    ...module.exports,
+    getDollarParamBlockRules,
+    analyzeDollarParamsWithRules
+  };
+}
+
+if (typeof window !== 'undefined') {
+  window.getDollarParamBlockRules = getDollarParamBlockRules;
+  window.analyzeDollarParamsWithRules = analyzeDollarParamsWithRules;
 }
 

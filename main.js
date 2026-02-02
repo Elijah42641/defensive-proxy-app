@@ -207,7 +207,10 @@ const {
   getDollarParamAdvice = ((paramName) => null),
   analyzeDollarParams = ((endpointPath) => []),
   hasDollarParams = ((endpointPath) => false),
-  showDollarParamsPopup = null
+  showDollarParamsPopup = null,
+  // New helper functions for dollar parameter blocking rules
+  getDollarParamBlockRules = ((paramName) => []),
+  analyzeDollarParamsWithRules = ((endpointPath) => ({ advice: [], rules: [] }))
 } = securityAnalyzer;
 
 // Ensure vulnerabilityPatterns is defined even if the module export is missing
@@ -229,6 +232,9 @@ if (typeof window !== 'undefined') {
   window.analyzeDollarParams = analyzeDollarParams;
   window.hasDollarParams = hasDollarParams;
   window.showDollarParamsPopup = showDollarParamsPopup;
+  // New helper functions for dollar parameter blocking rules
+  window.getDollarParamBlockRules = getDollarParamBlockRules;
+  window.analyzeDollarParamsWithRules = analyzeDollarParamsWithRules;
 }
 
 // Detect path-based advice (keywords that require server-side security)
@@ -304,12 +310,7 @@ function showAdvicePopup(endpointPath, detectedAdviceKeywords, callback) {
       ${adviceHTML}
     </div>
     
-    <div style="background: rgba(255, 87, 87, 0.1); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
-      <p style="margin: 0; font-size: 0.9em; opacity: 0.8;">
-        <strong>Why no proxy rules?</strong> These security measures require server-side logic like rate limiting, 
-        token validation, and business logic that cannot be enforced at the proxy level.
-      </p>
-    </div>
+   
     
     <div style="display: flex; gap: 1rem; justify-content: flex-end;">
       <button id="adviceAckBtn" style="padding: 0.8rem 1.5rem; border-radius: 8px; border: none; background: #64ffda; color: #23234a; cursor: pointer; font-weight: bold;">Got it</button>
@@ -449,7 +450,7 @@ function showRecommendationsPopup(endpointPath, detectedKeywords, callback) {
   });
 
   document.getElementById('recApplyAllBtn').addEventListener('click', () => {
-    const rules = collectRecommendedRules(detectedKeywords);
+    const rules = collectRecommendedRules(detectedKeywords, endpointPath);
     overlay.remove();
     callback('apply', rules);
   });
@@ -473,7 +474,7 @@ function showRecommendationsPopup(endpointPath, detectedKeywords, callback) {
 }
 
 // Collect all recommended rules from detected keywords
-function collectRecommendedRules(detectedKeywords) {
+function collectRecommendedRules(detectedKeywords, endpointPath = null) {
   const collectedRules = {
     request: {
       headers: { whitelist: [], blacklist: [] },
@@ -517,6 +518,43 @@ function collectRecommendedRules(detectedKeywords) {
       });
     });
   });
+
+  // Also collect dollar parameter rules if endpoint path is provided
+  if (endpointPath) {
+    const dollarAnalysis = analyzeDollarParamsWithRules(endpointPath);
+    if (dollarAnalysis.rules && dollarAnalysis.rules.length > 0) {
+      dollarAnalysis.rules.forEach(paramRules => {
+        paramRules.rules.forEach(rule => {
+          const ruleKey = `dollar_${paramRules.paramName}_${rule.value}`;
+          if (!addedRules.has(ruleKey)) {
+            addedRules.add(ruleKey);
+
+            // Add to body blacklist (for body value matching)
+            collectedRules.request.body.blacklist.push({
+              key: paramRules.paramName,
+              keyRuleType: 'value',
+              value: rule.value,
+              ruleType: rule.ruleType || 'regex',
+              listType: rule.listType || 'blacklist',
+              dateAdded: new Date().toLocaleString(),
+              notes: `[Auto-Dollar] ${rule.notes} (${paramRules.paramName}=$$)`
+            });
+
+            // Add to urlRules (for URL pattern matching)
+            if (!collectedRules.request.body.urlRules) {
+              collectedRules.request.body.urlRules = [];
+            }
+            collectedRules.request.body.urlRules.push({
+              value: rule.value,
+              ruleType: rule.ruleType || 'regex',
+              listType: 'blacklist',
+              notes: `[Auto-URL] ${rule.notes} (${paramRules.paramName}=$$)`
+            });
+          }
+        });
+      });
+    }
+  }
 
   return collectedRules;
 }
@@ -568,6 +606,19 @@ function applyRecommendedRules(endpoint, rules) {
       }
     });
   });
+
+  // Apply URL rules (for dollar parameter blocking)
+  if (rules.request.body?.urlRules && rules.request.body.urlRules.length > 0) {
+    endpoint.request.body.urlRules = endpoint.request.body.urlRules || [];
+    rules.request.body.urlRules.forEach(rule => {
+      const exists = endpoint.request.body.urlRules.some(
+        r => r.value === rule.value && r.ruleType === rule.ruleType
+      );
+      if (!exists) {
+        endpoint.request.body.urlRules.push(rule);
+      }
+    });
+  }
 }
 
 let proxyUiCreated = false; // Add a flag to prevent creating the UI multiple times
