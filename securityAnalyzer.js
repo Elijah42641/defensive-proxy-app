@@ -119,6 +119,515 @@ const identifierFieldNames = ['user_id', 'uid', 'userid', 'account_id', 'account
 const businessLogicFieldNames = ['price', 'cost', 'amount', 'quantity', 'qty', 'discount', 'tax', 'total', 'subtotal', 'balance', 'credit', 'debit', 'points', 'credits', 'status', 'role', 'level', 'tier', 'plan', 'subscription', 'permission', 'access_level', 'admin', 'is_admin', 'is_root', 'is_superuser', 'privilege'];
 
 // ============================================================================
+// Dollar Parameter ($$) Security Detection
+// ============================================================================
+// Maps parameter names to security advice when found with =$$ pattern
+
+const dollarParamAdvice = {
+  // Authentication-related parameters
+  'password': {
+    name: 'Password Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts passwords via dynamic parameter. Ensure proper hashing (bcrypt/Argon2), never log this value, and implement rate limiting to prevent brute force attacks.',
+    recommendation: 'Use secure password handling with hashing, rate limiting, and proper input sanitization.'
+  },
+  'passwd': {
+    name: 'Password Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts passwords via dynamic parameter. Ensure proper hashing (bcrypt/Argon2), never log this value, and implement rate limiting.',
+    recommendation: 'Use secure password handling with hashing, rate limiting, and proper input sanitization.'
+  },
+  'token': {
+    name: 'Token Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint uses dynamic tokens. Validate token signatures, use short expiration times, implement token rotation, and ensure secure storage.',
+    recommendation: 'Implement JWT/token security with proper validation, expiration, and rotation.'
+  },
+  'session': {
+    name: 'Session Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint handles sessions dynamically. Use secure session cookies (HttpOnly, Secure, SameSite), implement session fixation protection, and set appropriate timeouts.',
+    recommendation: 'Use secure session management with proper cookie attributes and timeout settings.'
+  },
+  'auth': {
+    name: 'Authentication Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint uses dynamic authentication. Implement proper authentication checks, rate limiting, and ensure secure credential handling.',
+    recommendation: 'Implement robust authentication with rate limiting and secure credential handling.'
+  },
+  'api_key': {
+    name: 'API Key Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts API keys dynamically. Validate API key format, implement key rotation, and log usage for monitoring.',
+    recommendation: 'Use API key validation with format checking, rotation, and usage monitoring.'
+  },
+  
+  // Authorization-related parameters
+  'role': {
+    name: 'Role Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint allows dynamic role assignment! NEVER trust client-provided roles. Always validate user authorization server-side and check if the current user has permission to modify roles.',
+    recommendation: 'Implement server-side role validation. Never trust client-provided role values.'
+  },
+  'admin': {
+    name: 'Admin Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint has admin access with dynamic parameter! This could allow privilege escalation. Implement strict server-side authorization checks.',
+    recommendation: 'Implement strict admin authorization. Verify user permissions server-side.'
+  },
+  'user_role': {
+    name: 'User Role Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint allows dynamic user role assignment! Never trust client-provided roles. Validate authorization server-side.',
+    recommendation: 'Server-side role validation required. Check user permissions before role changes.'
+  },
+  'access_level': {
+    name: 'Access Level Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts dynamic access levels! Never trust client-provided access values. Validate authorization server-side.',
+    recommendation: 'Implement server-side access level validation. Never trust client-provided values.'
+  },
+  'permission': {
+    name: 'Permission Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts dynamic permissions! This could lead to privilege escalation. Validate all permission changes server-side.',
+    recommendation: 'Server-side permission validation required. Check authorization before granting permissions.'
+  },
+  'is_admin': {
+    name: 'Is Admin Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts admin flag dynamically! This is a critical security risk. Never trust client-provided admin flags.',
+    recommendation: 'Implement server-side admin flag validation. Never trust client-provided values.'
+  },
+  
+  // Business logic parameters
+  'price': {
+    name: 'Price Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts prices dynamically! NEVER trust client-provided prices. Always calculate prices server-side based on product IDs and quantities.',
+    recommendation: 'Calculate all prices server-side. Never trust client-provided price values.'
+  },
+  'cost': {
+    name: 'Cost Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts costs dynamically! Calculate costs server-side based on product data.',
+    recommendation: 'Server-side cost calculation required. Never trust client-provided cost values.'
+  },
+  'amount': {
+    name: 'Amount Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts amounts dynamically! Validate and calculate amounts server-side.',
+    recommendation: 'Server-side amount validation and calculation required.'
+  },
+  'total': {
+    name: 'Total Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts totals dynamically! Always calculate totals server-side from line items.',
+    recommendation: 'Calculate all totals server-side. Never trust client-provided totals.'
+  },
+  'discount': {
+    name: 'Discount Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts discounts dynamically! Validate discount values against known promo codes server-side.',
+    recommendation: 'Validate discounts server-side against valid promo codes only.'
+  },
+  'quantity': {
+    name: 'Quantity Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts quantities dynamically! Validate quantities against available stock.',
+    recommendation: 'Validate quantities against stock levels. Implement quantity limits.'
+  },
+  'qty': {
+    name: 'Qty Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts quantity values dynamically! Validate quantities against stock.',
+    recommendation: 'Validate quantities against available stock. Implement quantity limits.'
+  },
+  
+  // User data parameters
+  'email': {
+    name: 'Email Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts emails dynamically! Validate email format server-side and implement rate limiting to prevent enumeration.',
+    recommendation: 'Validate email format server-side. Implement rate limiting for email endpoints.'
+  },
+  'username': {
+    name: 'Username Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts usernames dynamically! Validate format, check for reserved names, and implement rate limiting.',
+    recommendation: 'Validate username format. Check reserved names. Implement rate limiting.'
+  },
+  'user': {
+    name: 'User Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts user identifiers dynamically! Validate user authorization for all operations.',
+    recommendation: 'Validate user authorization for all user-related operations.'
+  },
+  'user_id': {
+    name: 'User ID Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts user IDs dynamically! This could indicate IDOR vulnerability. Verify the requesting user has access to the specified user ID.',
+    recommendation: 'Implement IDOR protection. Verify user access to requested user ID.'
+  },
+  'id': {
+    name: 'ID Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts IDs dynamically! This could indicate IDOR vulnerability. Verify authorization for all ID-based operations.',
+    recommendation: 'Implement IDOR protection. Verify authorization for all ID-based access.'
+  },
+  
+  // Search/query parameters
+  'query': {
+    name: 'Query Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts dynamic queries! Sanitize all query input to prevent SQL injection and implement rate limiting.',
+    recommendation: 'Sanitize query input. Implement SQL injection protection and rate limiting.'
+  },
+  'search': {
+    name: 'Search Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts dynamic search terms! Sanitize input to prevent XSS and SQL injection.',
+    recommendation: 'Sanitize search input. Implement XSS and SQL injection protection.'
+  },
+  'filter': {
+    name: 'Filter Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts dynamic filters! Validate filter structure to prevent NoSQL injection and other attacks.',
+    recommendation: 'Validate filter structure. Implement NoSQL injection protection.'
+  },
+  
+  // File-related parameters
+  'filename': {
+    name: 'Filename Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts dynamic filenames! Validate file paths to prevent path traversal attacks.',
+    recommendation: 'Validate file paths. Implement path traversal protection.'
+  },
+  'file': {
+    name: 'File Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint handles dynamic file parameters! Validate file types and implement secure file storage.',
+    recommendation: 'Validate file types. Implement secure file storage with random filenames.'
+  },
+  'path': {
+    name: 'Path Parameter with $$',
+    severity: 'high',
+    advice: '⚠️ This endpoint accepts dynamic paths! This could indicate path traversal vulnerability. Validate and sanitize all path inputs.',
+    recommendation: 'Validate and sanitize all path inputs. Implement path traversal protection.'
+  },
+  
+  // Command-related parameters (critical)
+  'command': {
+    name: 'Command Parameter with $$',
+    severity: 'critical',
+    advice: '🔴 CRITICAL: This endpoint accepts dynamic commands! This could lead to command injection. Never execute client-provided commands.',
+    recommendation: 'NEVER execute client-provided commands. Use whitelisted command names only.'
+  },
+  'cmd': {
+    name: 'CMD Parameter with $$',
+    severity: 'critical',
+    advice: '🔴 CRITICAL: This endpoint accepts dynamic commands! This could lead to command injection. Never execute client-provided commands.',
+    recommendation: 'NEVER execute client-provided commands. Use whitelisted command names only.'
+  },
+  'exec': {
+    name: 'Exec Parameter with $$',
+    severity: 'critical',
+    advice: '🔴 CRITICAL: This endpoint accepts dynamic execution parameters! This could lead to command injection.',
+    recommendation: 'NEVER execute client-provided code or commands. Use whitelisted operations only.'
+  },
+  'eval': {
+    name: 'Eval Parameter with $$',
+    severity: 'critical',
+    advice: '🔴 CRITICAL: This endpoint accepts dynamic code for eval! This is extremely dangerous and could lead to remote code execution.',
+    recommendation: 'NEVER use eval() with client-provided input. Use safe parsing instead.'
+  },
+  
+  // Generic/wildcard advice for unknown parameters
+  'default': {
+    name: 'Dynamic Parameter with $$',
+    severity: 'medium',
+    advice: '⚠️ This endpoint accepts dynamic parameters ($$). Always validate and sanitize user input server-side.',
+    recommendation: 'Implement proper input validation and sanitization for all dynamic parameters.'
+  }
+};
+
+// ============================================================================
+// Dollar Parameter Extraction Functions
+// ============================================================================
+
+/**
+ * Extract parameter names from endpoint paths that contain =$$
+ * Example: "/api/users?role=$$&id=123" returns ['role']
+ * @param {string} endpointPath - The endpoint path to analyze
+ * @returns {Array} - Array of parameter names found with =$$
+ */
+function extractDollarParams(endpointPath) {
+  if (!endpointPath || typeof endpointPath !== 'string') {
+    return [];
+  }
+  
+  // Regex to find parameter names before =$$
+  // Matches patterns like: name=$$ or name = $$ with optional spaces
+  const dollarParamRegex = /([a-zA-Z_][a-zA-Z0-9_]*)\s*=\s*\$\$/gi;
+  
+  const params = [];
+  let match;
+  
+  while ((match = dollarParamRegex.exec(endpointPath)) !== null) {
+    const paramName = match[1].toLowerCase();
+    if (!params.includes(paramName)) {
+      params.push(paramName);
+    }
+  }
+  
+  return params;
+}
+
+/**
+ * Get security advice for a parameter name found with =$$
+ * @param {string} paramName - The parameter name
+ * @returns {Object} - Security advice object or null if not found
+ */
+function getDollarParamAdvice(paramName) {
+  if (!paramName || typeof paramName !== 'string') {
+    return null;
+  }
+  
+  const normalizedName = paramName.toLowerCase();
+  
+  // Check for exact match first
+  if (dollarParamAdvice[normalizedName]) {
+    return dollarParamAdvice[normalizedName];
+  }
+  
+  // Check for partial matches for compound names
+  for (const [key, advice] of Object.entries(dollarParamAdvice)) {
+    if (key !== 'default' && normalizedName.includes(key)) {
+      return advice;
+    }
+  }
+  
+  // Return default advice if no match found
+  return dollarParamAdvice['default'];
+}
+
+/**
+ * Analyze all dollar parameters in an endpoint path and return security issues
+ * @param {string} endpointPath - The endpoint path to analyze
+ * @returns {Array} - Array of security issues for dollar parameters
+ */
+function analyzeDollarParams(endpointPath) {
+  const issues = [];
+  const dollarParams = extractDollarParams(endpointPath);
+  
+  if (dollarParams.length === 0) {
+    return issues;
+  }
+  
+  dollarParams.forEach(paramName => {
+    const advice = getDollarParamAdvice(paramName);
+    if (advice) {
+      issues.push({
+        type: 'dollarParam',
+        paramName: paramName,
+        name: advice.name,
+        severity: advice.severity,
+        recommendation: advice.recommendation,
+        advice: advice.advice,
+        location: 'endpoint query parameters'
+      });
+    }
+  });
+  
+  return issues;
+}
+
+/**
+ * Detect if an endpoint path contains =$$ pattern
+ * @param {string} endpointPath - The endpoint path to check
+ * @returns {boolean} - True if =$$ pattern is found
+ */
+function hasDollarParams(endpointPath) {
+  if (!endpointPath || typeof endpointPath !== 'string') {
+    return false;
+  }
+  
+  // Simple check for =$$ pattern
+  return endpointPath.includes('=$$');
+}
+
+// ============================================================================
+// Dollar Parameter ($$) Security Advice Popup
+// ============================================================================
+
+/**
+ * Show security advice popup for dollar parameter ($$) detections
+ * @param {string} endpointPath - The endpoint path containing =$$
+ * @param {Array} dollarParamIssues - Array of security issues from analyzeDollarParams
+ * @param {Function} callback - Callback function after popup is closed
+ */
+function showDollarParamsPopup(endpointPath, dollarParamIssues, callback) {
+  // Remove any existing dollar params popup
+  const existingPopup = document.getElementById('dollarParamsPopup');
+  const existingOverlay = document.getElementById('dollarParamsOverlay');
+  if (existingPopup) existingPopup.remove();
+  if (existingOverlay) existingOverlay.remove();
+
+  // Create overlay
+  const overlay = document.createElement('div');
+  overlay.id = 'dollarParamsOverlay';
+  overlay.style.cssText = 'position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(20, 20, 40, 0.8); z-index: 9998;';
+
+  // Create popup container
+  const popup = document.createElement('div');
+  popup.id = 'dollarParamsPopup';
+  popup.style.cssText = `
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: linear-gradient(145deg, #2a2a44, #20203a);
+    border-radius: 16px;
+    box-shadow: 0 10px 40px rgba(0, 0, 0, 0.8);
+    padding: 2rem;
+    max-width: 650px;
+    width: 90%;
+    max-height: 80vh;
+    overflow-y: auto;
+    z-index: 9999;
+    color: #e0e0f0;
+    font-family: 'Inter', sans-serif;
+  `;
+
+  // Build the issues content
+  let issuesHTML = '';
+  
+  // Group issues by severity
+  const criticalIssues = dollarParamIssues.filter(i => i.severity === 'critical');
+  const highIssues = dollarParamIssues.filter(i => i.severity === 'high');
+  const mediumIssues = dollarParamIssues.filter(i => i.severity === 'medium');
+
+  if (criticalIssues.length > 0) {
+    issuesHTML += `
+      <div style="background: rgba(195, 0, 0, 0.2); border: 2px solid #c30000; border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+        <h4 style="color: #ff3333; margin: 0 0 0.5rem 0;">🔴 CRITICAL SECURITY ISSUES</h4>
+        ${criticalIssues.map(issue => `
+          <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(195, 0, 0, 0.1); border-radius: 6px;">
+            <strong>${issue.name}</strong>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9em; color: #ffcccc;">${issue.advice}</p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  if (highIssues.length > 0) {
+    issuesHTML += `
+      <div style="background: rgba(255, 87, 87, 0.15); border: 1px solid #ff5757; border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+        <h4 style="color: #ff5757; margin: 0 0 0.5rem 0;">⚠️ HIGH SEVERITY PARAMETERS</h4>
+        ${highIssues.map(issue => `
+          <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(255, 87, 87, 0.1); border-radius: 6px;">
+            <strong>${issue.name}</strong>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9em; color: #ffcccc;">${issue.advice}</p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  if (mediumIssues.length > 0) {
+    issuesHTML += `
+      <div style="background: rgba(255, 152, 0, 0.15); border: 1px solid #ff9800; border-radius: 10px; padding: 1rem; margin-bottom: 1rem;">
+        <h4 style="color: #ff9800; margin: 0 0 0.5rem 0;">🟡 MEDIUM SEVERITY PARAMETERS</h4>
+        ${mediumIssues.map(issue => `
+          <div style="margin-top: 0.5rem; padding: 0.75rem; background: rgba(255, 152, 0, 0.1); border-radius: 6px;">
+            <strong>${issue.name}</strong>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9em; color: #ffe0b3;">${issue.advice}</p>
+          </div>
+        `).join('')}
+      </div>
+    `;
+  }
+
+  // Get list of detected parameter names
+  const paramNames = dollarParamIssues.map(i => i.paramName).join(', ');
+
+  popup.innerHTML = `
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem;">
+      <h2 style="color: #ff9800; margin: 0;">⚠️ Dynamic Parameter Security Warning</h2>
+      <button id="dollarParamsCloseBtn" style="background: transparent; border: none; color: #e0e0f0; font-size: 2rem; cursor: pointer; padding: 0; line-height: 1;">&times;</button>
+    </div>
+    
+    <p style="margin-bottom: 1rem;">
+      We detected <strong style="color: #64ffda;">${dollarParamIssues.length}</strong> dynamic parameter(s) using the <code style="background: #1a1a2e; padding: 0.2rem 0.5rem; border-radius: 4px;">$$</code> pattern in 
+      <code style="background: #1a1a2e; padding: 0.2rem 0.5rem; border-radius: 4px;">${endpointPath}</code>
+    </p>
+    
+    <div style="background: rgba(255, 152, 0, 0.1); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #ff9800;">
+      <p style="margin: 0; font-size: 0.9em; opacity: 0.9;">
+        <strong style="color: #ff9800;">Parameters detected:</strong> <code style="background: #1a1a2e; padding: 0.2rem 0.5rem; border-radius: 4px;">${paramNames}</code>
+      </p>
+    </div>
+    
+    <div style="background: rgba(100, 255, 218, 0.05); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem; border-left: 4px solid #64ffda;">
+      <p style="margin: 0; font-size: 0.9em; opacity: 0.8;">
+        <strong style="color: #64ffda;">Important:</strong> Parameters with <code style="background: #1a1a2e; padding: 0.1rem 0.3rem; border-radius: 3px;">=$$</code> accept dynamic values. 
+        These require <span style="color: #ff9800;">server-side security measures</span> that cannot be blocked by proxy rules alone.
+        Please review the security recommendations below and ensure they are implemented in your application code.
+      </p>
+    </div>
+    
+    <div style="margin-bottom: 1.5rem;">
+      ${issuesHTML}
+    </div>
+    
+    <div style="background: rgba(255, 87, 87, 0.1); border-radius: 10px; padding: 1rem; margin-bottom: 1.5rem;">
+      <p style="margin: 0; font-size: 0.85em; opacity: 0.8;">
+        <strong>Why is this a concern?</strong> Dynamic parameters like <code style="background: #1a1a2e; padding: 0.1rem 0.3rem; border-radius: 3px;">role=$$</code> or 
+        <code style="background: #1a1a2e; padding: 0.1rem 0.3rem; border-radius: 3px;">price=$$</code> allow clients to send arbitrary values. 
+        Never trust these values - always validate and authorize on the server side.
+      </p>
+    </div>
+    
+    <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+      <button id="dollarParamsAckBtn" style="padding: 0.8rem 1.5rem; border-radius: 8px; border: none; background: #64ffda; color: #23234a; cursor: pointer; font-weight: bold;">I Understand</button>
+    </div>
+  `;
+
+  overlay.appendChild(popup);
+  document.body.appendChild(overlay);
+
+  // Event handlers
+  document.getElementById('dollarParamsCloseBtn').addEventListener('click', () => {
+    overlay.remove();
+    if (callback) callback();
+  });
+
+  document.getElementById('dollarParamsAckBtn').addEventListener('click', () => {
+    overlay.remove();
+    if (callback) callback();
+  });
+
+  // Close on overlay click
+  overlay.addEventListener('click', (e) => {
+    if (e.target === overlay) {
+      overlay.remove();
+      if (callback) callback();
+    }
+  });
+
+  // Escape key closes popup
+  document.addEventListener('keydown', dollarParamsEscHandler);
+  function dollarParamsEscHandler(e) {
+    if (e.key === 'Escape') {
+      overlay.remove();
+      document.removeEventListener('keydown', dollarParamsEscHandler);
+      if (callback) callback();
+    }
+  }
+}
+
+// ============================================================================
 // Vulnerability Patterns Definition
 // ============================================================================
 
@@ -606,7 +1115,14 @@ if (typeof module !== 'undefined' && module.exports) {
     analyzeRequestVulnerabilities,
     ruleRecommendations,
     endpointKeywords,
-    detectKeywords
+    detectKeywords,
+    // Dollar parameter ($$) detection exports
+    dollarParamAdvice,
+    extractDollarParams,
+    getDollarParamAdvice,
+    analyzeDollarParams,
+    hasDollarParams,
+    showDollarParamsPopup
   };
 }
 
@@ -629,7 +1145,14 @@ if (typeof window !== 'undefined') {
     analyzeRequestVulnerabilities,
     ruleRecommendations,
     endpointKeywords,
-    detectKeywords
+    detectKeywords,
+    // Dollar parameter ($$) detection exports
+    dollarParamAdvice,
+    extractDollarParams,
+    getDollarParamAdvice,
+    analyzeDollarParams,
+    hasDollarParams,
+    showDollarParamsPopup
   };
 }
 

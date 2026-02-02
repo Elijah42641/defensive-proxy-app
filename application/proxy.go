@@ -232,7 +232,7 @@ func main() {
 		}
 
 		if matchingEndpoint != nil {
-			result := checkRequestRules(r, matchingEndpoint.Request, bodyBytes)
+			result := checkRequestRules(r, matchingEndpoint.Path, matchingEndpoint.Request, bodyBytes)
 			if !result {
 				w.WriteHeader(http.StatusForbidden)
 				w.Write([]byte("Request blocked by defensive proxy"))
@@ -627,9 +627,10 @@ type Rule struct {
 }
 
 type RulesObj struct {
-	Whitelist []Rule `json:"whitelist"`
-	Blacklist []Rule `json:"blacklist"`
-	Mode      string `json:"mode"`
+	Whitelist []Rule            `json:"whitelist"`
+	Blacklist []Rule            `json:"blacklist"`
+	Mode      string            `json:"mode"`
+	ModeMap   map[string]string `json:"modeMap,omitempty"`
 }
 
 type Endpoint struct {
@@ -639,13 +640,23 @@ type Endpoint struct {
 	Request        struct {
 		Headers RulesObj `json:"headers"`
 		Cookies RulesObj `json:"cookies"`
-		Body    RulesObj `json:"body"`
+		Body    struct {
+			RulesObj
+			URLRules []URLPatternRule `json:"urlRules,omitempty"`
+		} `json:"body"`
 	} `json:"request"`
 	Response struct {
 		Headers RulesObj `json:"headers"`
 		Cookies RulesObj `json:"cookies"`
 		Body    RulesObj `json:"body"`
 	} `json:"response"`
+}
+
+type URLPatternRule struct {
+	Value    string `json:"value"`
+	RuleType string `json:"ruleType"` // "value" or "regex"
+	ListType string `json:"listType"` // "whitelist" or "blacklist"
+	Notes    string `json:"notes,omitempty"`
 }
 
 type RulesFile struct {
@@ -766,7 +777,7 @@ func checkRuleMatch(rule Rule, componentKey, componentValue string) bool {
 }
 
 // matchEndpointPath matches a request path against an endpoint pattern with $$ wildcard support.
-// $$ matches any sequence of characters (including empty) between parts of the pattern.
+// $$ matches any sequence of characters (including empty) within a SINGLE path segment.
 // Example: "/api/users/$$" matches "/api/users/123", "/api/users/abc" but NOT "/api/users/123/profile"
 // Example: "a$$f" matches "af", "a123f", "axyzf" but NOT "df" or "ag"
 // Example: "/api/$$/data" matches "/api/anything/data" but NOT "/api/a/b/data"
@@ -782,11 +793,11 @@ func matchEndpointPath(requestPath, pattern string) bool {
 	}
 
 	// Convert $$ pattern to regex
-	// $$ means "anything or nothing" - like .* in regex
+	// $$ means "anything or nothing within a single segment" - use [^/]* instead of .*
 	// Escape special regex characters first
 	escaped := regexp.QuoteMeta(pattern)
-	// Replace $$ with .* (matches any characters including empty)
-	regexPattern := strings.ReplaceAll(escaped, "\\$\\$", ".*")
+	// Replace $$ with [^/]* (matches any characters except /, within a single segment)
+	regexPattern := strings.ReplaceAll(escaped, "\\$\\$", "[^/]*")
 
 	// Anchor the pattern to match the entire string
 	regexPattern = "^" + regexPattern + "$"
@@ -800,43 +811,333 @@ func matchEndpointPath(requestPath, pattern string) bool {
 	return re.MatchString(requestPath)
 }
 
-func checkRequestRules(r *http.Request, reqRules struct {
-	Headers RulesObj `json:"headers"`
-	Cookies RulesObj `json:"cookies"`
-	Body    RulesObj `json:"body"`
-}, bodyBytes []byte) bool {
+// extractDynamicValue extracts the dynamic part from a segment value based on the endpoint pattern
+// For pattern "f$$d" and value "food", returns "oo"
+// For pattern "$$" and value "abc", returns "abc"
+// For pattern "a$$b$$c" with value "a123b456c", returns dynamic parts at each $$
+// For pattern "d$$jdfdfdsf$$lmn$$" with value "d123jdfdfdsf456lmn789":
+//   - First $$: extract "123" (between "d" and "jdfdfdsf")
+//   - Second $$: extract "456" (between "jdfdfdsf" and "lmn")
+//   - Third $$: extract "789" (after "lmn")
+func extractDynamicValue(pattern, value string, whichDollar int) string {
+	log.Printf("DEBUG extractDynamicValue: pattern='%s', value='%s', whichDollar=%d", pattern, value, whichDollar)
 
-	// --- BLACKLIST ENFORCEMENT (always check first - applies to all modes) ---
-	// Check headers blacklist
-	for _, rule := range reqRules.Headers.Blacklist {
-		for k, v := range r.Header {
-			for _, val := range v {
-				if checkRuleMatch(rule, k, val) {
-					return false
+	// Count $$ in pattern
+	dollarCount := strings.Count(pattern, "$$")
+	log.Printf("DEBUG extractDynamicValue: dollarCount=%d", dollarCount)
+
+	// If no $$ in pattern, return the whole value
+	if dollarCount == 0 {
+		log.Printf("DEBUG extractDynamicValue: no $$ in pattern, returning full value: '%s'", value)
+		return value
+	}
+
+	// Find all $$ positions in the pattern
+	positions := []int{}
+	searchFrom := 0
+	for {
+		idx := strings.Index(pattern[searchFrom:], "$$")
+		if idx == -1 {
+			break
+		}
+		positions = append(positions, searchFrom+idx)
+		searchFrom = positions[len(positions)-1] + 2
+	}
+	log.Printf("DEBUG extractDynamicValue: positions=%v", positions)
+
+	// If we want a specific $$, extract that part
+	if whichDollar >= 0 && whichDollar < len(positions) {
+		// For single $$ marker, use prefix/suffix removal
+		if dollarCount == 1 {
+			dollarPos := positions[0]
+			prefix := pattern[:dollarPos]
+			suffix := ""
+			if dollarPos+2 < len(pattern) {
+				suffix = pattern[dollarPos+2:]
+			}
+
+			log.Printf("DEBUG extractDynamicValue: single $$, prefix='%s', suffix='%s'", prefix, suffix)
+
+			if prefix == "" && suffix == "" {
+				log.Printf("DEBUG extractDynamicValue: no prefix or suffix, returning full value: '%s'", value)
+				return value
+			}
+
+			if prefix != "" && !strings.HasPrefix(value, prefix) {
+				log.Printf("DEBUG extractDynamicValue: value doesn't start with prefix, returning empty")
+				return ""
+			}
+			if suffix != "" && !strings.HasSuffix(value, suffix) {
+				log.Printf("DEBUG extractDynamicValue: value doesn't end with suffix, returning empty")
+				return ""
+			}
+
+			dynamicPart := value[len(prefix) : len(value)-len(suffix)]
+			result := strings.TrimSpace(dynamicPart)
+			log.Printf("DEBUG extractDynamicValue: extracted dynamic part: '%s'", result)
+			return result
+		}
+
+		// For multiple $$ markers in a single segment, use direct position-based extraction
+		// The dynamic value is the text between the static parts that bound this $$
+		//
+		// For pattern "s$$f$$r" with positions [1, 4]:
+		// - This means: s + ($$) + f + ($$) + r
+		// - whichDollar=0: between "s" and "f" → extracts "a" from "safr"
+		// - whichDollar=1: between "f" and "r" → extracts "b" from "sfbr"
+		//
+		// For "safr" (s + a + f + r):
+		// - First $$ matches "a" (between "s" and "f")
+		// - Second $$ matches "" (between "f" and "r", nothing there)
+		//
+		// For "sfbr" (s + f + b + r):
+		// - First $$ matches "" (between "s" and "f", nothing there)
+		// - Second $$ matches "b" (between "f" and "r")
+
+		// Get the static text BEFORE this $$
+		var staticBefore string
+		if whichDollar == 0 {
+			staticBefore = pattern[:positions[0]]
+		} else {
+			// For whichDollar > 0, staticBefore is between the previous $$ and this $$
+			prevDollarEnd := positions[whichDollar-1] + 2
+			if prevDollarEnd < positions[whichDollar] {
+				staticBefore = pattern[prevDollarEnd:positions[whichDollar]]
+			}
+		}
+
+		// Get the static text AFTER this $$
+		var staticAfter string
+		if whichDollar+1 < len(positions) {
+			// Static text between this $$ and next $$
+			staticAfter = pattern[positions[whichDollar]+2 : positions[whichDollar+1]]
+		} else {
+			// Static text after last $$
+			staticAfter = pattern[positions[whichDollar]+2:]
+		}
+
+		log.Printf("DEBUG extractDynamicValue: whichDollar=%d, staticBefore='%s', staticAfter='%s'", whichDollar, staticBefore, staticAfter)
+
+		// Find staticBefore in value
+		beforeIdx := -1
+		if staticBefore != "" {
+			beforeIdx = strings.Index(value, staticBefore)
+		} else {
+			beforeIdx = 0
+		}
+
+		if beforeIdx == -1 {
+			log.Printf("DEBUG extractDynamicValue: staticBefore not found in value, returning empty")
+			return ""
+		}
+
+		// Find staticAfter - start searching after staticBefore
+		searchStart := beforeIdx + len(staticBefore)
+		var afterIdx int
+		if staticAfter != "" {
+			idx := strings.Index(value[searchStart:], staticAfter)
+			if idx == -1 {
+				log.Printf("DEBUG extractDynamicValue: staticAfter not found in value, returning empty")
+				return ""
+			}
+			afterIdx = searchStart + idx
+		} else {
+			afterIdx = len(value)
+		}
+
+		// The dynamic value is between staticBefore and staticAfter
+		startIdx := beforeIdx + len(staticBefore)
+		dynamicValue := value[startIdx:afterIdx]
+		result := strings.TrimSpace(dynamicValue)
+		log.Printf("DEBUG extractDynamicValue: extracted dynamic value: '%s' (from indices %d to %d)", result, startIdx, afterIdx)
+		return result
+	}
+
+	// Default: return empty
+	log.Printf("DEBUG extractDynamicValue: default, returning empty")
+	return ""
+}
+
+// extractDynamicValuesFromPath extracts all dynamic values from a URL path based on the endpoint pattern
+// Returns a slice of values to check against URL pattern rules
+// For pattern "/api/users/$$" with request "/api/users/admin", returns ["admin"]
+// For pattern "/api/$$/data" with request "/api/anything/data", returns ["anything"]
+// For pattern "/api/$$/$$" with request "/api/user/123/profile", returns ["user", "123"]
+func extractDynamicValuesFromPath(pattern, requestPath string) []string {
+	log.Printf("DEBUG extractDynamicValuesFromPath: pattern='%s', requestPath='%s'", pattern, requestPath)
+
+	// Split pattern and request into segments
+	patternSegments := strings.Split(pattern, "/")
+	requestSegments := strings.Split(requestPath, "/")
+
+	log.Printf("DEBUG: patternSegments=%v, requestSegments=%v", patternSegments, requestSegments)
+
+	var values []string
+
+	for i, patternSeg := range patternSegments {
+		if !strings.Contains(patternSeg, "$$") {
+			continue
+		}
+
+		// Get the corresponding request segment
+		if i >= len(requestSegments) {
+			log.Printf("DEBUG: No corresponding request segment for pattern segment %d", i)
+			continue
+		}
+
+		requestSeg := requestSegments[i]
+		log.Printf("DEBUG: Processing segment %d - pattern='%s', request='%s'", i, patternSeg, requestSeg)
+
+		// Count $$ markers in this pattern segment
+		dollarCount := strings.Count(patternSeg, "$$")
+
+		if dollarCount == 1 {
+			// Single $$ marker - extract the dynamic part
+			dollarPos := strings.Index(patternSeg, "$$")
+			prefix := patternSeg[:dollarPos]
+			suffix := ""
+			if dollarPos+2 < len(patternSeg) {
+				suffix = patternSeg[dollarPos+2:]
+			}
+
+			log.Printf("DEBUG: Single $$ - prefix='%s', suffix='%s'", prefix, suffix)
+
+			// Extract the value between prefix and suffix
+			var value string
+			if prefix == "" && suffix == "" {
+				// No prefix or suffix, entire segment is dynamic
+				value = requestSeg
+			} else if prefix == "" {
+				// No prefix, value ends at suffix
+				if strings.HasSuffix(requestSeg, suffix) {
+					value = requestSeg[:len(requestSeg)-len(suffix)]
+				} else {
+					value = requestSeg
+				}
+			} else if suffix == "" {
+				// No suffix, value starts after prefix
+				if strings.HasPrefix(requestSeg, prefix) {
+					value = requestSeg[len(prefix):]
+				} else {
+					value = requestSeg
+				}
+			} else {
+				// Both prefix and suffix
+				if strings.HasPrefix(requestSeg, prefix) && strings.HasSuffix(requestSeg, suffix) {
+					value = requestSeg[len(prefix) : len(requestSeg)-len(suffix)]
+				} else {
+					value = requestSeg
 				}
 			}
+
+			log.Printf("DEBUG: Extracted value: '%s'", value)
+			values = append(values, value)
+		} else {
+			// Multiple $$ markers in single segment - this is a special case
+			// For simplicity, we'll add the entire request segment
+			log.Printf("DEBUG: Multiple $$ in single segment, using full segment value")
+			values = append(values, requestSeg)
 		}
 	}
 
-	// Check cookies blacklist
-	for _, rule := range reqRules.Cookies.Blacklist {
-		for _, c := range r.Cookies() {
-			if checkRuleMatch(rule, c.Name, c.Value) {
-				return false
+	log.Printf("DEBUG: Final extracted values: %v", values)
+
+	// If no values extracted, return the full path as a fallback
+	if len(values) == 0 {
+		log.Printf("DEBUG: No values extracted, returning full path")
+		return []string{requestPath}
+	}
+
+	return values
+}
+
+// checkRequestRules checks all request rules against the incoming request
+func checkRequestRules(
+	r *http.Request,
+	endpointPath string,
+	reqRules struct {
+		Headers RulesObj `json:"headers"`
+		Cookies RulesObj `json:"cookies"`
+		Body    struct {
+			RulesObj
+			URLRules []URLPatternRule `json:"urlRules,omitempty"`
+		} `json:"body"`
+	},
+	bodyBytes []byte,
+) bool {
+
+	/* ================= URL RULES ================= */
+	path := r.URL.Path
+	var urlRules []URLPatternRule
+	urlRules = append(urlRules, reqRules.Body.URLRules...)
+
+	// Add URL whitelist/blacklist rules from body
+	for _, rule := range reqRules.Body.Whitelist {
+		if strings.HasPrefix(rule.Key, "url_") {
+			urlRules = append(urlRules, URLPatternRule{
+				Value:    rule.Value,
+				RuleType: rule.RuleType,
+				ListType: "whitelist",
+				Notes:    rule.Notes,
+			})
+		}
+	}
+	for _, rule := range reqRules.Body.Blacklist {
+		if strings.HasPrefix(rule.Key, "url_") {
+			urlRules = append(urlRules, URLPatternRule{
+				Value:    rule.Value,
+				RuleType: rule.RuleType,
+				ListType: "blacklist",
+				Notes:    rule.Notes,
+			})
+		}
+	}
+
+	// Check blacklist first
+	for _, rule := range urlRules {
+		if rule.ListType != "blacklist" {
+			continue
+		}
+		matched := false
+		if rule.RuleType == "regex" {
+			re, err := regexp.Compile(rule.Value)
+			if err != nil {
+				continue
 			}
+			matched = re.MatchString(path)
+		} else {
+			matched = strings.Contains(path, rule.Value)
+		}
+		if matched {
+			return false
 		}
 	}
 
-	// Parse body
+	// Optionally check whitelist (doesn't block)
+	// for _, rule := range urlRules {
+	// 	if rule.ListType != "whitelist" {
+	// 		continue
+	// 	}
+	// 	matched := false
+	// 	if rule.RuleType == "regex" {
+	// 		re, err := regexp.Compile(rule.Value)
+	// 		if err != nil {
+	// 			continue
+	// 		}
+	// 		matched = re.MatchString(path)
+	// 	} else {
+	// 		matched = strings.Contains(path, rule.Value)
+	// 	}
+	// }
+
+	/* ================= BODY PARSING ================= */
 	var bodyData map[string]interface{}
 	contentType := strings.ToLower(r.Header.Get("Content-Type"))
+
 	if strings.Contains(contentType, "application/json") {
-		if err := json.Unmarshal(bodyBytes, &bodyData); err != nil {
-			log.Printf("Error unmarshaling JSON body: %v", err)
-		}
-	} else {
-		stringBody := strings.ReplaceAll(string(bodyBytes), ":", "=")
-		if form, err := url.ParseQuery(stringBody); err == nil {
+		_ = json.Unmarshal(bodyBytes, &bodyData)
+	} else if len(bodyBytes) > 0 {
+		if form, err := url.ParseQuery(strings.ReplaceAll(string(bodyBytes), ":", "=")); err == nil {
 			bodyData = make(map[string]interface{})
 			for k, v := range form {
 				if len(v) == 1 {
@@ -845,157 +1146,103 @@ func checkRequestRules(r *http.Request, reqRules struct {
 					bodyData[k] = v
 				}
 			}
-		} else {
-			bodyData = map[string]interface{}{"": string(bodyBytes)}
 		}
 	}
 
-	// Check body blacklist
+	/* ================= GENERIC EVALUATOR ================= */
+	eval := func(
+		section string,
+		mode string,
+		whitelist []Rule,
+		blacklist []Rule,
+		iter func(func(string, string)),
+	) bool {
+
+		var seen []string
+		foundUnwhitelisted := false
+
+		iter(func(k, v string) {
+			seen = append(seen, k+"="+v)
+
+			for _, r := range blacklist {
+				if checkRuleMatch(r, k, v) && mode != "blacklist" {
+					panic("blocked")
+				}
+			}
+
+			if mode == "blacklist" {
+				whitelisted := false
+				for _, r := range whitelist {
+					if checkRuleMatch(r, k, v) {
+						whitelisted = true
+						break
+					}
+				}
+				if !whitelisted {
+					foundUnwhitelisted = true
+				}
+			}
+		})
+
+		if mode == "blacklist" && len(seen) == 0 {
+			return true
+		}
+		if mode == "blacklist" && foundUnwhitelisted {
+			return false
+		}
+
+		return true
+	}
+
+	safeEval := func(fn func() bool) bool {
+		defer func() { recover() }()
+		return fn()
+	}
+
+	/* ================= HEADERS ================= */
+	if !safeEval(func() bool {
+		return eval("headers", reqRules.Headers.Mode, reqRules.Headers.Whitelist, reqRules.Headers.Blacklist,
+			func(yield func(string, string)) {
+				for k, vals := range r.Header {
+					for _, v := range vals {
+						yield(k, v)
+					}
+				}
+			})
+	}) {
+		return false
+	}
+
+	/* ================= COOKIES ================= */
+	if !safeEval(func() bool {
+		return eval("cookies", reqRules.Cookies.Mode, reqRules.Cookies.Whitelist, reqRules.Cookies.Blacklist,
+			func(yield func(string, string)) {
+				for _, c := range r.Cookies() {
+					yield(c.Name, c.Value)
+				}
+			})
+	}) {
+		return false
+	}
+
+	/* ================= BODY ================= */
 	if bodyData != nil {
-		for _, rule := range reqRules.Body.Blacklist {
-			for k, v := range bodyData {
-				var vals []string
-				if sl, ok := v.([]string); ok {
-					vals = sl
-				} else {
-					vals = []string{fmt.Sprintf("%v", v)}
-				}
-				for _, val := range vals {
-					if checkRuleMatch(rule, k, val) {
-						return false
+		if !safeEval(func() bool {
+			return eval("body", reqRules.Body.Mode, reqRules.Body.Whitelist, reqRules.Body.Blacklist,
+				func(yield func(string, string)) {
+					for k, v := range bodyData {
+						switch val := v.(type) {
+						case []string:
+							for _, s := range val {
+								yield(k, s)
+							}
+						default:
+							yield(k, fmt.Sprintf("%v", val))
+						}
 					}
-				}
-			}
-		}
-	}
-
-	// --- MODE-SPECIFIC LOGIC (each data type operates independently) ---
-
-	// Headers mode logic
-	if reqRules.Headers.Mode == "whitelist" && len(reqRules.Headers.Whitelist) > 0 {
-		// Whitelist mode: must match at least one whitelist rule if whitelist exists
-		found := false
-		for _, rule := range reqRules.Headers.Whitelist {
-			for k, v := range r.Header {
-				for _, val := range v {
-					if checkRuleMatch(rule, k, val) {
-						found = true
-						break
-					}
-				}
-				if found {
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
+				})
+		}) {
 			return false
-		}
-	} else if reqRules.Headers.Mode == "blacklist" {
-		// Blacklist mode: every header must be explicitly whitelisted
-		for k, v := range r.Header {
-			for _, val := range v {
-				found := false
-				for _, rule := range reqRules.Headers.Whitelist {
-					if checkRuleMatch(rule, k, val) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return false
-				}
-			}
-		}
-	}
-
-	// Cookies mode logic
-	if reqRules.Cookies.Mode == "whitelist" && len(reqRules.Cookies.Whitelist) > 0 {
-		// Whitelist mode: must match at least one whitelist rule if whitelist exists
-		found := false
-		for _, rule := range reqRules.Cookies.Whitelist {
-			for _, c := range r.Cookies() {
-				if checkRuleMatch(rule, c.Name, c.Value) {
-					found = true
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	} else if reqRules.Cookies.Mode == "blacklist" {
-		// Blacklist mode: every cookie must be explicitly whitelisted
-		for _, c := range r.Cookies() {
-			found := false
-			for _, rule := range reqRules.Cookies.Whitelist {
-				if checkRuleMatch(rule, c.Name, c.Value) {
-					found = true
-					break
-				}
-			}
-			if !found {
-				return false
-			}
-		}
-	}
-
-	// Body mode logic
-	if reqRules.Body.Mode == "whitelist" && bodyData != nil && len(reqRules.Body.Whitelist) > 0 {
-		// Whitelist mode: must match at least one whitelist rule if whitelist exists
-		found := false
-		for _, rule := range reqRules.Body.Whitelist {
-			for k, v := range bodyData {
-				var vals []string
-				if sl, ok := v.([]string); ok {
-					vals = sl
-				} else {
-					vals = []string{fmt.Sprintf("%v", v)}
-				}
-				for _, val := range vals {
-					if checkRuleMatch(rule, k, val) {
-						found = true
-						break
-					}
-				}
-				if found {
-					break
-				}
-			}
-			if found {
-				break
-			}
-		}
-		if !found {
-			return false
-		}
-	} else if reqRules.Body.Mode == "blacklist" && bodyData != nil {
-		// Blacklist mode: every body field must be explicitly whitelisted
-		for k, v := range bodyData {
-			var vals []string
-			if sl, ok := v.([]string); ok {
-				vals = sl
-			} else {
-				vals = []string{fmt.Sprintf("%v", v)}
-			}
-			for _, val := range vals {
-				found := false
-				for _, rule := range reqRules.Body.Whitelist {
-					if checkRuleMatch(rule, k, val) {
-						found = true
-						break
-					}
-				}
-				if !found {
-					return false
-				}
-			}
 		}
 	}
 

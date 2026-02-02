@@ -200,8 +200,18 @@ const {
   endpointKeywords = [],
   detectKeywords = ((endpointPath) => []),
   detectPathAdvice = () => [],
-  analyzeRequestVulnerabilities = () => []
+  analyzeRequestVulnerabilities = () => [],
+  // Dollar parameter ($$) detection imports
+  dollarParamAdvice = {},
+  extractDollarParams = ((endpointPath) => []),
+  getDollarParamAdvice = ((paramName) => null),
+  analyzeDollarParams = ((endpointPath) => []),
+  hasDollarParams = ((endpointPath) => false),
+  showDollarParamsPopup = null
 } = securityAnalyzer;
+
+// Ensure vulnerabilityPatterns is defined even if the module export is missing
+const finalVulnerabilityPatterns = vulnerabilityPatterns || {};
 
 // Make available globally for browser usage
 if (typeof window !== 'undefined') {
@@ -212,6 +222,13 @@ if (typeof window !== 'undefined') {
   window.ruleRecommendations = ruleRecommendations;
   window.endpointKeywords = endpointKeywords;
   window.detectKeywords = detectKeywords;
+  // Dollar parameter ($$) detection exports
+  window.dollarParamAdvice = dollarParamAdvice;
+  window.extractDollarParams = extractDollarParams;
+  window.getDollarParamAdvice = getDollarParamAdvice;
+  window.analyzeDollarParams = analyzeDollarParams;
+  window.hasDollarParams = hasDollarParams;
+  window.showDollarParamsPopup = showDollarParamsPopup;
 }
 
 // Detect path-based advice (keywords that require server-side security)
@@ -617,6 +634,9 @@ function loadProxySettings(projectName = null) {
   }
 }
 
+// Make loadProxySettings globally accessible for other scripts
+window.loadProxySettings = loadProxySettings;
+
 function saveProxySettings(settings, projectName = null) {
   const key = projectName ? `proxySettings_${projectName}` : 'proxySettings';
   localStorage.setItem(key, JSON.stringify(settings));
@@ -661,6 +681,9 @@ function showFeedback(message) {
     feedbackDisplay.style.display = 'none';
   }, 3000);
 }
+
+// Make showFeedback globally accessible for other scripts
+window.showFeedback = showFeedback;
 
 function showAlert(message) {
   showFeedback(message);
@@ -1844,6 +1867,15 @@ function saveEndpointSettings() {
   if (!selectedEndpoint) return;
   saveProjectEndpoints(currentlyEditingProject);
   reloadProxyEndpoints();
+  
+  // Also update the current_project.json file for the proxy
+  if (currentlyEditingProject && sessionEndpoints[currentlyEditingProject]?.endpoints) {
+    updateCurrentProjectFile(
+      currentlyEditingProject,
+      sessionEndpoints[currentlyEditingProject].endpoints,
+      null // Don't change proxyEnabled
+    );
+  }
 }
 
 function showRuleDetails(details, originalRule) {
@@ -2378,6 +2410,223 @@ function renderEndpointSettings(endpoint) {
     });
 
     detailContainer.appendChild(ruleTypeBlocks);
+
+    // =============================================
+    // URL Pattern Rules Section (Only shown for dynamic URL parts)
+    // =============================================
+    const urlPatternSection = document.createElement('div');
+    
+    // Only show if there are dynamic URL parts ($$ markers)
+    if (!hasDollarParams) {
+      // Don't add the section at all if no dynamic parts
+      // Skip directly to the end
+    } else {
+      urlPatternSection.className = 'url-pattern-section';
+      urlPatternSection.style.cssText = `
+        background: linear-gradient(145deg, #2a2a44, #20203a);
+        border-radius: 12px;
+        padding: 1.5rem;
+        margin-top: 1.5rem;
+        border: 1px solid #ff9800;
+        box-shadow: 0 4px 16px rgba(255, 152, 0, 0.2);
+      `;
+
+      // Get all URL pattern rules
+      const getUrlRules = () => {
+        return (endpoint.request.body?.urlRules || []).map(r => ({
+          value: r.value,
+          ruleType: r.ruleType,
+          notes: r.notes
+        }));
+      };
+
+      const urlRules = getUrlRules();
+      const dollarParams = extractDollarParams(endpoint.path);
+      const dollarCount = dollarParams.length;
+
+      urlPatternSection.innerHTML = `
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+          <h4 style="color: #ff9800; margin: 0;">⚠️ Dynamic URL Parts</h4>
+          <span style="background: rgba(255, 87, 87, 0.2); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85em; color: #ff5757;">
+            ${dollarCount} dynamic part(s) • ${urlRules.length} rule(s)
+          </span>
+        </div>
+        
+        <p style="font-size: 0.9em; color: #aaa; margin-bottom: 1rem;">
+          The <code style="background: #1a1a2e; padding: 0.2rem 0.4rem; border-radius: 4px;">$$</code> markers in this URL accept arbitrary values. 
+          Add rules below to block specific patterns.
+        </p>
+        
+        <div id="urlRulesList" style="margin-bottom: 1rem;"></div>
+        
+        <div id="urlRuleForm" style="display: none; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
+          <h5 style="color: #ff9800; margin: 0 0 1rem 0;">Add Block Rule</h5>
+          
+          <div class="form-group">
+            <label>Pattern to Block (Regex):</label>
+            <input type="text" id="urlRuleValue" class="form-input" placeholder="e.g., ^admin$ or ^\\d{3}$">
+          </div>
+          
+          <div class="form-group">
+            <label>Notes (optional):</label>
+            <input type="text" id="urlRuleNotes" class="form-input" placeholder="Reason for this block">
+          </div>
+          
+          <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
+            <button id="addUrlRuleBtn" class="small-btn btn-primary">Add Block Rule</button>
+            <button id="cancelUrlRuleBtn" class="small-btn btn-secondary">Cancel</button>
+          </div>
+        </div>
+        
+        <button id="addUrlRuleGlobalBtn" class="small-btn" style="background: #ff9800; color: #23234a; margin-top: 0.5rem;">
+          + Add Block Rule
+        </button>
+      `;
+
+      detailContainer.appendChild(urlPatternSection);
+
+      // Render URL rules list
+      const urlRulesList = urlPatternSection.querySelector('#urlRulesList');
+
+      function renderUrlRulesList() {
+        const rules = getUrlRules();
+
+        if (rules.length === 0) {
+          urlRulesList.innerHTML = `
+            <div style="background: rgba(255, 87, 87, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+              <p style="margin: 0; color: #ff9800;">No block rules defined</p>
+              <p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #aaa;">
+                Add rules below to block specific patterns in dynamic URL parts.
+              </p>
+            </div>
+          `;
+          return;
+        }
+
+        let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
+
+        rules.forEach((rule, index) => {
+          const methodBadge = rule.ruleType === 'regex' 
+            ? '<span style="background: #ff9800; color: #23234a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.75em;">REGEX</span>'
+            : '<span style="background: #64ffda; color: #23234a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.75em;">VALUE</span>';
+
+          html += `
+            <div style="display: flex; justify-content: space-between; align-items: center; background: rgba(255, 87, 87, 0.1); padding: 0.5rem 0.75rem; border-radius: 6px; border-left: 3px solid #ff5757;">
+              <div style="display: flex; align-items: center; gap: 0.75rem; flex: 1;">
+                <code style="background: #1a1a2e; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.85em; word-break: break-all;">${rule.value}</code>
+                ${methodBadge}
+                ${rule.notes ? `<span style="color: #888; font-size: 0.8em;">${rule.notes}</span>` : ''}
+              </div>
+              <button class="small-btn btn-danger remove-url-rule" data-rule-index="${index}" style="font-size: 0.7rem; padding: 0.15rem 0.35rem;">
+                X
+              </button>
+            </div>
+          `;
+        });
+
+        html += '</div>';
+        urlRulesList.innerHTML = html;
+
+        // Add event listeners to remove buttons
+        urlRulesList.querySelectorAll('.remove-url-rule').forEach(btn => {
+          btn.addEventListener('click', () => {
+            removeUrlRule(parseInt(btn.dataset.ruleIndex));
+          });
+        });
+      }
+
+      renderUrlRulesList();
+
+      // Function to remove a URL rule
+      function removeUrlRule(ruleIdx) {
+        const rules = getUrlRules();
+        const ruleToRemove = rules[ruleIdx];
+        if (!ruleToRemove) return;
+
+        endpoint.request.body.urlRules = endpoint.request.body.urlRules.filter(r => {
+          return !(r.value === ruleToRemove.value && r.ruleType === ruleToRemove.ruleType);
+        });
+
+        saveEndpointSettings();
+        renderUrlRulesList();
+        showFeedback('Block rule removed');
+      }
+
+      // Show add rule form
+      function showUrlRuleForm() {
+        const form = urlPatternSection.querySelector('#urlRuleForm');
+        const globalBtn = urlPatternSection.querySelector('#addUrlRuleGlobalBtn');
+
+        globalBtn.style.display = 'none';
+        form.style.display = 'block';
+
+        setTimeout(() => {
+          urlPatternSection.querySelector('#urlRuleValue').focus();
+        }, 100);
+      }
+
+      // Hide add rule form
+      function hideUrlRuleForm() {
+        const form = urlPatternSection.querySelector('#urlRuleForm');
+        const globalBtn = urlPatternSection.querySelector('#addUrlRuleGlobalBtn');
+
+        form.style.display = 'none';
+        globalBtn.style.display = 'block';
+
+        urlPatternSection.querySelector('#urlRuleValue').value = '';
+        urlPatternSection.querySelector('#urlRuleNotes').value = '';
+      }
+
+      // Add rule button handler
+      urlPatternSection.querySelector('#addUrlRuleBtn').addEventListener('click', () => {
+        const value = urlPatternSection.querySelector('#urlRuleValue').value.trim();
+        const notes = urlPatternSection.querySelector('#urlRuleNotes').value.trim();
+
+        if (!value) {
+          showAlert('Please enter a regex pattern');
+          return;
+        }
+
+        if (!isValidRegex(value)) {
+          showAlert('Invalid regex pattern');
+          return;
+        }
+
+        // Check if rule already exists
+        const existingRule = endpoint.request.body.urlRules?.some(r =>
+          r.value === value && r.ruleType === 'regex'
+        );
+
+        if (existingRule) {
+          showAlert('This rule already exists');
+          return;
+        }
+
+        // Add the rule (only blacklist, always regex)
+        endpoint.request.body.urlRules = endpoint.request.body.urlRules || [];
+        endpoint.request.body.urlRules.push({
+          value: value,
+          ruleType: 'regex',
+          listType: 'blacklist',
+          notes: notes || `[URL] Block pattern`
+        });
+
+        saveEndpointSettings();
+        showFeedback('Block rule added');
+        hideUrlRuleForm();
+        renderUrlRulesList();
+      });
+
+      // Cancel button handler
+      urlPatternSection.querySelector('#cancelUrlRuleBtn').addEventListener('click', () => {
+        hideUrlRuleForm();
+      });
+
+      // Global add button handler
+      urlPatternSection.querySelector('#addUrlRuleGlobalBtn').addEventListener('click', () => {
+        showUrlRuleForm();
+      });
+    }
   }
 
   editTabs.addEventListener('click', (e) => {
@@ -2653,6 +2902,7 @@ function initializeEventHandlers() {
     console.log('Endpoints saved to localStorage for project:', folderName);
     renderProjectsList();
     currentlyEditingProject = folderName;
+    window.currentlyEditingProject = folderName;
     localStorage.setItem('currentlyEditingProject', folderName);
     console.log('Set currently editing project to:', folderName);
     switchTab('endpoints');
@@ -2669,6 +2919,7 @@ function initializeEventHandlers() {
     if (e.target.classList.contains('enter-edit-btn')) {
       const projectName = e.target.dataset.project;
       currentlyEditingProject = projectName;
+      window.currentlyEditingProject = projectName;
       localStorage.setItem('currentlyEditingProject', projectName);
       const proxySettings = loadProxySettings(projectName);
       loadProjectEndpoints(projectName);
@@ -2702,6 +2953,7 @@ function initializeEventHandlers() {
 
         if (currentlyEditingProject === projectName) {
           currentlyEditingProject = null;
+          window.currentlyEditingProject = null;
           localStorage.removeItem('currentlyEditingProject');
           updateCurrentProjectFile('');
           switchTab('projects');
@@ -2753,39 +3005,61 @@ function initializeEventHandlers() {
       
       // Detect rule-eligible keywords (keywords like auth, payment, api, etc.)
       const detectedRuleKeywords = detectKeywords(endpointPath);
+      
+      // Detect dollar parameters ($$) - these always show security advice
+      const hasDollarParamsFlag = hasDollarParams(endpointPath);
+      const dollarParamIssues = analyzeDollarParams(endpointPath);
 
-      // If advice-only keywords are detected, show advice popup
-      if (detectedAdviceKeywords.length > 0) {
-        showAdvicePopup(endpointPath, detectedAdviceKeywords, (action, rules) => {
-          // After showing advice, check if there are also rule-eligible keywords
-          if (detectedRuleKeywords.length > 0) {
-            showRecommendationsPopup(endpointPath, detectedRuleKeywords, (ruleAction, ruleSet) => {
-              if (ruleAction === 'apply' && ruleSet) {
-                addEndpointWithRules(endpointPath, project, ruleSet);
-              } else {
-                addEndpointWithRules(endpointPath, project, null);
-              }
-            });
-          } else {
-            // No rule-eligible keywords, just add endpoint without rules
-            addEndpointWithRules(endpointPath, project, null);
-          }
-        });
-      }
-      // If only rule-eligible keywords are detected, show recommendations popup
-      else if (detectedRuleKeywords.length > 0) {
-        showRecommendationsPopup(endpointPath, detectedRuleKeywords, (action, rules) => {
-          if (action === 'apply' && rules) {
-            addEndpointWithRules(endpointPath, project, rules);
-          } else {
-            addEndpointWithRules(endpointPath, project, null);
-          }
-        });
-      } 
-      // No keywords detected, add endpoint without rules
-      else {
-        addEndpointWithRules(endpointPath, project, null);
-      }
+      // Helper function to show dollar parameter advice popup
+      const showDollarParamsAdvice = () => {
+        if (hasDollarParamsFlag && dollarParamIssues.length > 0) {
+          showDollarParamsPopup(endpointPath, dollarParamIssues, () => {
+            // After showing dollar param advice, continue with other detection
+            continueWithOtherDetections();
+          });
+        } else {
+          continueWithOtherDetections();
+        }
+      };
+
+      // Continue with other detection after dollar params popup
+      const continueWithOtherDetections = () => {
+        // If advice-only keywords are detected, show advice popup
+        if (detectedAdviceKeywords.length > 0) {
+          showAdvicePopup(endpointPath, detectedAdviceKeywords, (action, rules) => {
+            // After showing advice, check if there are also rule-eligible keywords
+            if (detectedRuleKeywords.length > 0) {
+              showRecommendationsPopup(endpointPath, detectedRuleKeywords, (ruleAction, ruleSet) => {
+                if (ruleAction === 'apply' && ruleSet) {
+                  addEndpointWithRules(endpointPath, project, ruleSet);
+                } else {
+                  addEndpointWithRules(endpointPath, project, null);
+                }
+              });
+            } else {
+              // No rule-eligible keywords, just add endpoint without rules
+              addEndpointWithRules(endpointPath, project, null);
+            }
+          });
+        }
+        // If only rule-eligible keywords are detected, show recommendations popup
+        else if (detectedRuleKeywords.length > 0) {
+          showRecommendationsPopup(endpointPath, detectedRuleKeywords, (action, rules) => {
+            if (action === 'apply' && rules) {
+              addEndpointWithRules(endpointPath, project, rules);
+            } else {
+              addEndpointWithRules(endpointPath, project, null);
+            }
+          });
+        } 
+        // No keywords detected, add endpoint without rules
+        else {
+          addEndpointWithRules(endpointPath, project, null);
+        }
+      };
+
+      // Start with dollar parameter detection
+      showDollarParamsAdvice();
     } else {
       showAlert('This endpoint already exists.');
       newEndpointInput.value = '';
@@ -2795,6 +3069,7 @@ function initializeEventHandlers() {
 
   exitEditModeBtn.addEventListener('click', () => {
     currentlyEditingProject = null;
+    window.currentlyEditingProject = null;
     selectedEndpoint = null;
     selectedEndpointPath = null;
     localStorage.removeItem('currentlyEditingProject'); // Clear from local storage
@@ -2894,6 +3169,9 @@ document.addEventListener('DOMContentLoaded', async () => {
       endpointSettingsSection.classList.add('hidden');
     }
   }
+
+  // Make currentlyEditingProject globally accessible for other scripts
+  window.currentlyEditingProject = currentlyEditingProject;
 
 
   // Start performance monitoring if proxy is active on load
@@ -3526,4 +3804,10 @@ function applySuggestedRulesToEndpoint(suggestedRules) {
   });
 
 saveEndpointSettings();
-  renderEndpointSettings(selectedEndpoint);}
+  renderEndpointSettings(selectedEndpoint);
+}
+
+// Tutorial event listeners
+document.getElementById('tutorial-close')?.addEventListener('click', hideTutorial);
+document.getElementById('tutorial-next')?.addEventListener('click', nextTutorialStep);
+document.getElementById('tutorial-prev')?.addEventListener('click', prevTutorialStep);
