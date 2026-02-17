@@ -135,7 +135,15 @@ const regexCharacters = [
 ];
 
 // --- Reminder Popup Function ---
-function showReminderPopup(message) {
+function showReminderPopup(message, reminderKey = null) {
+  // Check if this reminder has been dismissed before
+  if (reminderKey) {
+    const dismissedReminders = JSON.parse(localStorage.getItem('dismissedReminders') || '{}');
+    if (dismissedReminders[reminderKey]) {
+      return; // Don't show this reminder
+    }
+  }
+
   const container = document.createElement('div');
   container.id = 'reminderPopupContainer';
   container.style.position = 'fixed';
@@ -155,11 +163,24 @@ function showReminderPopup(message) {
   popup.innerHTML = `
     <h3 style="color: #64ffda; margin-bottom: 1rem;">Reminder</h3>
     <p>${message}</p>
-    <button id="closeReminderBtn" style="margin-top: 1rem; padding: 0.5rem 1rem; border-radius: 8px; border: none; background: #64ffda; color: #23234a; cursor: pointer;">OK</button>
+    <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 0.5rem;">
+      <label style="display: flex; align-items: center; justify-content: center; gap: 0.5rem; cursor: pointer;">
+        <input type="checkbox" id="dontShowAgain" style="width: auto;">
+        <span style="font-size: 0.9em;">Don't show this again</span>
+      </label>
+      <button id="closeReminderBtn" style="margin-top: 0.5rem; padding: 0.5rem 1rem; border-radius: 8px; border: none; background: #64ffda; color: #23234a; cursor: pointer;">OK</button>
+    </div>
   `;
   container.appendChild(popup);
   document.body.appendChild(container);
   document.getElementById('closeReminderBtn').addEventListener('click', () => {
+    // Check if "Don't show again" is checked
+    const dontShowAgain = document.getElementById('dontShowAgain').checked;
+    if (dontShowAgain && reminderKey) {
+      const dismissedReminders = JSON.parse(localStorage.getItem('dismissedReminders') || '{}');
+      dismissedReminders[reminderKey] = true;
+      localStorage.setItem('dismissedReminders', JSON.stringify(dismissedReminders));
+    }
     container.remove();
   });
 }
@@ -477,14 +498,14 @@ function showRecommendationsPopup(endpointPath, detectedKeywords, callback) {
 function collectRecommendedRules(detectedKeywords, endpointPath = null) {
   const collectedRules = {
     request: {
-      headers: { whitelist: [], blacklist: [] },
-      cookies: { whitelist: [], blacklist: [] },
-      body: { whitelist: [], blacklist: [] }
+      headers: { whitelist: [], blacklist: [], required: [] },
+      cookies: { whitelist: [], blacklist: [], required: [] },
+      body: { whitelist: [], blacklist: [], required: [] }
     },
     response: {
-      headers: { whitelist: [], blacklist: [] },
-      cookies: { whitelist: [], blacklist: [] },
-      body: { whitelist: [], blacklist: [] }
+      headers: { whitelist: [], blacklist: [], required: [] },
+      cookies: { whitelist: [], blacklist: [], required: [] },
+      body: { whitelist: [], blacklist: [], required: [] }
     }
   };
 
@@ -629,14 +650,14 @@ function addDefaultProject() {
   const defaultEndpoint = {
     path: "/test-endpoint",
     request: {
-      headers: { whitelist: [], blacklist: [], mode: "blacklist" },
-      cookies: { whitelist: [], blacklist: [], mode: "blacklist" },
-      body: { whitelist: [], blacklist: [], mode: "blacklist" }
+      headers: { whitelist: [], blacklist: [], required: [], mode: "blacklist" },
+      cookies: { whitelist: [], blacklist: [], required: [], mode: "blacklist" },
+      body: { whitelist: [], blacklist: [], required: [], mode: "blacklist" }
     },
     response: {
-      headers: { whitelist: [], blacklist: [], mode: "blacklist" },
-      cookies: { whitelist: [], blacklist: [], mode: "blacklist" },
-      body: { whitelist: [], blacklist: [], mode: "blacklist" }
+      headers: { whitelist: [], blacklist: [], required: [], mode: "blacklist" },
+      cookies: { whitelist: [], blacklist: [], required: [], mode: "blacklist" },
+      body: { whitelist: [], blacklist: [], required: [], mode: "blacklist" }
     }
   };
 
@@ -1298,7 +1319,7 @@ function switchTab(tabId) {
             <strong>How does the Defensive Proxy work?</strong><br>
             <ul style="margin-top:0.7em;margin-bottom:0.7em;padding-left:1.2em;">
                 <li><span style="color:#64ffda;font-weight:bold;">Intercepts</span> all requests that would normally go to your server.</li>
-                <li><span style="color:#52d8b7;font-weight:bold;">Blocks or allows</span> requests based on your configured rules (whitelist/blacklist).</li>
+                <li><span style="color:#52d8b7;font-weight:bold;">Blocks or allows</span> requests based on your configured rules (whitelist/blacklist/required).</li>
                 <li><span style="color:#ff5757;font-weight:bold;">Sits on the port</span> your server would normally use, then <span style="color:#64ffda;font-weight:bold;">forwards</span> allowed requests to the actual server port.</li>
                 <li>Use the <strong>Proxy Port</strong> field to set the port the proxy listens on (e.g., <span style="color:#64ffda;">8080</span>).</li>
                 <li>Use the <strong>Server Port</strong> field to set the port of your real server (e.g., <span style="color:#52d8b7;">3000</span>).</li>
@@ -1995,7 +2016,7 @@ function editRuleDetails(rule, dataType, scope, listType) {
     </div>
     <div class="popup-content">
       <p><strong>Data Type:</strong> ${dataType}</p>
-      <p><strong>Rule Type:</strong> ${listType === 'whitelist' ? 'Allowed' : 'Blocked'}</p>
+<p><strong>Rule Type:</strong> ${listType === 'whitelist' ? 'Allowed' : listType === 'blacklist' ? 'Blocked' : 'Required'}</p>
       <p><strong>Scope:</strong> ${scope.charAt(0).toUpperCase() + scope.slice(1)}</p>
       ${isBody ? `
       <div class="form-group">
@@ -2082,14 +2103,14 @@ function renderEndpointSettings(endpoint) {
   }
 
   endpoint.request = endpoint.request || {};
-  endpoint.request.headers = endpoint.request.headers || { whitelist: [], blacklist: [], mode: 'blacklist' };
-  endpoint.request.cookies = endpoint.request.cookies || { whitelist: [], blacklist: [], mode: 'blacklist' };
-  endpoint.request.body = endpoint.request.body || { whitelist: [], blacklist: [], mode: 'blacklist' };
+  endpoint.request.headers = endpoint.request.headers || { whitelist: [], blacklist: [], required: [], mode: 'blacklist' };
+  endpoint.request.cookies = endpoint.request.cookies || { whitelist: [], blacklist: [], required: [], mode: 'blacklist' };
+  endpoint.request.body = endpoint.request.body || { whitelist: [], blacklist: [], required: [], mode: 'blacklist' };
 
   endpoint.response = endpoint.response || {};
-  endpoint.response.headers = endpoint.response.headers || { whitelist: [], blacklist: [], mode: 'blacklist' };
-  endpoint.response.cookies = endpoint.response.cookies || { whitelist: [], blacklist: [], mode: 'blacklist' };
-  endpoint.response.body = endpoint.response.body || { whitelist: [], blacklist: [], mode: 'blacklist' };
+  endpoint.response.headers = endpoint.response.headers || { whitelist: [], blacklist: [], required: [], mode: 'blacklist' };
+  endpoint.response.cookies = endpoint.response.cookies || { whitelist: [], blacklist: [], required: [], mode: 'blacklist' };
+  endpoint.response.body = endpoint.response.body || { whitelist: [], blacklist: [], required: [], mode: 'blacklist' };
 
   const settingsHeader = document.createElement('h3');
   settingsHeader.textContent = `Settings for: ${endpoint.path}`;
@@ -2406,10 +2427,17 @@ function renderEndpointSettings(endpoint) {
       addBlockBtn.className = 'small-btn btn-danger';
       addBlockBtn.title = 'Add to Blocked Rules';
 
+      const addRequiredBtn = document.createElement('button');
+      addRequiredBtn.textContent = '!';
+      addRequiredBtn.className = 'small-btn';
+      addRequiredBtn.style.background = '#ff9800';
+      addRequiredBtn.title = 'Add to Required Rules';
+
       const buttonGroup = document.createElement('div');
       buttonGroup.className = 'buttons';
       buttonGroup.appendChild(addAllowBtn);
       buttonGroup.appendChild(addBlockBtn);
+      buttonGroup.appendChild(addRequiredBtn);
       addRuleGroup.appendChild(buttonGroup);
 
       ruleTypeBlock.appendChild(addRuleGroup);
@@ -2418,14 +2446,19 @@ function renderEndpointSettings(endpoint) {
       allowedList.className = 'rules-list';
       const blockedList = document.createElement('ul');
       blockedList.className = 'rules-list';
+      const requiredList = document.createElement('ul');
+      requiredList.className = 'rules-list';
 
       (endpoint[type][dataType]?.whitelist || []).forEach(item => addListItem(allowedList, item, dataType, type, 'whitelist'));
       (endpoint[type][dataType]?.blacklist || []).forEach(item => addListItem(blockedList, item, dataType, type, 'blacklist'));
+      (endpoint[type][dataType]?.required || []).forEach(item => addListItem(requiredList, item, dataType, type, 'required'));
 
       ruleTypeBlock.appendChild(document.createElement('h5')).textContent = 'Allowed Rules';
       ruleTypeBlock.appendChild(allowedList);
       ruleTypeBlock.appendChild(document.createElement('h5')).textContent = 'Blocked Rules';
       ruleTypeBlock.appendChild(blockedList);
+      ruleTypeBlock.appendChild(document.createElement('h5')).textContent = 'Required Rules';
+      ruleTypeBlock.appendChild(requiredList);
 
       ruleTypeBlocks.appendChild(ruleTypeBlock);
 
@@ -2457,6 +2490,20 @@ function renderEndpointSettings(endpoint) {
         addRule(key, ruleValueInput.value, ruleType, keyRuleType, dataType, type, 'blacklist', notes, ruleKeyInput, ruleValueInput, ruleNotesInput);
       };
 
+      addRequiredBtn.onclick = () => {
+        const key = ruleKeyInput.value;
+        const ruleType = ruleTypeSelect.value;
+        const keyRuleType = ruleKeyMethodSelect.value;
+        const notes = ruleNotesInput.value;
+
+        if (ruleType === 'regex' && !isValidRegex(ruleValueInput.value)) {
+          showAlert('Cannot add rule: The regex pattern is invalid.');
+          return;
+        }
+
+        addRule(key, ruleValueInput.value, ruleType, keyRuleType, dataType, type, 'required', notes, ruleKeyInput, ruleValueInput, ruleNotesInput);
+      };
+
       // ------ update addRule signature and body accordingly...
     });
 
@@ -2468,7 +2515,8 @@ function renderEndpointSettings(endpoint) {
     const urlPatternSection = document.createElement('div');
     
     // Only show if there are dynamic URL parts ($$ markers)
-    if (!hasDollarParams) {
+    const endpointHasDollarParams = hasDollarParams(endpoint.path);
+    if (!endpointHasDollarParams) {
       // Don't add the section at all if no dynamic parts
       // Skip directly to the end
     } else {
@@ -2499,38 +2547,46 @@ function renderEndpointSettings(endpoint) {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
           <h4 style="color: #ff9800; margin: 0;">⚠️ Dynamic URL Parts</h4>
           <span style="background: rgba(255, 87, 87, 0.2); padding: 0.25rem 0.75rem; border-radius: 20px; font-size: 0.85em; color: #ff5757;">
-            ${dollarCount} dynamic part(s) • ${urlRules.length} rule(s)
+            ${urlRules.length} rule(s)
           </span>
         </div>
         
         <p style="font-size: 0.9em; color: #aaa; margin-bottom: 1rem;">
           The <code style="background: #1a1a2e; padding: 0.2rem 0.4rem; border-radius: 4px;">$$</code> markers in this URL accept arbitrary values. 
-          Add rules below to block specific patterns.
+          Add rules below to filter specific patterns.
         </p>
         
         <div id="urlRulesList" style="margin-bottom: 1rem;"></div>
         
         <div id="urlRuleForm" style="display: none; background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px;">
-          <h5 style="color: #ff9800; margin: 0 0 1rem 0;">Add Block Rule</h5>
+          <h5 style="color: #ff9800; margin: 0 0 1rem 0;">Add URL Rule</h5>
           
           <div class="form-group">
-            <label>Pattern to Block (Regex):</label>
+            <label>Rule Type:</label>
+            <select id="urlRuleType" class="form-input">
+              <option value="blacklist">Block (Blacklist)</option>
+              <option value="required">Required (Must Match)</option>
+            </select>
+          </div>
+          
+          <div class="form-group">
+            <label>Pattern (Regex):</label>
             <input type="text" id="urlRuleValue" class="form-input" placeholder="e.g., ^admin$ or ^\\d{3}$">
           </div>
           
           <div class="form-group">
             <label>Notes (optional):</label>
-            <input type="text" id="urlRuleNotes" class="form-input" placeholder="Reason for this block">
+            <input type="text" id="urlRuleNotes" class="form-input" placeholder="Reason for this filter">
           </div>
           
           <div style="display: flex; gap: 0.5rem; margin-top: 1rem;">
-            <button id="addUrlRuleBtn" class="small-btn btn-primary">Add Block Rule</button>
+            <button id="addUrlRuleBtn" class="small-btn btn-primary">Add Pattern Rule</button>
             <button id="cancelUrlRuleBtn" class="small-btn btn-secondary">Cancel</button>
           </div>
         </div>
         
         <button id="addUrlRuleGlobalBtn" class="small-btn" style="background: #ff9800; color: #23234a; margin-top: 0.5rem;">
-          + Add Block Rule
+          + Add Pattern Rule
         </button>
       `;
 
@@ -2545,9 +2601,9 @@ function renderEndpointSettings(endpoint) {
         if (rules.length === 0) {
           urlRulesList.innerHTML = `
             <div style="background: rgba(255, 87, 87, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
-              <p style="margin: 0; color: #ff9800;">No block rules defined</p>
+          <p style="margin: 0; color: #ff9800;">No pattern rules defined</p>
               <p style="margin: 0.5rem 0 0 0; font-size: 0.85em; color: #aaa;">
-                Add rules below to block specific patterns in dynamic URL parts.
+                Add rules below to filter specific patterns in dynamic URL parts.
               </p>
             </div>
           `;
@@ -2600,7 +2656,7 @@ function renderEndpointSettings(endpoint) {
 
         saveEndpointSettings();
         renderUrlRulesList();
-        showFeedback('Block rule removed');
+        showFeedback('Pattern rule removed');
       }
 
       // Show add rule form
@@ -2653,17 +2709,18 @@ function renderEndpointSettings(endpoint) {
           return;
         }
 
-        // Add the rule (only blacklist, always regex)
+        // Add the rule using the selected listType from dropdown
+        const selectedListType = urlPatternSection.querySelector('#urlRuleType').value;
         endpoint.request.body.urlRules = endpoint.request.body.urlRules || [];
         endpoint.request.body.urlRules.push({
           value: value,
           ruleType: 'regex',
-          listType: 'blacklist',
-          notes: notes || `[URL] Block pattern`
+          listType: selectedListType,
+          notes: notes || `[URL] Filter pattern`
         });
 
         saveEndpointSettings();
-        showFeedback('Block rule added');
+        showFeedback('Pattern rule added');
         hideUrlRuleForm();
         renderUrlRulesList();
       });
@@ -2727,6 +2784,14 @@ function addRule(key, value, ruleType, keyRuleType, dataType, type, listType, no
   if (selectedEndpoint[type][dataType].mode === 'blacklist' && listType === 'blacklist') {
     showReminderPopup('In blacklist mode (default block), adding to blacklist is optional since all are blocked by default.');
   }
+  if (listType === 'required') {
+    showReminderPopup('Required rules specify fields that MUST be present for the request to be allowed.', 'required_rules_reminder');
+  }
+
+  // Initialize required array if it doesn't exist
+  if (!selectedEndpoint[type][dataType].required) {
+    selectedEndpoint[type][dataType].required = [];
+  }
 
   const currentRules = selectedEndpoint[type][dataType][listType];
   // Check if a similar rule already exists to prevent duplicates
@@ -2741,7 +2806,7 @@ function addRule(key, value, ruleType, keyRuleType, dataType, type, listType, no
     currentRules.push(ruleObj);
     renderEndpointSettings(selectedEndpoint);
 
-    const feedbackMessage = `${dataType.charAt(0).toUpperCase() + dataType.slice(1)} rule added to ${listType === 'whitelist' ? 'Allowed' : 'Blocked'} rules successfully.`;
+    const feedbackMessage = `${dataType.charAt(0).toUpperCase() + dataType.slice(1)} rule added to ${listType === 'whitelist' ? 'Allowed' : listType === 'blacklist' ? 'Blocked' : 'Required'} rules successfully.`;
     showFeedback(feedbackMessage);
     saveEndpointSettings();
 
@@ -2833,7 +2898,7 @@ function addListItem(listElement, rule, dataType, type, ruleType) {
       <button id="popupCloseBtn" style="position: absolute; top: 10px; right: 10px; background: transparent; border: none; font-size: 2rem; color: #64ffda; cursor: pointer;">&times;</button>
       <h2 style="color: #64ffda; margin-bottom: 0.5rem;">Rule Details</h2>
       <div><strong>Data Type:</strong> ${displayType}</div>
-      <div><strong>Rule Type:</strong> ${ruleType === 'whitelist' ? 'Allowed' : 'Blocked'}</div>
+      <div><strong>Rule Type:</strong> ${ruleType === 'whitelist' ? 'Allowed' : ruleType === 'blacklist' ? 'Blocked' : 'Required'}</div>
       <div><strong>Scope:</strong> ${type.charAt(0).toUpperCase() + type.slice(1)}</div>
       <div><strong>${keyLabel}:</strong> <input type="text" id="edit-key" value="${rule.key || ''}" style="width: 70%; padding: 0.5em; border-radius: 6px; border: 1px solid #555; background: #29294d; color: #eee;" /></div>
       <div><strong>${keyLabel} Method:</strong> <select id="edit-key-method" style="padding: 0.5em; border-radius: 6px; border: 1px solid #555; background: #29294d; color: #eee;">
@@ -3297,7 +3362,7 @@ const tutorialSteps = [
   },
   {
     title: "What are Rules?",
-    text: "Rules can be whitelist (default pass, block specific items) or blacklist (default block, allow specific items). Examples: Block SQL injection patterns, allow only specific headers, or filter out XSS attempts. Use regex for advanced matching.",
+    text: "Rules can be whitelist (default pass, block specific items), blacklist (default block, allow specific items), or required (fields that MUST be present). Examples: Block SQL injection patterns, allow only specific headers, require specific auth tokens, or filter out XSS attempts. Use regex for advanced matching.",
     highlight: null,
     statusText: "",
     action: null
@@ -3528,14 +3593,14 @@ function addEndpointWithRules(endpointPath, project, recommendedRules) {
     path: endpointPath,
     obfuscatedPath: obfuscatedPath,
     request: {
-      headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
-      cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
-      body: { whitelist: [], blacklist: [], mode: 'blacklist' }
+      headers: { whitelist: [], blacklist: [], required: [], mode: 'blacklist' },
+      cookies: { whitelist: [], blacklist: [], required: [], mode: 'blacklist' },
+      body: { whitelist: [], blacklist: [], required: [], mode: 'blacklist' }
     },
     response: {
-      headers: { whitelist: [], blacklist: [], mode: 'blacklist' },
-      cookies: { whitelist: [], blacklist: [], mode: 'blacklist' },
-      body: { whitelist: [], blacklist: [], mode: 'blacklist' }
+      headers: { whitelist: [], blacklist: [], required: [], mode: 'blacklist' },
+      cookies: { whitelist: [], blacklist: [], required: [], mode: 'blacklist' },
+      body: { whitelist: [], blacklist: [], required: [], mode: 'blacklist' }
     }
   };
 

@@ -629,6 +629,7 @@ type Rule struct {
 type RulesObj struct {
 	Whitelist []Rule            `json:"whitelist"`
 	Blacklist []Rule            `json:"blacklist"`
+	Required  []Rule            `json:"required"`
 	Mode      string            `json:"mode"`
 	ModeMap   map[string]string `json:"modeMap,omitempty"`
 }
@@ -1067,7 +1068,7 @@ func checkRequestRules(
 ) bool {
 
 	/* ================= URL RULES ================= */
-	path := r.URL.Path
+	path := strings.TrimPrefix(r.URL.Path, "/")
 	var urlRules []URLPatternRule
 	urlRules = append(urlRules, reqRules.Body.URLRules...)
 
@@ -1093,23 +1094,59 @@ func checkRequestRules(
 		}
 	}
 
-	// Check blacklist first
+	// Check URL rules - both blacklist and required
 	for _, rule := range urlRules {
-		if rule.ListType != "blacklist" {
-			continue
+		// For blacklist: block matching paths
+		if rule.ListType == "blacklist" {
+			matched := false
+			if rule.RuleType == "regex" {
+				re, err := regexp.Compile(rule.Value)
+				if err != nil {
+					continue
+				}
+				matched = re.MatchString(path)
+			} else {
+				matched = strings.Contains(path, rule.Value)
+			}
+			if matched {
+				return false
+			}
 		}
-		matched := false
-		if rule.RuleType == "regex" {
-			re, err := regexp.Compile(rule.Value)
-			if err != nil {
+		// For required: extract dynamic values and check if they match the required pattern
+		if rule.ListType == "required" {
+			// Extract dynamic values from the request path based on endpoint pattern
+			dynamicValues := extractDynamicValuesFromPath(endpointPath, path)
+
+			// Only check required rules if there are dynamic values ($$ markers in endpoint)
+			// If no dynamic values, skip the required check (path is static)
+			if len(dynamicValues) == 0 {
 				continue
 			}
-			matched = re.MatchString(path)
-		} else {
-			matched = strings.Contains(path, rule.Value)
-		}
-		if matched {
-			return false
+
+			// Check if any dynamic value matches the required pattern
+			matched := false
+			for _, dynVal := range dynamicValues {
+				if rule.RuleType == "regex" {
+					re, err := regexp.Compile(rule.Value)
+					if err != nil {
+						continue
+					}
+					if re.MatchString(dynVal) {
+						matched = true
+						break
+					}
+				} else {
+					if strings.Contains(dynVal, rule.Value) {
+						matched = true
+						break
+					}
+				}
+			}
+			// If no dynamic value matched the required pattern, block the request
+			if !matched {
+				log.Printf("URL path '%s' does not match required pattern '%s' for endpoint '%s'", path, rule.Value, endpointPath)
+				return false
+			}
 		}
 	}
 
@@ -1155,14 +1192,17 @@ func checkRequestRules(
 		mode string,
 		whitelist []Rule,
 		blacklist []Rule,
+		required []Rule,
 		iter func(func(string, string)),
 	) bool {
 
 		var seen []string
 		foundUnwhitelisted := false
+		seenKeys := make(map[string]bool)
 
 		iter(func(k, v string) {
 			seen = append(seen, k+"="+v)
+			seenKeys[k] = true
 
 			for _, r := range blacklist {
 				if checkRuleMatch(r, k, v) && mode != "blacklist" {
@@ -1191,6 +1231,45 @@ func checkRequestRules(
 			return false
 		}
 
+		// Check required rules - all required keys must be present
+		if len(required) > 0 {
+			for _, reqRule := range required {
+				trimmedKey := strings.TrimSpace(reqRule.Key)
+				if trimmedKey == "" {
+					continue
+				}
+
+				// Check if this required key exists in the request
+				keyRuleType := reqRule.KeyRuleType
+				if keyRuleType == "" {
+					keyRuleType = "value"
+				}
+
+				found := false
+				for reqKey := range seenKeys {
+					if keyRuleType == "regex" {
+						regexPattern := "(?i)" + trimmedKey
+						if re, err := regexp.Compile(regexPattern); err == nil {
+							if re.MatchString(reqKey) {
+								found = true
+								break
+							}
+						}
+					} else {
+						if strings.EqualFold(reqKey, trimmedKey) {
+							found = true
+							break
+						}
+					}
+				}
+
+				if !found {
+					log.Printf("Required field '%s' not found in %s", trimmedKey, section)
+					return false
+				}
+			}
+		}
+
 		return true
 	}
 
@@ -1201,7 +1280,7 @@ func checkRequestRules(
 
 	/* ================= HEADERS ================= */
 	if !safeEval(func() bool {
-		return eval("headers", reqRules.Headers.Mode, reqRules.Headers.Whitelist, reqRules.Headers.Blacklist,
+		return eval("headers", reqRules.Headers.Mode, reqRules.Headers.Whitelist, reqRules.Headers.Blacklist, reqRules.Headers.Required,
 			func(yield func(string, string)) {
 				for k, vals := range r.Header {
 					for _, v := range vals {
@@ -1215,7 +1294,7 @@ func checkRequestRules(
 
 	/* ================= COOKIES ================= */
 	if !safeEval(func() bool {
-		return eval("cookies", reqRules.Cookies.Mode, reqRules.Cookies.Whitelist, reqRules.Cookies.Blacklist,
+		return eval("cookies", reqRules.Cookies.Mode, reqRules.Cookies.Whitelist, reqRules.Cookies.Blacklist, reqRules.Cookies.Required,
 			func(yield func(string, string)) {
 				for _, c := range r.Cookies() {
 					yield(c.Name, c.Value)
@@ -1228,7 +1307,7 @@ func checkRequestRules(
 	/* ================= BODY ================= */
 	if bodyData != nil {
 		if !safeEval(func() bool {
-			return eval("body", reqRules.Body.Mode, reqRules.Body.Whitelist, reqRules.Body.Blacklist,
+			return eval("body", reqRules.Body.Mode, reqRules.Body.Whitelist, reqRules.Body.Blacklist, reqRules.Body.Required,
 				func(yield func(string, string)) {
 					for k, v := range bodyData {
 						switch val := v.(type) {

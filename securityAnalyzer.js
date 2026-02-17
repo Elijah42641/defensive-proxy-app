@@ -426,17 +426,18 @@ function analyzeDollarParams(endpointPath) {
 }
 
 /**
- * Detect if an endpoint path contains =$$ pattern
+ * Detect if an endpoint path contains $$ pattern (either in path or as query parameter)
  * @param {string} endpointPath - The endpoint path to check
- * @returns {boolean} - True if =$$ pattern is found
+ * @returns {boolean} - True if $$ pattern is found (in path or query)
  */
 function hasDollarParams(endpointPath) {
   if (!endpointPath || typeof endpointPath !== 'string') {
     return false;
   }
   
-  // Simple check for =$$ pattern
-  return endpointPath.includes('=$$');
+  // Check for $$ pattern anywhere in the path (like /api/users/$$)
+  // Also check for =$$ pattern in query parameters (like ?role=$$)
+  return endpointPath.includes('$$') || endpointPath.includes('=$$');
 }
 
 // ============================================================================
