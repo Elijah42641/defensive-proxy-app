@@ -67,7 +67,7 @@ If you see any bugs let me know I just added this and it might still be buggy
       <br>
         <h2> New feature coming: </h2>
         <br>
-          <p> Lets you add a mode that observes traffic and uses the request analyzer on each request to recommend rules, use a storage amount for it that saves request features for endpoints then learns how it should block requests
+<p>Learning Mode: This mode observes incoming traffic and uses a request analyzer to recommend custom blocking rules. It tracks details like field/header lengths, types, and how many fields/headers are in each request. Based on this data, it learns how to block requests by analyzing how dynamic or strict the fields are.</p>
 
 Learning mode: learns based on field/headed lengths, field/header types, amount of fields/headers. Blocks based on how dynamic/strict the fields are</p>
   <h2>Bugs:</h2>
