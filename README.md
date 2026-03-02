@@ -62,7 +62,14 @@ If you see any bugs let me know I just added this and it might still be buggy
   <h2>Ways to test proxy</h2>
   <p>Create test node server and set that as the server port, then run curl commands on proxy port. You can test headers, cookies, etc.</p>
   <p>Report any bugs through pull requesting read me and adding to the bugs list.</p>
+  <br>
+    <br>
+      <br>
+        <h2> New feature coming: </h2>
+        <br>
+<p>Learning Mode: This mode observes incoming traffic and uses a request analyzer to recommend custom blocking rules. It tracks details like field/header lengths, types, and how many fields/headers are in each request. Based on this data, it learns how to block requests by analyzing how dynamic or strict the fields are.</p>
 
+Learning mode: learns based on field/headed lengths, field/header types, amount of fields/headers. Blocks based on how dynamic/strict the fields are</p>
   <h2>Bugs:</h2>
   
 
