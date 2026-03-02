@@ -1144,28 +1144,10 @@ func checkRequestRules(
 			}
 			// If no dynamic value matched the required pattern, block the request
 			if !matched {
-				log.Printf("URL path '%s' does not match required pattern '%s' for endpoint '%s'", path, rule.Value, endpointPath)
 				return false
 			}
 		}
 	}
-
-	// Optionally check whitelist (doesn't block)
-	// for _, rule := range urlRules {
-	// 	if rule.ListType != "whitelist" {
-	// 		continue
-	// 	}
-	// 	matched := false
-	// 	if rule.RuleType == "regex" {
-	// 		re, err := regexp.Compile(rule.Value)
-	// 		if err != nil {
-	// 			continue
-	// 		}
-	// 		matched = re.MatchString(path)
-	// 	} else {
-	// 		matched = strings.Contains(path, rule.Value)
-	// 	}
-	// }
 
 	/* ================= BODY PARSING ================= */
 	var bodyData map[string]interface{}

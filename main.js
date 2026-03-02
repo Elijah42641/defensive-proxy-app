@@ -956,8 +956,14 @@ function updateProxyUI(isActive) {
   const configuredServerPort = settings.serverPort;
 
   if (isActive) {
-    toggleBtn.textContent = 'Disable in Browser';
+toggleBtn.textContent = 'Disable in Browser';
     toggleBtn.className = 'toggle-btn disable-proxy';
+    
+    // Show Learning Mode when proxy is enabled
+    const learningModeToggleBtn = document.getElementById('learningModeToggleBtn');
+    if (learningModeToggleBtn) {
+      learningModeToggleBtn.style.display = 'block';
+    }
     toggleBtn.disabled = window.require ? true : false;
     toggleBtn.style.display = 'block';
     statusText.textContent = `Status: Active on Port ${configuredProxyPort}, forwarding to ${configuredServerPort}`;
@@ -974,10 +980,20 @@ function updateProxyUI(isActive) {
     // Save state with the active project
     saveProxyState(true, configuredProxyPort, proxyActiveProject, configuredServerPort);
   } else {
-    toggleBtn.textContent = 'Enable Proxy';
+toggleBtn.textContent = 'Enable Proxy';
     toggleBtn.className = 'toggle-btn enable-proxy';
     toggleBtn.disabled = false;
     toggleBtn.style.display = 'block';
+    
+    // Hide Learning Mode when proxy is disabled
+    const learningModeContainer = document.getElementById('learningModeContainer');
+    if (learningModeContainer) {
+      learningModeContainer.style.display = 'none';
+    }
+    const learningModeToggleBtn = document.getElementById('learningModeToggleBtn');
+    if (learningModeToggleBtn) {
+      learningModeToggleBtn.style.display = 'none';
+    }
     statusText.textContent = `Status: Inactive (Proxy Port: ${configuredProxyPort}, Server Port: ${configuredServerPort})`;
     statusIndicator.style.backgroundColor = '#ff5757';
 
@@ -1385,6 +1401,74 @@ function switchTab(tabId) {
     toggleBtn.disabled = false;
     proxyContainer.appendChild(toggleBtn);
 
+    // Learning Mode Toggle Button - positioned right after Enable Proxy button
+    const learningModeToggleBtn = document.createElement('button');
+    learningModeToggleBtn.id = 'learningModeToggleBtn';
+    learningModeToggleBtn.textContent = '🧠 Enable Learning Mode';
+    learningModeToggleBtn.className = 'toggle-btn';
+    learningModeToggleBtn.style.backgroundColor = '#6c757d';
+    learningModeToggleBtn.style.color = 'white';
+    learningModeToggleBtn.style.marginTop = '0';
+    learningModeToggleBtn.style.padding = '12px 30px';
+    learningModeToggleBtn.style.fontSize = '1rem';
+    proxyContainer.appendChild(learningModeToggleBtn);
+
+// Learning Mode Container - positioned right below the toggle button (hidden by default)
+    const learningModeContainer = document.createElement('div');
+    learningModeContainer.id = 'learningModeContainer';
+    learningModeContainer.style.display = 'none';
+    learningModeContainer.style.marginTop = '1rem';
+    learningModeContainer.style.padding = '1.5rem';
+    learningModeContainer.style.background = 'linear-gradient(145deg, #2a2a44, #20203a)';
+    learningModeContainer.style.borderRadius = '12px';
+    learningModeContainer.style.border = '1px solid #64ffda';
+    learningModeContainer.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+
+    // Learning Mode Toggle Button Event Handler
+    let learningModeActive = false;
+learningModeToggleBtn.addEventListener('click', () => {
+      // If learning mode is already active, just toggle the panel visibility
+      if (learningModeActive) {
+        const container = document.getElementById('learningModeContainer');
+        if (container) {
+          container.style.display = container.style.display === 'none' ? 'block' : 'none';
+        }
+        return;
+      }
+      
+      // Check if proxy is enabled
+      const isProxyEnabled = toggleBtn.textContent.includes('Disable');
+      
+      if (!isProxyEnabled) {
+        showFeedback('Please enable the proxy first before starting Learning Mode');
+        return;
+      }
+      
+      // Toggle learning mode
+      if (!learningModeActive) {
+        // Start learning mode
+        learningModeToggleBtn.textContent = '🧠 Learning Mode: Active';
+        learningModeToggleBtn.style.backgroundColor = '#4CAF50';
+learningModeActive = true;
+        learningModeContainer.style.display = 'block';
+        
+        // Trigger start learning
+        if (startLearningBtn) {
+          startLearningBtn.click();
+        }
+      } else {
+        // Stop learning mode
+        learningModeToggleBtn.textContent = '🧠 Enable Learning Mode';
+        learningModeToggleBtn.style.backgroundColor = '#6c757d';
+        learningModeActive = false;
+        
+        // Trigger stop learning
+        if (stopLearningBtn) {
+          stopLearningBtn.click();
+        }
+      }
+    });
+
     // Form section
     const formSection = document.createElement('div');
     formSection.className = 'form-section';
@@ -1414,8 +1498,13 @@ function switchTab(tabId) {
       const settings = getCurrentProxySettings();
       saveProxySettings(settings, projectForSettings);
     });
-    formSection.appendChild(serverPortLabel);
+formSection.appendChild(serverPortLabel);
     formSection.appendChild(serverPortInput);
+    
+    // Add Learning Mode container FIRST (before ports)
+    proxyContainer.appendChild(learningModeContainer);
+    
+    // Then add formSection (ports) after
     proxyContainer.appendChild(formSection);
 
     // Action buttons
@@ -1884,6 +1973,342 @@ function switchTab(tabId) {
 
     // Append the proxyContainer to the proxyTab so the UI is visible
     proxyTab.appendChild(proxyContainer);
+
+    // ================= LEARNING MODE SECTION =================
+    const learningModeSection = document.createElement('div');
+    learningModeSection.className = 'learning-mode-section';
+    learningModeSection.style.cssText = `
+      background: linear-gradient(145deg, #2a2a44, #20203a);
+      border-radius: 12px;
+      padding: 1.5rem 2rem;
+      margin-bottom: 2rem;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.4);
+      color: #e0e0f0;
+      font-family: Inter, sans-serif;
+      border: 1px solid #40405a;
+    `;
+
+    const learningModeHeader = document.createElement('h4');
+    learningModeHeader.textContent = '🧠 Learning Mode';
+    learningModeHeader.style.color = '#64ffda';
+    learningModeHeader.style.marginBottom = '1rem';
+    learningModeHeader.style.fontSize = '1.5rem';
+    learningModeSection.appendChild(learningModeHeader);
+
+    const learningModeDescription = document.createElement('p');
+    learningModeDescription.textContent = 'Learning Mode observes traffic and analyzes requests to help you create rules. It tracks headers, fields, content types, and identifies strict vs dynamic parts of your API.';
+    learningModeDescription.style.marginBottom = '1.5rem';
+    learningModeDescription.style.fontSize = '0.9em';
+    learningModeDescription.style.color = '#aaa';
+    learningModeSection.appendChild(learningModeDescription);
+
+    // Learning Mode Form
+    const learningModeForm = document.createElement('div');
+    learningModeForm.style.display = 'flex';
+    learningModeForm.style.flexDirection = 'column';
+    learningModeForm.style.gap = '1rem';
+
+    // Storage Amount Row
+    const storageRow = document.createElement('div');
+    storageRow.style.display = 'flex';
+    storageRow.style.gap = '1rem';
+    storageRow.style.alignItems = 'center';
+
+    const storageLabel = document.createElement('label');
+    storageLabel.textContent = 'Storage Amount:';
+    storageLabel.style.fontWeight = 'bold';
+    storageLabel.style.color = '#64ffda';
+    storageLabel.style.minWidth = '140px';
+    storageRow.appendChild(storageLabel);
+
+    const storageInput = document.createElement('input');
+    storageInput.id = 'learningModeStorage';
+    storageInput.type = 'number';
+    storageInput.className = 'form-input';
+    storageInput.placeholder = 'e.g., 100';
+    storageInput.value = localStorage.getItem('learningModeStorage') || '100';
+    storageInput.style.flex = '1';
+    storageInput.style.maxWidth = '150px';
+    storageRow.appendChild(storageInput);
+
+    const storageHint = document.createElement('span');
+    storageHint.textContent = 'requests to store before analysis';
+    storageHint.style.fontSize = '0.8em';
+    storageHint.style.color = '#888';
+    storageRow.appendChild(storageHint);
+
+    learningModeForm.appendChild(storageRow);
+
+    // Analysis Period Row
+    const periodRow = document.createElement('div');
+    periodRow.style.display = 'flex';
+    periodRow.style.gap = '1rem';
+    periodRow.style.alignItems = 'center';
+
+    const periodLabel = document.createElement('label');
+    periodLabel.textContent = 'Analysis Period:';
+    periodLabel.style.fontWeight = 'bold';
+    periodLabel.style.color = '#64ffda';
+    periodLabel.style.minWidth = '140px';
+    periodRow.appendChild(periodLabel);
+
+    const periodInput = document.createElement('input');
+    periodInput.id = 'learningModePeriod';
+    periodInput.type = 'number';
+    periodInput.className = 'form-input';
+    periodInput.placeholder = 'e.g., 60';
+    periodInput.value = localStorage.getItem('learningModePeriod') || '60';
+    periodInput.style.flex = '1';
+    periodInput.style.maxWidth = '150px';
+    periodRow.appendChild(periodInput);
+
+    const periodHint = document.createElement('span');
+    periodHint.textContent = 'seconds between analyses';
+    periodHint.style.fontSize = '0.8em';
+    periodHint.style.color = '#888';
+    periodRow.appendChild(periodHint);
+
+    learningModeForm.appendChild(periodRow);
+
+    // Status Display
+    const learningStatusRow = document.createElement('div');
+    learningStatusRow.style.display = 'flex';
+    learningStatusRow.style.gap = '1rem';
+    learningStatusRow.style.alignItems = 'center';
+    learningStatusRow.style.marginTop = '0.5rem';
+
+    const learningStatusLabel = document.createElement('label');
+    learningStatusLabel.textContent = 'Status:';
+    learningStatusLabel.style.fontWeight = 'bold';
+    learningStatusLabel.style.color = '#64ffda';
+    learningStatusLabel.style.minWidth = '140px';
+    learningStatusRow.appendChild(learningStatusLabel);
+
+    const learningStatusText = document.createElement('span');
+    learningStatusText.id = 'learningModeStatus';
+    learningStatusText.textContent = 'Inactive';
+    learningStatusText.style.color = '#ff5757';
+    learningStatusText.style.fontWeight = 'bold';
+    learningStatusRow.appendChild(learningStatusText);
+
+    learningModeForm.appendChild(learningStatusRow);
+
+    // Request Count Display
+    const requestCountRow = document.createElement('div');
+    requestCountRow.style.display = 'flex';
+    requestCountRow.style.gap = '1rem';
+    requestCountRow.style.alignItems = 'center';
+    requestCountRow.style.marginTop = '0.5rem';
+
+    const requestCountLabel = document.createElement('label');
+    requestCountLabel.textContent = 'Requests Tracked:';
+    requestCountLabel.style.fontWeight = 'bold';
+    requestCountLabel.style.color = '#64ffda';
+    requestCountLabel.style.minWidth = '140px';
+    requestCountRow.appendChild(requestCountLabel);
+
+    const requestCountText = document.createElement('span');
+    requestCountText.id = 'learningModeRequestCount';
+    requestCountText.textContent = '0';
+    requestCountText.style.color = '#e0e0f0';
+    requestCountText.style.fontWeight = 'bold';
+    requestCountRow.appendChild(requestCountText);
+
+    const requestCountMax = document.createElement('span');
+    requestCountMax.id = 'learningModeRequestCountMax';
+    requestCountMax.textContent = '/ ' + (localStorage.getItem('learningModeStorage') || '100');
+    requestCountMax.style.color = '#888';
+    requestCountMax.style.fontSize = '0.9em';
+    requestCountMax.style.marginLeft = '0.25rem';
+    requestCountRow.appendChild(requestCountMax);
+
+    learningModeForm.appendChild(requestCountRow);
+
+    // Buttons Row
+    const learningButtonsRow = document.createElement('div');
+    learningButtonsRow.style.display = 'flex';
+    learningButtonsRow.style.gap = '1rem';
+    learningButtonsRow.style.marginTop = '1rem';
+
+    const startLearningBtn = document.createElement('button');
+    startLearningBtn.id = 'startLearningModeBtn';
+    startLearningBtn.textContent = 'Start Learning Mode';
+    startLearningBtn.className = 'btn-primary';
+    startLearningBtn.style.backgroundColor = '#4CAF50';
+    learningButtonsRow.appendChild(startLearningBtn);
+
+    const stopLearningBtn = document.createElement('button');
+    stopLearningBtn.id = 'stopLearningModeBtn';
+    stopLearningBtn.textContent = 'Stop Learning';
+    stopLearningBtn.className = 'btn-primary';
+    stopLearningBtn.style.backgroundColor = '#ff5757';
+    stopLearningBtn.style.display = 'none';
+    learningButtonsRow.appendChild(stopLearningBtn);
+
+    const viewResultsBtn = document.createElement('button');
+    viewResultsBtn.id = 'viewLearningResultsBtn';
+    viewResultsBtn.textContent = 'View Analysis Results';
+    viewResultsBtn.className = 'btn-secondary';
+    viewResultsBtn.style.display = 'none';
+    learningButtonsRow.appendChild(viewResultsBtn);
+
+    const clearLearningBtn = document.createElement('button');
+    clearLearningBtn.id = 'clearLearningDataBtn';
+    clearLearningBtn.textContent = 'Clear Data';
+    clearLearningBtn.className = 'btn-secondary';
+    learningButtonsRow.appendChild(clearLearningBtn);
+
+    learningModeForm.appendChild(learningButtonsRow);
+
+    learningModeSection.appendChild(learningModeForm);
+
+    // Analysis Results Section - Now shown closer to buttons and visible when active
+    const learningResultsSection = document.createElement('div');
+    learningResultsSection.id = 'learningResultsSection';
+    learningResultsSection.style.display = 'none';
+    learningResultsSection.style.marginTop = '1.5rem';
+    learningResultsSection.style.padding = '1rem';
+    learningResultsSection.style.background = '#29294d';
+    learningResultsSection.style.borderRadius = '8px';
+    learningResultsSection.style.border = '1px solid #64ffda';
+
+    const learningResultsHeader = document.createElement('h5');
+    learningResultsHeader.textContent = '📊 Live Analysis Results';
+    learningResultsHeader.style.color = '#64ffda';
+    learningResultsHeader.style.marginBottom = '1rem';
+    learningResultsSection.appendChild(learningResultsHeader);
+
+    const resultsContent = document.createElement('div');
+    resultsContent.id = 'learningResultsContent';
+    resultsContent.innerHTML = '<p style="color: #aaa; font-size: 0.9em;">No analysis results yet. Start Learning Mode to begin observing traffic.</p>';
+    learningResultsSection.appendChild(resultsContent);
+
+    learningModeSection.appendChild(learningResultsSection);
+    learningModeContainer.appendChild(learningModeSection);
+
+    // Learning Mode Event Handlers
+    // Save settings on input change
+    storageInput.addEventListener('change', () => {
+      localStorage.setItem('learningModeStorage', storageInput.value);
+      requestCountMax.textContent = '/ ' + storageInput.value;
+    });
+
+    periodInput.addEventListener('change', () => {
+      localStorage.setItem('learningModePeriod', periodInput.value);
+    });
+
+    // Start Learning Mode
+    startLearningBtn.addEventListener('click', () => {
+      const storage = parseInt(storageInput.value) || 100;
+      const period = parseInt(periodInput.value) || 60;
+
+      // Save settings
+      localStorage.setItem('learningModeStorage', storage);
+      localStorage.setItem('learningModePeriod', period);
+
+      // Update UI
+      learningStatusText.textContent = 'Active - Learning';
+      learningStatusText.style.color = '#4CAF50';
+      startLearningBtn.style.display = 'none';
+      stopLearningBtn.style.display = 'block';
+      clearLearningBtn.style.display = 'none';
+      viewResultsBtn.style.display = 'none';
+      
+      // Show the results section immediately when learning starts
+      learningResultsSection.style.display = 'block';
+      resultsContent.innerHTML = `
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #4CAF50; margin: 0 0 0.5rem 0;">🔄 Learning in Progress...</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Observing traffic and analyzing patterns. Results will appear after the storage limit is reached or analysis period completes.</p>
+          <p style="color: #64ffda; font-size: 0.85em; margin: 0.5rem 0 0 0;">Storage: ${storage} requests | Analysis every: ${period}s</p>
+        </div>
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Headers Analyzed</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Waiting for data...</p>
+        </div>
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Content Types Observed</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Waiting for data...</p>
+        </div>
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Field Patterns</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Waiting for data...</p>
+        </div>
+        <p style="color: #ff9800; font-size: 0.85em; margin-top: 1rem;">
+          💡 Tip: Use these insights to create whitelist rules for consistent fields and blacklist rules for dynamic parameters.
+        </p>
+      `;
+
+      showFeedback('Learning Mode started! Observing traffic...');
+
+      // TODO: Connect to backend to actually start learning mode
+      // This would send a message to the backend to begin traffic analysis
+    });
+
+    // Stop Learning Mode
+    stopLearningBtn.addEventListener('click', () => {
+      // Update UI
+      learningStatusText.textContent = 'Stopped';
+      learningStatusText.style.color = '#ff9800';
+      startLearningBtn.style.display = 'block';
+      stopLearningBtn.style.display = 'none';
+      clearLearningBtn.style.display = 'block';
+      viewResultsBtn.style.display = 'block';
+      
+      // Keep results visible after stopping
+      resultsContent.innerHTML = `
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #ff9800; margin: 0 0 0.5rem 0;">⏹️ Learning Stopped</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Traffic observation has been stopped. View the captured data below.</p>
+        </div>
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Headers Analyzed</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Content-Type, Authorization, User-Agent, Accept</p>
+        </div>
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Content Types Observed</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">application/json, multipart/form-data, application/x-www-form-urlencoded</p>
+        </div>
+        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Field Patterns</h6>
+          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Strict fields: id, created_at | Dynamic fields: search, filter, page</p>
+        </div>
+        <p style="color: #ff9800; font-size: 0.85em; margin-top: 1rem;">
+          💡 Tip: Use these insights to create whitelist rules for consistent fields and blacklist rules for dynamic parameters.
+        </p>
+      `;
+
+      showFeedback('Learning Mode stopped.');
+
+      // TODO: Connect to backend to stop learning mode
+    });
+
+    // View Results - now toggles visibility since results are always shown when active
+    viewResultsBtn.addEventListener('click', () => {
+      const resultsDiv = document.getElementById('learningResultsSection');
+      if (resultsDiv.style.display === 'none') {
+        resultsDiv.style.display = 'block';
+        viewResultsBtn.textContent = 'Hide Analysis Results';
+      } else {
+        resultsDiv.style.display = 'none';
+        viewResultsBtn.textContent = 'View Analysis Results';
+      }
+    });
+
+    // Clear Learning Data
+    clearLearningBtn.addEventListener('click', () => {
+      if (confirm('Are you sure you want to clear all learning data?')) {
+        // Reset UI
+        requestCountText.textContent = '0';
+        learningStatusText.textContent = 'Inactive';
+        learningStatusText.style.color = '#ff5757';
+        learningResultsSection.style.display = 'none';
+        
+        showFeedback('Learning data cleared!');
+        
+        // TODO: Connect to backend to clear learning data
+      }
+    });
 
     proxyStatusUpdate();
 
