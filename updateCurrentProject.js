@@ -10,11 +10,12 @@ function updateCurrentProjectFile(projectName, endpoints = null, proxyEnabled = 
     if (endpoints) {
       data.endpoints = endpoints;
     }
-    if (proxyEnabled !== null) {
-      data.proxyEnabled = proxyEnabled;
-    }
+    // NOTE: proxyEnabled is NO LONGER saved to the JSON file.
+    // It's now tracked per-project in localStorage (proxySettings_{projectName})
+    // This prevents the issue where enabling proxy for one project affects all projects.
+    
     fs.writeFileSync(currentProjectFile, JSON.stringify(data, null, 2), 'utf8');
-    console.log('Successfully updated current_project.json with project:', projectName, 'endpoints count:', endpoints ? endpoints.length : 0, 'proxyEnabled:', proxyEnabled);
+    console.log('Successfully updated current_project.json with project:', projectName, 'endpoints count:', endpoints ? endpoints.length : 0);
   } catch (error) {
     console.error('Error updating current_project.json:', error);
   }

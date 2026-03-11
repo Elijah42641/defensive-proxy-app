@@ -1,0 +1,10 @@
+1. start by improving interface (more detailed and stuff) (finished)
+
+2. make it so that when you add new rules mid proxy enabled it updates (finished)
+
+3. make it so the amount of requests saved at once and the analysis period is respected
+
+4. make it so when learning mode is enabled the request analyzer runs on requests and 
+suggests rules in enable proxy tab
+
+5. start getting more advanced: content types, headers used strict/dynamic, etc

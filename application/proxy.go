@@ -73,9 +73,6 @@ select exists (
 )
 `
 
-// To persist proxy enabled state across refreshes, consider storing in a file or external state store
-// For now, we keep it in memory and do not reset on refresh
-
 func main() {
 	//load env variables
 	proxyPort := os.Getenv("PROXY_PORT")
@@ -188,6 +185,8 @@ func main() {
 
 		// Re-assign the body reader to the request.
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
+
+		//here is where I will add the learning mode stuff
 
 		// Extract IP from remote address for loopback checks
 		host := r.RemoteAddr
@@ -402,7 +401,7 @@ func main() {
 		}
 
 		proxyEnabled = true
-		saveProxyEnabled(true)
+		// NOTE: saveProxyEnabled is deprecated - frontend manages per-project state in localStorage
 		log.Printf("Proxy enabled via API, forwarding to server port: %s", currentServerPort)
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -428,7 +427,7 @@ func main() {
 		}
 
 		proxyEnabled = false
-		saveProxyEnabled(false)
+		// NOTE: saveProxyEnabled is deprecated - frontend manages per-project state in localStorage
 		log.Println("Proxy disabled via API")
 
 		// Shutdown the server to free the port
@@ -610,6 +609,64 @@ func main() {
 		Handler: handlerWithRecovery,
 	}
 
+	// Add API endpoint to update IPS settings
+	http.HandleFunc("/api/ips/settings", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		// Parse JSON body
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", 500)
+			return
+		}
+
+		var body map[string]interface{}
+		err = json.Unmarshal(data, &body)
+		if err != nil {
+			http.Error(w, "invalid JSON", 400)
+			return
+		}
+
+		type IpsSettingsRequest struct {
+			SaveLimit           int `json:"saveLimit"`
+			AutoBlockThreshhold int `json:"autoBlockThreshhold"`
+			TimeToBlock         int `json:"timeToBlock"`
+		}
+
+		var ipsSettings IpsSettingsRequest
+		err = json.Unmarshal(data, &ipsSettings)
+		if err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		// Update global variables
+		saveLimit = ipsSettings.SaveLimit
+		autoBlockThreshhold = ipsSettings.AutoBlockThreshhold
+		timeToBlock = ipsSettings.TimeToBlock
+
+		log.Printf("IPS settings updated: saveLimit=%d, autoBlockThreshhold=%d, timeToBlock=%d", 
+			saveLimit, autoBlockThreshhold, timeToBlock)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": "IPS settings updated successfully"})
+	})
+
 	log.Printf("Proxy server starting on port %s", proxyPort)
 	err := server.ListenAndServe()
 	if err != nil {
@@ -667,7 +724,8 @@ type RulesFile struct {
 type ProjectFile struct {
 	CurrentProject string     `json:"currentProject"`
 	Endpoints      []Endpoint `json:"endpoints"`
-	ProxyEnabled   *bool      `json:"proxyEnabled,omitempty"`
+	// NOTE: ProxyEnabled is now tracked per-project in the frontend (localStorage)
+	// This prevents the issue where enabling proxy for one project affects all projects
 }
 
 func loadEndpoints(project string) []Endpoint {
@@ -685,40 +743,18 @@ func loadEndpoints(project string) []Endpoint {
 	for i := range projectFile.Endpoints {
 		projectFile.Endpoints[i].Path = strings.TrimPrefix(projectFile.Endpoints[i].Path, "/")
 	}
-	// Load proxyEnabled if present, default to false if not set
-	if projectFile.ProxyEnabled != nil {
-		proxyEnabled = *projectFile.ProxyEnabled
-	} else {
-		proxyEnabled = false // Default to false for new projects
-	}
-	log.Printf("Loaded proxyEnabled: %v for project: %s", proxyEnabled, project)
+	// NOTE: proxyEnabled is no longer loaded from JSON file
+	// Each project tracks its own proxy enabled state in localStorage (main.js)
+	// The proxy status is managed per-project, not globally
+	log.Printf("Loaded endpoints for project: %s", project)
 	return projectFile.Endpoints
 }
 
 func saveProxyEnabled(enabled bool) {
-	filePath := "../public/current_project.json"
-	data, err := os.ReadFile(filePath)
-	if err != nil {
-		log.Printf("Failed to read current_project.json for saving proxyEnabled: %v", err)
-		return
-	}
-	var projectFile ProjectFile
-	if err := json.Unmarshal(data, &projectFile); err != nil {
-		log.Printf("Failed to parse current_project.json for saving proxyEnabled: %v", err)
-		return
-	}
-	projectFile.ProxyEnabled = &enabled
-	updatedData, err := json.MarshalIndent(projectFile, "", "  ")
-	if err != nil {
-		log.Printf("Failed to marshal updated project file: %v", err)
-		return
-	}
-	err = os.WriteFile(filePath, updatedData, 0644)
-	if err != nil {
-		log.Printf("Failed to write updated current_project.json: %v", err)
-		return
-	}
-	log.Printf("Saved proxyEnabled: %v to file", enabled)
+	// NOTE: This function is kept for API compatibility but is no longer used.
+	// Proxy enabled state is now tracked per-project in localStorage (main.js)
+	// The frontend handles saving/loading the proxy state for each project.
+	log.Printf("saveProxyEnabled called (deprecated): %v - proxy state is now managed per-project in frontend", enabled)
 }
 
 // checkRuleMatch attempts to match a request component (header/cookie/body key/value) against a rule.

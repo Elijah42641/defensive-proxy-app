@@ -2,7 +2,8 @@ const express = require("express");
 const { spawn } = require("child_process");
 const path = require('path');
 
-let proxyProcess = null;
+// Support multiple simultaneous proxies - key is project name, value is process info
+const proxyProcesses = {};
 
 
 const app = express();
@@ -81,22 +82,6 @@ app.post("/api/proxy/enable", (req, res) => {
             currentProject
         } = req.body;
 
-        // Check if proxy already running
-        if (proxyProcess) {
-            try {
-                process.kill(proxyProcess.pid, 0);
-                return res.status(409).json({
-                    error: "Proxy server is already running"
-                });
-            } catch (e) {
-                console.log(e);
-                proxyProcess = null;
-            }
-        }
-
-        const proxyCwd =
-            projectPath || path.join(__dirname, "application");
-
         // Validate required fields
         if (!currentProject) {
             return res.status(400).json({ error: "currentProject is required" });
@@ -105,7 +90,32 @@ app.post("/api/proxy/enable", (req, res) => {
             return res.status(400).json({ error: "proxyPort and serverPort are required" });
         }
 
-        proxyProcess = proxyProcess = spawn('/usr/local/go/bin/go', ['run', 'proxy.go'], {
+        // Check if this specific project already has a proxy running
+        if (proxyProcesses[currentProject]) {
+            try {
+                process.kill(proxyProcesses[currentProject].pid, 0);
+                return res.status(409).json({
+                    error: `Proxy for project "${currentProject}" is already running on port ${proxyProcesses[currentProject].port}`
+                });
+            } catch (e) {
+                // Process not running, clean up
+                delete proxyProcesses[currentProject];
+            }
+        }
+
+        // Check if the port is already in use by another proxy
+        for (const [proj, procInfo] of Object.entries(proxyProcesses)) {
+            if (procInfo.port === proxyPort) {
+                return res.status(409).json({
+                    error: `Port ${proxyPort} is already in use by proxy for project "${proj}"`
+                });
+            }
+        }
+
+        const proxyCwd = projectPath || path.join(__dirname, "application");
+
+        // Start the proxy process
+        const proxyProcess = spawn('/usr/local/go/bin/go', ['run', 'proxy.go'], {
             cwd: proxyCwd,
             env: {
                 ...process.env,
@@ -115,34 +125,64 @@ app.post("/api/proxy/enable", (req, res) => {
             }
         });
 
+        // Track this proxy process
+        proxyProcesses[currentProject] = {
+            process: proxyProcess,
+            pid: proxyProcess.pid,
+            port: proxyPort,
+            serverPort: serverPort,
+            startTime: Date.now()
+        };
+
         proxyProcess.stdout.on("data", (data) => {
-            console.log("Proxy stdout:", data.toString());
+            console.log(`Proxy [${currentProject}] stdout:`, data.toString());
         });
 
         proxyProcess.stderr.on("data", (data) => {
-            console.log("Proxy stderr:", data.toString());
+            console.log(`Proxy [${currentProject}] stderr:`, data.toString());
         });
 
         proxyProcess.on("close", (code) => {
-            console.log("Proxy process closed with code:", code);
-            proxyProcess = null;
+            console.log(`Proxy [${currentProject}] process closed with code:`, code);
+            delete proxyProcesses[currentProject];
         });
 
         proxyProcess.on("error", (err) => {
-            console.error("Proxy process error:", err);
-            proxyProcess = null;
+            console.error(`Proxy [${currentProject}] process error:`, err);
+            delete proxyProcesses[currentProject];
         });
 
         res.json({
             status: "started",
             proxyPort,
             serverPort,
-            currentProject
+            currentProject,
+            message: `Proxy started for project "${currentProject}" on port ${proxyPort}`
         });
     } catch (e) {
         console.error("Error starting proxy:", e);
         res.status(500).json({ error: "Failed to start proxy" });
     }
+});
+
+// Get status of all proxies
+app.get("/api/proxy/status-all", (req, res) => {
+    const status = {};
+    for (const [project, info] of Object.entries(proxyProcesses)) {
+        try {
+            process.kill(info.pid, 0);
+            status[project] = {
+                running: true,
+                port: info.port,
+                serverPort: info.serverPort,
+                uptime: Date.now() - info.startTime
+            };
+        } catch (e) {
+            // Process not running
+            delete proxyProcesses[project];
+        }
+    }
+    res.json({ proxies: status, count: Object.keys(status).length });
 });
 
 
@@ -167,6 +207,7 @@ const ALLOWED_IPS = new Set([
 app.post("/api/stop-proxy", (req, res) => {
     const rawIP = req.ip;
     const ip = normalizeIP(rawIP);
+    const { projectName } = req.body; // Optional: specify which project to stop
 
     console.log("Raw IP:", rawIP, "Normalized IP:", ip);
 
@@ -174,22 +215,58 @@ app.post("/api/stop-proxy", (req, res) => {
         return res.status(403).json({ error: "Forbidden" });
     }
 
-    if (!proxyProcess) {
+    // If no specific project is provided, stop all proxies
+    if (!projectName) {
+        const projects = Object.keys(proxyProcesses);
+        if (projects.length === 0) {
+            return res.status(400).json({
+                error: "No proxy servers running"
+            });
+        }
+
+        let stopped = [];
+        let errors = [];
+        
+        for (const proj of projects) {
+            try {
+                if (proxyProcesses[proj]) {
+                    process.kill(proxyProcesses[proj].pid, "SIGTERM");
+                    stopped.push(proj);
+                    delete proxyProcesses[proj];
+                }
+            } catch (e) {
+                errors.push(proj);
+                delete proxyProcesses[proj];
+            }
+        }
+
+        res.json({
+            status: "stopped",
+            stoppedProjects: stopped,
+            message: `Stopped ${stopped.length} proxy(ies)`
+        });
+        return;
+    }
+
+    // Stop a specific project's proxy
+    if (!proxyProcesses[projectName]) {
         return res.status(400).json({
-            error: "No proxy server running"
+            error: `No proxy running for project "${projectName}"`
         });
     }
 
     try {
-        process.kill(proxyProcess.pid, "SIGTERM");
-        proxyProcess = null;
+        process.kill(proxyProcesses[projectName].pid, "SIGTERM");
+        delete proxyProcesses[projectName];
 
         res.json({
-            status: "stopped"
+            status: "stopped",
+            project: projectName,
+            message: `Proxy for project "${projectName}" stopped`
         });
     } catch (e) {
-        proxyProcess = null;
-        res.status(500).json({ error: "Failed to stop proxy" });
+        delete proxyProcesses[projectName];
+        res.status(500).json({ error: `Failed to stop proxy for project "${projectName}"` });
     }
 });
 

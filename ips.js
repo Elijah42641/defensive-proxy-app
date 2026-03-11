@@ -9,7 +9,38 @@ function saveIpSettings(project) {
   };
   localStorage.setItem(`ips_${project}`, JSON.stringify(ipSettings))
 
+  // Send settings to proxy if it's running
+  sendIpsSettingsToProxy(project);
+
   showFeedback('IPS settings saved successfully!');
+}
+
+// Function to send IPS settings to the proxy
+async function sendIpsSettingsToProxy(projectName) {
+  try {
+    const proxySettings = loadProxySettings(projectName);
+    const proxyPort = proxySettings.proxyPort || '8080';
+    
+    const response = await fetch(`http://localhost:${proxyPort}/api/ips/settings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
+        autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10),
+        timeToBlock: parseInt(document.getElementById("timeToBlockIP").value, 10)
+      })
+    });
+    
+    if (response.ok) {
+      console.log('IPS settings sent to proxy successfully');
+    } else {
+      console.log('Failed to send IPS settings to proxy');
+    }
+  } catch (err) {
+    console.log('Could not send IPS settings to proxy:', err.message);
+  }
 }
 
 document.getElementById("saveSettingsBtn").onclick = () => {

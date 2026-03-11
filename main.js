@@ -1,4 +1,4 @@
-let proxyEnabled;
+// Note: proxyEnabled is now tracked per-project in localStorage (proxySettings_{projectName})
 
 window.addEventListener('load', () => {
   console.log('Page loaded');
@@ -60,11 +60,13 @@ if (isElectron) {
 
 }
 else {
-  updateCurrentProjectFile = function (projectName, endpoints = null, proxyEnabled = null) {
-    fetch('/api/project/update-current', {
+updateCurrentProjectFile = function (projectName, endpoints = null, proxyEnabled = null) {
+  // Note: proxyEnabled is now tracked per-project in localStorage (proxySettings_{projectName})
+  // We no longer save it to the JSON file to avoid the global state issue
+  fetch('/api/project/update-current', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ projectName, endpoints, proxyEnabled })
+      body: JSON.stringify({ projectName, endpoints })
     })
   };
 }
@@ -690,8 +692,10 @@ function saveProjectEndpoints(projectName) {
 // --- Proxy Settings Management Functions ---
 function loadProxySettings(projectName = null) {
   const key = projectName ? `proxySettings_${projectName}` : 'proxySettings';
+  console.log(`Loading proxy settings for key: "${key}"`);
   try {
     const raw = localStorage.getItem(key);
+    console.log(`Raw localStorage value for "${key}":`, raw);
     return raw ? JSON.parse(raw) : {
       proxyPort: '8080',
       serverPort: '3000',
@@ -711,18 +715,30 @@ window.loadProxySettings = loadProxySettings;
 
 function saveProxySettings(settings, projectName = null) {
   const key = projectName ? `proxySettings_${projectName}` : 'proxySettings';
+  console.log(`Saving proxy settings for key: "${key}"`, settings);
   localStorage.setItem(key, JSON.stringify(settings));
+  console.log(`Saved proxy settings for project "${projectName}":`, settings);
 }
 
-function getCurrentProxySettings() {
+function getCurrentProxySettings(savedSettingsOverride = null) {
   const proxyPortInput = document.getElementById('proxyPort');
   const serverPortInput = document.getElementById('serverPort');
   const toggleBtn = document.getElementById('toggleProxyBtn');
 
+  // Check if proxy is currently enabled based on button text
+  const isEnabled = toggleBtn ? toggleBtn.textContent.includes('Disable Proxy') : false;
+  
+  // Always use the currently editing project (not proxyActiveProject) for settings
+  const projectForSettings = currentlyEditingProject;
+  
+  // Get saved settings for this specific project - use override if provided, otherwise load from localStorage
+  const savedSettings = savedSettingsOverride || (projectForSettings ? loadProxySettings(projectForSettings) : null);
+  
   return {
-    proxyPort: proxyPortInput ? proxyPortInput.value : '8080',
-    serverPort: serverPortInput ? serverPortInput.value : '3000',
-    isEnabled: toggleBtn ? toggleBtn.textContent.includes('Disable') : false
+    proxyPort: proxyPortInput ? proxyPortInput.value : (savedSettings?.proxyPort || '8080'),
+    serverPort: serverPortInput ? serverPortInput.value : (savedSettings?.serverPort || '3000'),
+    // Use the button state OR saved state (prioritize the button state which is more current)
+    isEnabled: isEnabled || (savedSettings?.isEnabled || false)
   };
 }
 
@@ -761,13 +777,13 @@ function showAlert(message) {
   showFeedback(message);
 }
 
-function renderProjectsList() {
+async function renderProjectsList() {
   projectsList.innerHTML = '';
   if (projectNames.length === 0) {
     projectsList.innerHTML = '<p>No projects added yet.</p>';
     return;
-  }
-  projectNames.forEach(name => {
+}
+  for (const name of projectNames) {
     const card = document.createElement('div');
     card.className = 'project-card';
 
@@ -777,15 +793,22 @@ function renderProjectsList() {
       card.style.boxShadow = '0 0 10px rgba(100, 255, 218, 0.5)';
     }
 
+    // Check if proxy is enabled for this specific project
+    const isProxyEnabled = await isProxyActiveForProject(name);
+    console.log(`Rendering project "${name}": proxy is ${isProxyEnabled ? 'ENABLED' : 'disabled'}`);
+    const proxyStatusBadge = isProxyEnabled
+      ? '<span style="background: #4CAF50; color: white; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-left: 6px; white-space: nowrap;">🟢 ON</span>'
+      : '<span style="background: #444; color: #888; padding: 2px 6px; border-radius: 4px; font-size: 0.65rem; margin-left: 6px; white-space: nowrap;">⚪ OFF</span>';
+
     card.innerHTML = `
-      <h3>${name}</h3>
+      <h3 style="display: flex; align-items: center; flex-wrap: wrap;">${name}${proxyStatusBadge}</h3>
       <div style="display: flex; gap: 0.5rem;">
         <button class="small-btn enter-edit-btn" data-project="${name}">Enter Edit Mode</button>
         <button class="small-btn btn-danger delete-btn" data-project="${name}">Delete</button>
       </div>
     `;
     projectsList.appendChild(card);
-  });
+  }
 }
 
 function renderEndpoints(projectName) {
@@ -904,6 +927,19 @@ function clearProxyState() {
   localStorage.removeItem('proxyState');
 }
 
+// Restore proxy UI state when entering edit mode for a project
+function restoreProxyStateForProject(projectName) {
+  if (!projectName) return;
+  
+  // Load the proxy settings for this specific project
+  const settings = loadProxySettings(projectName);
+  console.log(`Restoring proxy state for project "${projectName}":`, settings);
+  
+  // Update the UI based on this project's saved state
+  // Note: We can't fully restore the UI here since the proxy tab may not be visible
+  // The actual UI update happens in switchTab('proxy') or when checking status
+}
+
 
 
 
@@ -911,20 +947,24 @@ function clearProxyState() {
 // Function to update status display by fetching from API
 async function updateStatusDisplay() {
   try {
-    const proxyPort = document.getElementById('proxyPort').value;
+    const proxyPortInput = document.getElementById('proxyPort');
+    if (!proxyPortInput || !proxyPortInput.value) {
+      return;
+    }
+    const proxyPort = proxyPortInput.value;
     const response = await fetch(`http://localhost:${proxyPort}/api/proxy/status`);
     if (response.ok) {
       const data = await response.json();
-      // Only show active if the proxy is running for the currently editing project
-      const isActiveForCurrent = data.isRunning && data.project === currentlyEditingProject;
+      // The API returns "status": "running", not "isRunning"
+      const isActiveForCurrent = (data.status === "running") && data.project === proxyActiveProject;
       updateProxyUI(isActiveForCurrent);
-      // Sync localStorage with server state only if it's for the current project
-      if (currentlyEditingProject && data.project === currentlyEditingProject) {
-        const settings = loadProxySettings(currentlyEditingProject);
+      // Sync localStorage with server state only if it's for the active project
+      if (proxyActiveProject && data.project === proxyActiveProject) {
+        const settings = loadProxySettings(proxyActiveProject);
         settings.isEnabled = data.enabled;
         settings.proxyPort = data.proxyPort;
         settings.serverPort = data.serverPort;
-        saveProxySettings(settings, currentlyEditingProject);
+        saveProxySettings(settings, proxyActiveProject);
       }
     } else {
       console.log('Failed to fetch status');
@@ -935,6 +975,8 @@ async function updateStatusDisplay() {
 }
 
 // Centralized function to update the proxy UI state.
+// NOTE: This function should be called with the ACTUAL state (is the proxy actually running for this project?)
+// Not the desired state or the saved state - we determine that BEFORE calling this function
 function updateProxyUI(isActive) {
   const toggleBtn = document.getElementById('toggleProxyBtn');
   const statusText = document.getElementById('proxyStatusText');
@@ -946,18 +988,34 @@ function updateProxyUI(isActive) {
     return;
   }
 
-  // Get configured ports from localStorage: use active project if proxy is running, else current project
+  // Get configured ports from localStorage for the currently editing project
+  // If proxy is active, use the active project; otherwise use the currently viewing project
   const projectForSettings = isActive ? proxyActiveProject : currentlyEditingProject;
   const settings = projectForSettings ?
     loadProxySettings(projectForSettings) :
-    { proxyPort: '8080', serverPort: '3000' };
+    { proxyPort: '8080', serverPort: '3000', isEnabled: false };
 
   const configuredProxyPort = settings.proxyPort;
   const configuredServerPort = settings.serverPort;
 
   if (isActive) {
-toggleBtn.textContent = 'Disable in Browser';
+    // Button text and class - use consistent wording
+    toggleBtn.textContent = 'Disable Proxy';
     toggleBtn.className = 'toggle-btn disable-proxy';
+    
+    // Make port inputs read-only when proxy is enabled
+    const proxyPortInputEl = document.getElementById('proxyPort');
+    const serverPortInputEl = document.getElementById('serverPort');
+    if (proxyPortInputEl) {
+      proxyPortInputEl.readOnly = true;
+      proxyPortInputEl.style.opacity = '0.7';
+      proxyPortInputEl.style.cursor = 'not-allowed';
+    }
+    if (serverPortInputEl) {
+      serverPortInputEl.readOnly = true;
+      serverPortInputEl.style.opacity = '0.7';
+      serverPortInputEl.style.cursor = 'not-allowed';
+    }
     
     // Show Learning Mode when proxy is enabled
     const learningModeToggleBtn = document.getElementById('learningModeToggleBtn');
@@ -966,24 +1024,55 @@ toggleBtn.textContent = 'Disable in Browser';
     }
     toggleBtn.disabled = window.require ? true : false;
     toggleBtn.style.display = 'block';
+    
     statusText.textContent = `Status: Active on Port ${configuredProxyPort}, forwarding to ${configuredServerPort}`;
     statusIndicator.style.backgroundColor = '#4CAF50';
 
     if (proxyProjectDisplay) {
-      proxyProjectDisplay.textContent = `Proxy Project: ${currentlyEditingProject}`;
+      proxyProjectDisplay.textContent = `Proxy Project: ${proxyActiveProject}`;
       proxyProjectDisplay.style.display = 'block';
     }
 
     // Start performance monitoring
     startPerformanceMonitoring(configuredProxyPort);
 
-    // Save state with the active project
+    // Save state with the active project (per-project settings)
     saveProxyState(true, configuredProxyPort, proxyActiveProject, configuredServerPort);
+    
+    // Also update the per-project isEnabled flag for the current project
+    // Each project maintains its own enabled state independently
+    const projectToEnable = proxyActiveProject || currentlyEditingProject;
+    if (projectToEnable) {
+      const projectSettings = loadProxySettings(projectToEnable);
+      projectSettings.isEnabled = true;
+      projectSettings.proxyPort = configuredProxyPort;
+      projectSettings.serverPort = configuredServerPort;
+      saveProxySettings(projectSettings, projectToEnable);
+    }
+    
+    // Refresh the projects list to show updated proxy status badges
+    if (typeof renderProjectsList === 'function') {
+      renderProjectsList();
+    }
   } else {
-toggleBtn.textContent = 'Enable Proxy';
+    toggleBtn.textContent = 'Enable Proxy';
     toggleBtn.className = 'toggle-btn enable-proxy';
     toggleBtn.disabled = false;
     toggleBtn.style.display = 'block';
+    
+    // Re-enable port inputs when proxy is disabled
+    const proxyPortInputEl = document.getElementById('proxyPort');
+    const serverPortInputEl = document.getElementById('serverPort');
+    if (proxyPortInputEl) {
+      proxyPortInputEl.readOnly = false;
+      proxyPortInputEl.style.opacity = '1';
+      proxyPortInputEl.style.cursor = 'text';
+    }
+    if (serverPortInputEl) {
+      serverPortInputEl.readOnly = false;
+      serverPortInputEl.style.opacity = '1';
+      serverPortInputEl.style.cursor = 'text';
+    }
     
     // Hide Learning Mode when proxy is disabled
     const learningModeContainer = document.getElementById('learningModeContainer');
@@ -1004,16 +1093,94 @@ toggleBtn.textContent = 'Enable Proxy';
     // Stop performance monitoring
     stopPerformanceMonitoring();
 
-    if (performanceStatus) {
-      performanceStatus.textContent = 'Performance: Not monitoring';
+    const perfValue = document.getElementById('perfValue');
+    const perfBadge = document.getElementById('perfBadge');
+    const perfIcon = document.getElementById('perfIcon');
+    if (perfValue) {
+      perfValue.textContent = 'Not monitoring';
+      perfValue.style.color = '#64ffda';
     }
+    if (perfBadge) {
+      perfBadge.textContent = '—';
+      perfBadge.style.background = '#444';
+      perfBadge.style.color = '#888';
+    }
+    if (perfIcon) perfIcon.textContent = '⏱️';
 
-    // Ensure localStorage reflects the disabled state
-    if (currentlyEditingProject) {
-      localStorage.setItem('enabled_' + currentlyEditingProject, 'false');
+    // Update per-project localStorage to reflect disabled state
+    // IMPORTANT: Update the project that actually had the proxy running (proxyActiveProject)
+    // NOT the currently viewing project - they're different!
+    const projectToUpdate = proxyActiveProject || currentlyEditingProject;
+    console.log('DEBUG: Disabling proxy for project:', projectToUpdate);
+    if (projectToUpdate) {
+      const projectSettings = loadProxySettings(projectToUpdate);
+      projectSettings.isEnabled = false;
+      saveProxySettings(projectSettings, projectToUpdate);
+    }
+    
+    // Clear proxyActiveProject after disabling
+    proxyActiveProject = null;
+    
+    // Refresh the projects list to show updated proxy status badges
+    if (typeof renderProjectsList === 'function') {
+      renderProjectsList();
     }
   }
 }
+
+// Helper function to determine if proxy is active for a specific project
+// This is the single source of truth for determining proxy state
+// NOTE: Each project has its own isEnabled flag in localStorage, but we should verify
+// by checking if the proxy is actually running on the port
+async function isProxyActiveForProject(projectName) {
+  if (!projectName) return false;
+
+  // First check localStorage for this specific project
+  const savedSettings = loadProxySettings(projectName);
+
+  // Try to verify by checking if the proxy is actually running on the port
+  // This is the PRIMARY check - we should always verify against the actual proxy
+  try {
+    const proxyPort = savedSettings.proxyPort || '8080';
+    const response = await fetch(`http://localhost:${proxyPort}/api/proxy/status`, {
+      method: 'GET',
+      signal: AbortSignal.timeout(3000)
+    });
+
+    if (response.ok) {
+      const data = await response.json();
+      // Check if proxy is running AND matches this specific project
+      const isRunning = (data.status === "running");
+      const isThisProject = (data.project === projectName);
+      const isActive = isRunning && isThisProject;
+      
+      // Sync proxyActiveProject with API response for consistency
+      if (isRunning && isThisProject) {
+        proxyActiveProject = projectName;
+      } else if (isRunning && !isThisProject) {
+        // Proxy is running but for a different project
+        // Don't change proxyActiveProject - keep what we have
+      }
+      
+      console.log(`isProxyActiveForProject("${projectName}"): API status: ${data.status}, API project: ${data.project}, isThisProject: ${isThisProject} -> ${isActive}`);
+      return isActive;
+    } else {
+      // Proxy responded but returned an error - not running
+      console.log(`isProxyActiveForProject("${projectName}"): API returned error:`, response.status);
+      return false;
+    }
+  } catch (err) {
+    // If we can't connect to the proxy at all, it's definitely not running
+    console.log(`isProxyActiveForProject("${projectName}"): Could not connect to proxy -`, err.message);
+    return false;
+  }
+}
+
+// Make helper function globally accessible for other scripts
+window.isProxyActiveForProject = isProxyActiveForProject;
+
+// Make updateProxyUI globally accessible for consistent UI updates
+window.updateProxyUI = updateProxyUI;
 
 // Add this listener once, outside of any functions, to react to main process events.
 if (window.require) {
@@ -1036,7 +1203,7 @@ if (window.require) {
   });
 }
 
-function switchTab(tabId) {
+async function switchTab(tabId) {
   // Deactivate all tab buttons and content sections
   tabButtons.forEach(b => b.classList.remove('active'));
   tabContents.forEach(t => t.classList.remove('active'));
@@ -1365,14 +1532,68 @@ function switchTab(tabId) {
     statusSection.appendChild(statusIndicator);
     statusSection.appendChild(statusText);
 
-    // Performance status
+    // Performance status with improved visual styling
     const performanceStatus = document.createElement('div');
     performanceStatus.id = 'proxyPerformanceStatus';
     performanceStatus.className = 'proxy-performance-status';
-    performanceStatus.style.marginTop = '10px';
-    performanceStatus.style.fontSize = '0.9em';
-    performanceStatus.style.color = '#64ffda';
-    performanceStatus.textContent = 'Performance: Not monitoring';
+    performanceStatus.style.marginTop = '12px';
+    performanceStatus.style.padding = '10px 16px';
+    performanceStatus.style.borderRadius = '10px';
+    performanceStatus.style.background = 'linear-gradient(145deg, #2a2a44, #23234a)';
+    performanceStatus.style.border = '1px solid #40405a';
+    performanceStatus.style.display = 'flex';
+    performanceStatus.style.alignItems = 'center';
+    performanceStatus.style.gap = '12px';
+    performanceStatus.style.fontFamily = "'Inter', sans-serif";
+    performanceStatus.style.transition = 'all 0.3s ease';
+    
+    // Performance icon
+    const perfIcon = document.createElement('span');
+    perfIcon.id = 'perfIcon';
+    perfIcon.style.fontSize = '1.4em';
+    perfIcon.textContent = '⏱️';
+    performanceStatus.appendChild(perfIcon);
+    
+    // Performance text container
+    const perfTextContainer = document.createElement('div');
+    perfTextContainer.style.display = 'flex';
+    perfTextContainer.style.flexDirection = 'column';
+    perfTextContainer.style.gap = '2px';
+    
+    // Performance label
+    const perfLabel = document.createElement('span');
+    perfLabel.style.fontSize = '0.7em';
+    perfLabel.style.color = '#888';
+    perfLabel.style.textTransform = 'uppercase';
+    perfLabel.style.letterSpacing = '0.05em';
+    perfLabel.textContent = 'Response Time';
+    perfTextContainer.appendChild(perfLabel);
+    
+    // Performance value
+    const perfValue = document.createElement('span');
+    perfValue.id = 'perfValue';
+    perfValue.style.fontSize = '1em';
+    perfValue.style.fontWeight = '600';
+    perfValue.style.color = '#64ffda';
+    perfValue.textContent = 'Not monitoring';
+    perfTextContainer.appendChild(perfValue);
+    
+    performanceStatus.appendChild(perfTextContainer);
+    
+    // Performance badge
+    const perfBadge = document.createElement('span');
+    perfBadge.id = 'perfBadge';
+    perfBadge.style.marginLeft = 'auto';
+    perfBadge.style.padding = '4px 10px';
+    perfBadge.style.borderRadius = '20px';
+    perfBadge.style.fontSize = '0.7em';
+    perfBadge.style.fontWeight = 'bold';
+    perfBadge.style.textTransform = 'uppercase';
+    perfBadge.style.background = '#444';
+    perfBadge.style.color = '#888';
+    perfBadge.textContent = '—';
+    performanceStatus.appendChild(perfBadge);
+    
     statusSection.appendChild(performanceStatus);
 
     // Proxy project display
@@ -1391,13 +1612,37 @@ function switchTab(tabId) {
     // Load saved proxy settings for the currently editing project
     const projectForSettings = currentlyEditingProject;
     let savedSettings = loadProxySettings(projectForSettings);
+    console.log('Loading settings for project:', projectForSettings, 'Settings:', savedSettings);
 
-    // Toggle button
+    // Use the helper function to determine if proxy is active for this project
+    // This provides a single source of truth for determining proxy state
+    const isProxyActiveForThisProject = await isProxyActiveForProject(currentlyEditingProject);
+    console.log('Initial proxy state for', currentlyEditingProject, ':', isProxyActiveForThisProject);
+
+    // Toggle button - initialize based on per-project saved state
     const toggleBtn = document.createElement('button');
     toggleBtn.id = 'toggleProxyBtn';
-    // Default to enable button state
-    toggleBtn.textContent = 'Enable Proxy';
-    toggleBtn.className = 'toggle-btn enable-proxy';
+    // Set initial button state based on whether proxy is active for this project
+    if (isProxyActiveForThisProject) {
+      toggleBtn.textContent = 'Disable Proxy';
+      toggleBtn.className = 'toggle-btn disable-proxy';
+      // Make port inputs read-only when proxy is enabled
+      const proxyPortInputEl = document.getElementById('proxyPort');
+      const serverPortInputEl = document.getElementById('serverPort');
+      if (proxyPortInputEl) {
+        proxyPortInputEl.readOnly = true;
+        proxyPortInputEl.style.opacity = '0.7';
+        proxyPortInputEl.style.cursor = 'not-allowed';
+      }
+      if (serverPortInputEl) {
+        serverPortInputEl.readOnly = true;
+        serverPortInputEl.style.opacity = '0.7';
+        serverPortInputEl.style.cursor = 'not-allowed';
+      }
+    } else {
+      toggleBtn.textContent = 'Enable Proxy';
+      toggleBtn.className = 'toggle-btn enable-proxy';
+    }
     toggleBtn.disabled = false;
     proxyContainer.appendChild(toggleBtn);
 
@@ -1413,7 +1658,7 @@ function switchTab(tabId) {
     learningModeToggleBtn.style.fontSize = '1rem';
     proxyContainer.appendChild(learningModeToggleBtn);
 
-// Learning Mode Container - positioned right below the toggle button (hidden by default)
+    // Learning Mode Container - positioned right below the toggle button (hidden by default)
     const learningModeContainer = document.createElement('div');
     learningModeContainer.id = 'learningModeContainer';
     learningModeContainer.style.display = 'none';
@@ -1426,7 +1671,7 @@ function switchTab(tabId) {
 
     // Learning Mode Toggle Button Event Handler
     let learningModeActive = false;
-learningModeToggleBtn.addEventListener('click', () => {
+    learningModeToggleBtn.addEventListener('click', () => {
       // If learning mode is already active, just toggle the panel visibility
       if (learningModeActive) {
         const container = document.getElementById('learningModeContainer');
@@ -1436,8 +1681,8 @@ learningModeToggleBtn.addEventListener('click', () => {
         return;
       }
       
-      // Check if proxy is enabled
-      const isProxyEnabled = toggleBtn.textContent.includes('Disable');
+      // Check if proxy is enabled (button says "Disable Proxy" when enabled)
+      const isProxyEnabled = toggleBtn.textContent.includes('Disable Proxy');
       
       if (!isProxyEnabled) {
         showFeedback('Please enable the proxy first before starting Learning Mode');
@@ -1449,7 +1694,7 @@ learningModeToggleBtn.addEventListener('click', () => {
         // Start learning mode
         learningModeToggleBtn.textContent = '🧠 Learning Mode: Active';
         learningModeToggleBtn.style.backgroundColor = '#4CAF50';
-learningModeActive = true;
+        learningModeActive = true;
         learningModeContainer.style.display = 'block';
         
         // Trigger start learning
@@ -1481,8 +1726,12 @@ learningModeActive = true;
     proxyPortInput.value = savedSettings.proxyPort;
     proxyPortInput.className = 'form-input';
     proxyPortInput.addEventListener('change', () => {
-      const settings = getCurrentProxySettings();
-      saveProxySettings(settings, projectForSettings);
+      // Get fresh settings from localStorage and update them
+      const currentProject = currentlyEditingProject || projectForSettings;
+      const freshSettings = loadProxySettings(currentProject);
+      freshSettings.proxyPort = proxyPortInput.value;
+      saveProxySettings(freshSettings, currentProject);
+      console.log('Saved proxy port for project:', currentProject, 'port:', proxyPortInput.value);
     });
     formSection.appendChild(proxyPortLabel);
     formSection.appendChild(proxyPortInput);
@@ -1495,8 +1744,12 @@ learningModeActive = true;
     serverPortInput.value = savedSettings.serverPort;
     serverPortInput.className = 'form-input';
     serverPortInput.addEventListener('change', () => {
-      const settings = getCurrentProxySettings();
-      saveProxySettings(settings, projectForSettings);
+      // Get fresh settings from localStorage and update them
+      const currentProject = currentlyEditingProject || projectForSettings;
+      const freshSettings = loadProxySettings(currentProject);
+      freshSettings.serverPort = serverPortInput.value;
+      saveProxySettings(freshSettings, currentProject);
+      console.log('Saved server port for project:', currentProject, 'port:', serverPortInput.value);
     });
 formSection.appendChild(serverPortLabel);
     formSection.appendChild(serverPortInput);
@@ -1519,6 +1772,9 @@ formSection.appendChild(serverPortLabel);
     actionButtons.appendChild(saveBtn);
     actionButtons.appendChild(resetBtn);
     proxyContainer.appendChild(actionButtons);
+
+    // Don't block - multiple projects can have proxies enabled
+    // Just ensure status always shows saved port from localStorage
 
 
 
@@ -1746,7 +2002,7 @@ formSection.appendChild(serverPortLabel);
 
     // Enable/disable testing based on proxy status
     function updateTestingSection() {
-      const isActive = toggleBtn.textContent.includes('Disable') || toggleBtn.textContent.includes('Browser');
+      const isActive = toggleBtn.textContent.includes('Disable Proxy');
       sendTestBtn.disabled = !isActive;
       sendTestBtn.style.opacity = isActive ? '1' : '0.5';
       if (!isActive) {
@@ -1764,25 +2020,42 @@ formSection.appendChild(serverPortLabel);
       updateTestingSection();
     };
 
-    saveBtn.addEventListener('click', () => {
-      const settings = getCurrentProxySettings();
-      const targetProject = proxyActiveProject || currentlyEditingProject;
-
-      if (targetProject) {
-        if (!sessionEndpoints[targetProject]) {
-          sessionEndpoints[targetProject] = { endpoints: [] };
+    saveBtn.addEventListener('click', async () => {
+      // Check if proxy is active for the current project - prevent saving while proxy is running
+      const isProxyActive = await isProxyActiveForProject(currentlyEditingProject);
+      if (isProxyActive) {
+        showFeedback('Cannot save settings while proxy is active. Disable the proxy first.');
+        return;
+      }
+      
+      // Get fresh settings from localStorage
+      const currentProject = proxyActiveProject || currentlyEditingProject;
+      const freshSettings = loadProxySettings(currentProject);
+      freshSettings.proxyPort = proxyPortInput.value;
+      freshSettings.serverPort = serverPortInput.value;
+      
+      if (currentProject) {
+        if (!sessionEndpoints[currentProject]) {
+          sessionEndpoints[currentProject] = { endpoints: [] };
         }
-        sessionEndpoints[targetProject].proxyPort = settings.proxyPort;
-        sessionEndpoints[targetProject].serverPort = settings.serverPort;
-        saveProjectEndpoints(targetProject);
-        saveProxySettings(settings, targetProject);
-        showFeedback(`Settings saved for project: ${targetProject}!`);
+        sessionEndpoints[currentProject].proxyPort = freshSettings.proxyPort;
+        sessionEndpoints[currentProject].serverPort = freshSettings.serverPort;
+        saveProjectEndpoints(currentProject);
+        saveProxySettings(freshSettings, currentProject);
+        showFeedback(`Settings saved for project: ${currentProject}!`);
       } else {
         showFeedback('Please select a project to save settings.');
       }
     });
 
-    resetBtn.addEventListener('click', () => {
+    resetBtn.addEventListener('click', async () => {
+      // Check if proxy is active for the current project - prevent resetting while proxy is running
+      const isProxyActive = await isProxyActiveForProject(currentlyEditingProject);
+      if (isProxyActive) {
+        showFeedback('Cannot reset settings while proxy is active. Disable the proxy first.');
+        return;
+      }
+      
       proxyPortInput.value = '8080';
       serverPortInput.value = '3000';
     });
@@ -1801,60 +2074,73 @@ formSection.appendChild(serverPortLabel);
 
         // Check if the app is in the Electron environment.
         if (window.require) {
-          // If the proxy is not running, start it.
-          if (!proxyProcess) {
-            if (!currentlyEditingProject) {
-              showFeedback('Please select a project before enabling proxy.');
-              return;
+          // Always allow starting proxy - multiple proxies supported
+          if (!currentlyEditingProject) {
+            showFeedback('Please select a project before enabling proxy.');
+            return;
+          }
+
+          // Check if proxy port and server port are the same
+          if (proxyPort === serverPort) {
+            showFeedback('Proxy port and server port cannot be the same.');
+            return;
+          }
+
+          try {
+            const { ipcRenderer } = window.require('electron');
+            const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
+
+            // Save localStorage endpoints to JSON file before starting proxy
+            if (sessionEndpoints[currentlyEditingProject] && sessionEndpoints[currentlyEditingProject].endpoints) {
+              const proxySettings = loadProxySettings(currentlyEditingProject);
+              updateCurrentProjectFile(currentlyEditingProject, sessionEndpoints[currentlyEditingProject].endpoints, proxySettings.isEnabled);
             }
 
-            // Check if proxy port and server port are the same
-            if (proxyPort === serverPort) {
-              showFeedback('Proxy port and server port cannot be the same.');
-              return;
-            }
 
-            try {
-              const { ipcRenderer } = window.require('electron');
-              const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
-
-              // Save localStorage endpoints to JSON file before starting proxy
-              if (sessionEndpoints[currentlyEditingProject] && sessionEndpoints[currentlyEditingProject].endpoints) {
-                const proxySettings = loadProxySettings(currentlyEditingProject);
-                updateCurrentProjectFile(currentlyEditingProject, sessionEndpoints[currentlyEditingProject].endpoints, proxySettings.isEnabled);
+            // Set the active project for proxy (fixed when proxy is enabled)
+            // First, disable all other projects - only one project can have proxy at a time
+            projectNames.forEach(p => {
+              if (p !== currentlyEditingProject) {
+                const otherSettings = loadProxySettings(p);
+                if (otherSettings.isEnabled) {
+                  otherSettings.isEnabled = false;
+                  saveProxySettings(otherSettings, p);
+                  console.log('Disabled proxy for project:', p);
+                }
               }
-
-              // Set the active project for proxy (fixed when proxy is enabled)
-              proxyActiveProject = currentlyEditingProject;
-
-              // Send IPC message to start proxy with the fixed project
-              ipcRenderer.send('start-proxy', {
-                projectPath: path.join(__dirname, 'application'),
-                proxyPort: proxyPort,
-                serverPort: serverPort,
-                currentProject: proxyActiveProject
-              });
-
-              proxyProcess = true; // Indicate proxy is started
-
-              updateProxyUI(true);
-              if (!proxyEnableFeedbackShown) {
-                showFeedback(`Proxy started for project: ${proxyActiveProject}! Please go to your browser to disable it.`);
-                proxyEnableFeedbackShown = true;
-              }
+            });
+            
+            proxyActiveProject = currentlyEditingProject;
+            console.log('DEBUG: Set proxyActiveProject to:', proxyActiveProject, 'from Electron enable');
 
 
-              // Save the state.
-              const settings = getCurrentProxySettings();
-              saveProxySettings(settings, currentlyEditingProject);
+            // Send IPC message to start proxy with the fixed project
+            ipcRenderer.send('start-proxy', {
+              projectPath: path.join(__dirname, 'application'),
+              proxyPort: proxyPort,
+              serverPort: serverPort,
+              currentProject: proxyActiveProject
+            });
 
-            } catch (err) {
-              showFeedback('Failed to start proxy: ' + err);
+            proxyProcess = true; // Indicate proxy is started
+
+            updateProxyUI(true);
+            if (!proxyEnableFeedbackShown) {
+              showFeedback(`Proxy started for project: ${proxyActiveProject}! Please go to your browser to disable it.`);
+              proxyEnableFeedbackShown = true;
             }
+
+
+            // Save the state.
+            const settings = getCurrentProxySettings(savedSettings);
+            saveProxySettings(settings, currentlyEditingProject);
+
+          } catch (err) {
+            showFeedback('Failed to start proxy: ' + err);
           }
         } else {
           // Browser environment.
-          const isRunning = toggleBtn.textContent.includes('Disable');
+          const isRunning = toggleBtn.textContent.includes('Disable Proxy');
           if (!isRunning) {
             // Browser: call backend API to enable proxy
             try {
@@ -1872,14 +2158,27 @@ formSection.appendChild(serverPortLabel);
               });
               if (res.ok) {
                 // Set the active project for proxy
+                // First, disable all other projects - only one project can have proxy at a time
+                projectNames.forEach(p => {
+                  if (p !== currentlyEditingProject) {
+                    const otherSettings = loadProxySettings(p);
+                    if (otherSettings.isEnabled) {
+                      otherSettings.isEnabled = false;
+                      saveProxySettings(otherSettings, p);
+                      console.log('Disabled proxy for project:', p);
+                    }
+                  }
+                });
+                
                 proxyActiveProject = currentlyEditingProject;
+                console.log('DEBUG: Set proxyActiveProject to:', proxyActiveProject, 'from Browser enable');
                 updateProxyUI(true);
                 if (!proxyEnableFeedbackShown) {
                   showFeedback('Proxy enabled!');
                   proxyEnableFeedbackShown = true;
                 }
                 // Save the state.
-                const settings = getCurrentProxySettings();
+                const settings = getCurrentProxySettings(savedSettings);
                 saveProxySettings(settings, currentlyEditingProject);
               } else {
                 showFeedback('Failed to enable proxy.');
@@ -1895,12 +2194,13 @@ formSection.appendChild(serverPortLabel);
               });
               if (res.ok) {
                 proxyActiveProject = null; // Clear active project when proxy is disabled
+                console.log('DEBUG: Cleared proxyActiveProject to null');
                 await updateStatusDisplay();
                 clearProxyState(); // Clear proxy state on disable
                 showFeedback('Proxy disabled!');
 
                 // Save the state.
-                const settings = getCurrentProxySettings();
+                const settings = getCurrentProxySettings(savedSettings);
                 saveProxySettings(settings, currentlyEditingProject);
               } else {
                 showFeedback('Failed to disable proxy.');
@@ -1927,7 +2227,7 @@ formSection.appendChild(serverPortLabel);
           if (response.ok) {
             proxyActiveProject = currentlyEditingProject;
             updateProxyUI(true);
-            const settings = getCurrentProxySettings();
+            const settings = getCurrentProxySettings(savedSettings);
             saveProxySettings(settings, currentlyEditingProject);
             toggleBtn.disabled = true; // Disable button to prevent multiple clicks
             toggleBtn.textContent = 'Disable in browser';
@@ -1942,34 +2242,15 @@ formSection.appendChild(serverPortLabel);
       }
     });
 
-    async function proxyStatusUpdate() {
-      try {
-        const proxyPort123123123 = document.getElementById('proxyPort').value;
-        const response = await fetch(`http://localhost:${proxyPort123123123}/api/proxy/status`);
-        const data = await response.json();
-
-        if (data.status == "running" && data.project === currentlyEditingProject) {
-          updateProxyUI(true);
-          proxyEnabled = true;
-        }
-        else {
-          updateProxyUI(false);
-          proxyEnabled = false;
-        }
-
-        // Check toggleBtn state AFTER updateProxyUI has set it up
-        const toggleBtn = document.getElementById('toggleProxyBtn');
-        if (toggleBtn) {
-          if (toggleBtn.textContent.includes('Disable')) {
-            toggleBtn.disabled = true;
-            toggleBtn.style.color = 'gray';
-          }
-        }
-      }
-      catch (e) {
-        console.log('Failed to fetch proxy status:', e);
-      }
-    }
+    // Define proxyStatusUpdate as a function expression within this scope
+    const proxyStatusUpdate = async function() {
+      // Simply update the UI based on the saved settings - the API call was causing issues
+      // The button state is already set correctly when the tab was created
+      // Use the helper function for consistent state determination
+      const isActive = await isProxyActiveForProject(currentlyEditingProject);
+      console.log('proxyStatusUpdate: isActive =', isActive, 'for project:', currentlyEditingProject);
+      updateProxyUI(isActive);
+    };
 
     // Append the proxyContainer to the proxyTab so the UI is visible
     proxyTab.appendChild(proxyContainer);
@@ -2011,15 +2292,20 @@ formSection.appendChild(serverPortLabel);
     // Storage Amount Row
     const storageRow = document.createElement('div');
     storageRow.style.display = 'flex';
-    storageRow.style.gap = '1rem';
-    storageRow.style.alignItems = 'center';
+    storageRow.style.flexDirection = 'column';
+    storageRow.style.gap = '8px';
+
+    const storageLabelRow = document.createElement('div');
+    storageLabelRow.style.display = 'flex';
+    storageLabelRow.style.gap = '1rem';
+    storageLabelRow.style.alignItems = 'center';
 
     const storageLabel = document.createElement('label');
-    storageLabel.textContent = 'Storage Amount:';
+    storageLabel.textContent = 'Storage Amount: ';
     storageLabel.style.fontWeight = 'bold';
     storageLabel.style.color = '#64ffda';
     storageLabel.style.minWidth = '140px';
-    storageRow.appendChild(storageLabel);
+    storageLabelRow.appendChild(storageLabel);
 
     const storageInput = document.createElement('input');
     storageInput.id = 'learningModeStorage';
@@ -2029,12 +2315,15 @@ formSection.appendChild(serverPortLabel);
     storageInput.value = localStorage.getItem('learningModeStorage') || '100';
     storageInput.style.flex = '1';
     storageInput.style.maxWidth = '150px';
-    storageRow.appendChild(storageInput);
+    storageLabelRow.appendChild(storageInput);
+
+    storageRow.appendChild(storageLabelRow);
 
     const storageHint = document.createElement('span');
-    storageHint.textContent = 'requests to store before analysis';
-    storageHint.style.fontSize = '0.8em';
+    storageHint.textContent = 'requests to store before analysis, each request is about 200 bytes to a kilobyte';
+    storageHint.style.fontSize = '0.75em';
     storageHint.style.color = '#888';
+    storageHint.style.paddingLeft = '146px';
     storageRow.appendChild(storageHint);
 
     learningModeForm.appendChild(storageRow);
@@ -2042,15 +2331,20 @@ formSection.appendChild(serverPortLabel);
     // Analysis Period Row
     const periodRow = document.createElement('div');
     periodRow.style.display = 'flex';
-    periodRow.style.gap = '1rem';
-    periodRow.style.alignItems = 'center';
+    periodRow.style.flexDirection = 'column';
+    periodRow.style.gap = '8px';
+
+    const periodLabelRow = document.createElement('div');
+    periodLabelRow.style.display = 'flex';
+    periodLabelRow.style.gap = '1rem';
+    periodLabelRow.style.alignItems = 'center';
 
     const periodLabel = document.createElement('label');
     periodLabel.textContent = 'Analysis Period:';
     periodLabel.style.fontWeight = 'bold';
     periodLabel.style.color = '#64ffda';
     periodLabel.style.minWidth = '140px';
-    periodRow.appendChild(periodLabel);
+    periodLabelRow.appendChild(periodLabel);
 
     const periodInput = document.createElement('input');
     periodInput.id = 'learningModePeriod';
@@ -2060,12 +2354,15 @@ formSection.appendChild(serverPortLabel);
     periodInput.value = localStorage.getItem('learningModePeriod') || '60';
     periodInput.style.flex = '1';
     periodInput.style.maxWidth = '150px';
-    periodRow.appendChild(periodInput);
+    periodLabelRow.appendChild(periodInput);
+
+    periodRow.appendChild(periodLabelRow);
 
     const periodHint = document.createElement('span');
     periodHint.textContent = 'seconds between analyses';
-    periodHint.style.fontSize = '0.8em';
+    periodHint.style.fontSize = '0.75em';
     periodHint.style.color = '#888';
+    periodHint.style.paddingLeft = '146px';
     periodRow.appendChild(periodHint);
 
     learningModeForm.appendChild(periodRow);
@@ -2312,32 +2609,61 @@ formSection.appendChild(serverPortLabel);
 
     proxyStatusUpdate();
 
-
   }
 
   if (tabId === "ips") {
-    document.getElementById("saveLimit").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).saveLimit;
-    document.getElementById("reputationThreshold").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockThreshhold;
-    document.getElementById("timeToBlockIP").value = JSON.parse(localStorage.getItem(`ips_${currentlyEditingProject}`)).autoBlockTime
-
-
-
-
-    localStorage.getItem('redisSettings_' + currentlyEditingProject);
-    document.getElementById('redisHost').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.host || '';
-    document.getElementById('redisPort').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.port || '';
-    document.getElementById('redisPassword').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.password || '';
-    document.getElementById('redisUsername').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.username || '';
-    document.getElementById('redisDatabase').value = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.database || '';
-    document.getElementById('redisTLS').checked = JSON.parse(localStorage.getItem('redisSettings_' + currentlyEditingProject))?.tls || false;
-    if (localStorage.getItem('redisConnected_' + currentlyEditingProject) == 'true') {
-      document.getElementById('redisStatus').textContent = 'Connected to Redis';
-      document.getElementById('redisStatus').style.color = '#4CAF50';
+    const ipsSettingsKey = `ips_${currentlyEditingProject}`;
+    const storedIpsSettings = localStorage.getItem(ipsSettingsKey);
+    
+    if (storedIpsSettings) {
+      try {
+        const ipsSettings = JSON.parse(storedIpsSettings);
+        document.getElementById("saveLimit").value = ipsSettings.saveLimit || 1000;
+        document.getElementById("reputationThreshold").value = ipsSettings.autoBlockThreshhold || 50;
+        document.getElementById("timeToBlockIP").value = ipsSettings.autoBlockTime || 100;
+      } catch (e) {
+        console.error('Error parsing IPS settings:', e);
+        // Use defaults
+        document.getElementById("saveLimit").value = 1000;
+        document.getElementById("reputationThreshold").value = 50;
+        document.getElementById("timeToBlockIP").value = 100;
+      }
     } else {
-      document.getElementById('redisStatus').textContent = 'Not connected to Redis';
-      document.getElementById('redisStatus').style.color = '#ff5757';
+      // Initialize with defaults if no settings exist
+      document.getElementById("saveLimit").value = 1000;
+      document.getElementById("reputationThreshold").value = 50;
+      document.getElementById("timeToBlockIP").value = 100;
     }
 
+    // Load Redis settings with safe parsing
+    const redisSettingsKey = `redisSettings_${currentlyEditingProject}`;
+    const storedRedisSettings = localStorage.getItem(redisSettingsKey);
+    
+    if (storedRedisSettings) {
+      try {
+        const redisSettings = JSON.parse(storedRedisSettings);
+        document.getElementById('redisHost').value = redisSettings.host || '';
+        document.getElementById('redisPort').value = redisSettings.port || '';
+        document.getElementById('redisPassword').value = redisSettings.password || '';
+        document.getElementById('redisUsername').value = redisSettings.username || '';
+        document.getElementById('redisDatabase').value = redisSettings.database || '0';
+        document.getElementById('redisTLS').checked = redisSettings.tls || false;
+      } catch (e) {
+        console.error('Error parsing Redis settings:', e);
+      }
+    }
+
+    // Check Redis connection status
+    const redisConnectedKey = `redisConnected_${currentlyEditingProject}`;
+    const redisConnected = localStorage.getItem(redisConnectedKey);
+    const statusElem = document.getElementById('redisStatus');
+    if (redisConnected === 'true') {
+      statusElem.textContent = 'Connected to Redis';
+      statusElem.style.color = '#4CAF50';
+    } else {
+      statusElem.textContent = 'Not connected to Redis';
+      statusElem.style.color = '#ff5757';
+    }
   }
 
   if (tabId === "endpoints") {
@@ -2348,24 +2674,37 @@ formSection.appendChild(serverPortLabel);
 }
 
 async function reloadProxyEndpoints() {
-  const state = proxyEnabled;
-  if (state != undefined) {
-    if (state.isRunning && state.port) {
-      try {
-        await fetch(`http://localhost:${state.port}/api/reload-endpoints`, { method: 'POST' });
-      } catch (e) {
-        console.log('Failed to reload proxy endpoints:', e);
-      }
+  // Get the proxy port from the settings - try both proxyActiveProject and currentlyEditingProject
+  const activeProject = proxyActiveProject || currentlyEditingProject;
+  if (!activeProject) {
+    console.log('No active project to reload endpoints for');
+    return;
+  }
+  
+  const settings = loadProxySettings(activeProject);
+  const proxyPort = settings.proxyPort || '8080';
+  
+  try {
+    const response = await fetch(`http://localhost:${proxyPort}/api/reload-endpoints`, { 
+      method: 'POST' 
+    });
+    if (response.ok) {
+      console.log('Proxy endpoints reloaded successfully');
+    } else {
+      console.log('Failed to reload proxy endpoints: HTTP', response.status);
     }
+  } catch (e) {
+    console.log('Failed to reload proxy endpoints:', e.message);
   }
 }
 
 function saveEndpointSettings() {
   if (!selectedEndpoint) return;
-  saveProjectEndpoints(currentlyEditingProject);
-  reloadProxyEndpoints();
   
-  // Also update the current_project.json file for the proxy
+  // First, save to localStorage
+  saveProjectEndpoints(currentlyEditingProject);
+  
+  // Update the current_project.json file for the proxy BEFORE reloading
   if (currentlyEditingProject && sessionEndpoints[currentlyEditingProject]?.endpoints) {
     updateCurrentProjectFile(
       currentlyEditingProject,
@@ -2373,6 +2712,9 @@ function saveEndpointSettings() {
       null // Don't change proxyEnabled
     );
   }
+  
+  // Now reload the proxy to pick up the new rules
+  reloadProxyEndpoints();
 }
 
 function showRuleDetails(details, originalRule) {
@@ -3459,6 +3801,11 @@ function initializeEventHandlers() {
   projectsList.addEventListener('click', (e) => {
     if (e.target.classList.contains('enter-edit-btn')) {
       const projectName = e.target.dataset.project;
+      console.log('DEBUG: Enter edit mode for project:', projectName);
+      
+      // Note: We no longer clear proxyActiveProject when switching projects
+      // This allows the UI to correctly show proxy status for the project that has the proxy running
+      
       currentlyEditingProject = projectName;
       window.currentlyEditingProject = projectName;
       localStorage.setItem('currentlyEditingProject', projectName);
@@ -3650,7 +3997,21 @@ function initializeEventHandlers() {
 let projectNames = [];
 let sessionEndpoints = {};
 let currentlyEditingProject = null;
-let proxyActiveProject = null; // Store the project used by proxy when enabled
+let proxyActiveProject = null; // Store the project used by proxy when enabled (can be extended to array for multiple)
+
+// Try to restore proxyActiveProject from localStorage on page load
+try {
+  const savedProxyState = localStorage.getItem('proxyState');
+  if (savedProxyState) {
+    const proxyState = JSON.parse(savedProxyState);
+    if (proxyState.isRunning && proxyState.project) {
+      proxyActiveProject = proxyState.project;
+      console.log('DEBUG: Restored proxyActiveProject from localStorage:', proxyActiveProject);
+    }
+  }
+} catch (err) {
+  console.error('Failed to restore proxyActiveProject:', err);
+}
 
 // Load current project from localStorage on startup
 try {
@@ -3716,11 +4077,16 @@ document.addEventListener('DOMContentLoaded', async () => {
 
 
   // Start performance monitoring if proxy is active on load
-  const savedProxyState = proxyEnabled;
-  if (savedProxyState != undefined) {
-    if (savedProxyState.isRunning && savedProxyState.port) {
-      startPerformanceMonitoring(savedProxyState.port);
+  try {
+    const savedProxyState = localStorage.getItem('proxyState');
+    if (savedProxyState) {
+      const proxyState = JSON.parse(savedProxyState);
+      if (proxyState.isRunning && proxyState.port) {
+        startPerformanceMonitoring(proxyState.port);
+      }
     }
+  } catch (err) {
+    console.error('Failed to load proxy state for performance monitoring:', err);
   }
 
   // Tutorial button event listener
@@ -3944,9 +4310,19 @@ async function startPerformanceMonitoring(port) {
   stopPerformanceMonitoring(); // Clear any existing interval
 
   const performanceStatus = document.getElementById('proxyPerformanceStatus');
-  if (!performanceStatus) return;
+  const perfValue = document.getElementById('perfValue');
+  const perfBadge = document.getElementById('perfBadge');
+  const perfIcon = document.getElementById('perfIcon');
+  
+  if (!performanceStatus || !perfValue || !perfBadge) return;
 
-  performanceStatus.textContent = 'Performance: Checking...';
+  // Initial state
+  perfValue.textContent = 'Checking...';
+  perfValue.style.color = '#64ffda';
+  perfBadge.textContent = '—';
+  perfBadge.style.background = '#444';
+  perfBadge.style.color = '#888';
+  perfIcon.textContent = '⏱️';
 
   performanceMonitorInterval = setInterval(async () => {
     try {
@@ -3966,39 +4342,79 @@ async function startPerformanceMonitoring(port) {
         if (data.status === 'running') {
           // Determine performance status based on response time
           let performanceText = '';
-          let color = '#64ffda'; // Default green
+          let color = '#64ffda';
+          let badgeText = '';
+          let badgeBg = '';
+          let badgeColor = '';
+          let icon = '⏱️';
 
           if (responseTime < 100) {
-            performanceText = 'Excellent';
+            performanceText = `${Math.round(responseTime)}ms`;
             color = '#4CAF50'; // Green
+            badgeText = 'Excellent';
+            badgeBg = 'rgba(76, 175, 80, 0.2)';
+            badgeColor = '#4CAF50';
+            icon = '⚡';
           } else if (responseTime < 300) {
-            performanceText = 'Good';
+            performanceText = `${Math.round(responseTime)}ms`;
             color = '#64ffda'; // Cyan
+            badgeText = 'Good';
+            badgeBg = 'rgba(100, 255, 218, 0.2)';
+            badgeColor = '#64ffda';
+            icon = '✓';
           } else if (responseTime < 1000) {
-            performanceText = 'Fair';
+            performanceText = `${Math.round(responseTime)}ms`;
             color = '#ff9800'; // Orange
+            badgeText = 'Fair';
+            badgeBg = 'rgba(255, 152, 0, 0.2)';
+            badgeColor = '#ff9800';
+            icon = '⚠';
           } else if (responseTime < 3000) {
-            performanceText = 'Slow';
+            performanceText = `${Math.round(responseTime)}ms`;
             color = '#ff5757'; // Red
+            badgeText = 'Slow';
+            badgeBg = 'rgba(255, 87, 87, 0.2)';
+            badgeColor = '#ff5757';
+            icon = '🐌';
           } else {
-            performanceText = 'Very Slow';
+            performanceText = `${Math.round(responseTime)}ms`;
             color = '#c30000'; // Dark red
+            badgeText = 'Very Slow';
+            badgeBg = 'rgba(195, 0, 0, 0.2)';
+            badgeColor = '#c30000';
+            icon = '🛑';
           }
 
-          performanceStatus.textContent = `Performance: ${performanceText} (${Math.round(responseTime)}ms)`;
-          performanceStatus.style.color = color;
+          perfValue.textContent = performanceText;
+          perfValue.style.color = color;
+          perfBadge.textContent = badgeText;
+          perfBadge.style.background = badgeBg;
+          perfBadge.style.color = badgeColor;
+          perfIcon.textContent = icon;
         } else {
-          performanceStatus.textContent = 'Performance: Proxy disabled';
-          performanceStatus.style.color = '#ff5757';
+          perfValue.textContent = 'Disabled';
+          perfValue.style.color = '#ff5757';
+          perfBadge.textContent = '—';
+          perfBadge.style.background = '#444';
+          perfBadge.style.color = '#888';
+          perfIcon.textContent = '⏱️';
         }
       } else {
-        performanceStatus.textContent = 'Performance: Error checking status';
-        performanceStatus.style.color = '#ff5757';
+        perfValue.textContent = 'Error';
+        perfValue.style.color = '#ff5757';
+        perfBadge.textContent = 'Error';
+        perfBadge.style.background = 'rgba(255, 87, 87, 0.2)';
+        perfBadge.style.color = '#ff5757';
+        perfIcon.textContent = '❌';
       }
     } catch (error) {
       console.log('Performance check failed:', error.message);
-      performanceStatus.textContent = 'Performance: Unable to check';
-      performanceStatus.style.color = '#ff5757';
+      perfValue.textContent = 'Unavailable';
+      perfValue.style.color = '#ff5757';
+      perfBadge.textContent = 'Offline';
+      perfBadge.style.background = 'rgba(255, 87, 87, 0.2)';
+      perfBadge.style.color = '#ff5757';
+      perfIcon.textContent = '🔴';
     }
   }, 5000); // Check every 5 seconds
 }
@@ -4008,6 +4424,18 @@ function stopPerformanceMonitoring() {
     clearInterval(performanceMonitorInterval);
     performanceMonitorInterval = null;
   }
+  
+  // Reset performance display when stopped
+  const perfValue = document.getElementById('perfValue');
+  const perfBadge = document.getElementById('perfBadge');
+  const perfIcon = document.getElementById('perfIcon');
+  if (perfValue) perfValue.textContent = 'Not monitoring';
+  if (perfBadge) {
+    perfBadge.textContent = '—';
+    perfBadge.style.background = '#444';
+    perfBadge.style.color = '#888';
+  }
+  if (perfIcon) perfIcon.textContent = '⏱️';
 }
 
 // Helper function to add endpoint with optional rules
@@ -4036,6 +4464,12 @@ function addEndpointWithRules(endpointPath, project, recommendedRules) {
 
   sessionEndpoints[project].endpoints.push(newEndpoint);
   saveProjectEndpoints(project);
+  
+  // Update the current_project.json file and reload proxy
+  const proxySettings = loadProxySettings(project);
+  updateCurrentProjectFile(project, sessionEndpoints[project].endpoints, proxySettings.isEnabled);
+  reloadProxyEndpoints();
+  
   renderEndpoints(project);
   newEndpointInput.value = '';
 

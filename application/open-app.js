@@ -136,19 +136,7 @@ ipcMain.on('terminal-input', (event, input) => {
 });
 
 ipcMain.on('start-proxy', (event, { projectPath, proxyPort, serverPort, currentProject }) => {
-  if (proxyProcess) {
-    try {
-      process.kill(proxyProcess.pid, 0);
-    } catch (e) {
-      proxyProcess = null;
-    }
-  }
-  if (proxyProcess) {
-    console.log('Proxy process is already running.');
-    event.sender.send('terminal-output', 'Proxy server is already running.');
-    return;
-  }
-
+  
   // Use the projectPath sent from main.js as the cwd for the proxy process
   // The projectPath should be the application directory path
   const proxyCwd = projectPath || path.join(__dirname, 'application');
