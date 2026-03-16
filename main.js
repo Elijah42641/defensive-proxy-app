@@ -60,10 +60,10 @@ if (isElectron) {
 
 }
 else {
-updateCurrentProjectFile = function (projectName, endpoints = null, proxyEnabled = null) {
-  // Note: proxyEnabled is now tracked per-project in localStorage (proxySettings_{projectName})
-  // We no longer save it to the JSON file to avoid the global state issue
-  fetch('/api/project/update-current', {
+  updateCurrentProjectFile = function (projectName, endpoints = null, proxyEnabled = null) {
+    // Note: proxyEnabled is now tracked per-project in localStorage (proxySettings_{projectName})
+    // We no longer save it to the JSON file to avoid the global state issue
+    fetch('/api/project/update-current', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ projectName, endpoints })
@@ -690,6 +690,20 @@ function saveProjectEndpoints(projectName) {
 }
 
 // --- Proxy Settings Management Functions ---
+function loadLearningMode(projectName = null) {
+  const key = projectName ? `learningMode_${projectName}` : 'learningMode';
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : { isEnabled: false };
+  } catch (e) {
+    return { isEnabled: false };
+  }
+}
+
+function saveLearningMode(settings, projectName = null) {
+  const key = projectName ? `learningMode_${projectName}` : 'learningMode';
+  localStorage.setItem(key, JSON.stringify(settings));
+}
 function loadProxySettings(projectName = null) {
   const key = projectName ? `proxySettings_${projectName}` : 'proxySettings';
   console.log(`Loading proxy settings for key: "${key}"`);
@@ -727,13 +741,13 @@ function getCurrentProxySettings(savedSettingsOverride = null) {
 
   // Check if proxy is currently enabled based on button text
   const isEnabled = toggleBtn ? toggleBtn.textContent.includes('Disable Proxy') : false;
-  
+
   // Always use the currently editing project (not proxyActiveProject) for settings
   const projectForSettings = currentlyEditingProject;
-  
+
   // Get saved settings for this specific project - use override if provided, otherwise load from localStorage
   const savedSettings = savedSettingsOverride || (projectForSettings ? loadProxySettings(projectForSettings) : null);
-  
+
   return {
     proxyPort: proxyPortInput ? proxyPortInput.value : (savedSettings?.proxyPort || '8080'),
     serverPort: serverPortInput ? serverPortInput.value : (savedSettings?.serverPort || '3000'),
@@ -782,7 +796,7 @@ async function renderProjectsList() {
   if (projectNames.length === 0) {
     projectsList.innerHTML = '<p>No projects added yet.</p>';
     return;
-}
+  }
   for (const name of projectNames) {
     const card = document.createElement('div');
     card.className = 'project-card';
@@ -930,11 +944,11 @@ function clearProxyState() {
 // Restore proxy UI state when entering edit mode for a project
 function restoreProxyStateForProject(projectName) {
   if (!projectName) return;
-  
+
   // Load the proxy settings for this specific project
   const settings = loadProxySettings(projectName);
   console.log(`Restoring proxy state for project "${projectName}":`, settings);
-  
+
   // Update the UI based on this project's saved state
   // Note: We can't fully restore the UI here since the proxy tab may not be visible
   // The actual UI update happens in switchTab('proxy') or when checking status
@@ -1002,7 +1016,7 @@ function updateProxyUI(isActive) {
     // Button text and class - use consistent wording
     toggleBtn.textContent = 'Disable Proxy';
     toggleBtn.className = 'toggle-btn disable-proxy';
-    
+
     // Make port inputs read-only when proxy is enabled
     const proxyPortInputEl = document.getElementById('proxyPort');
     const serverPortInputEl = document.getElementById('serverPort');
@@ -1016,7 +1030,7 @@ function updateProxyUI(isActive) {
       serverPortInputEl.style.opacity = '0.7';
       serverPortInputEl.style.cursor = 'not-allowed';
     }
-    
+
     // Show Learning Mode when proxy is enabled
     const learningModeToggleBtn = document.getElementById('learningModeToggleBtn');
     if (learningModeToggleBtn) {
@@ -1024,7 +1038,7 @@ function updateProxyUI(isActive) {
     }
     toggleBtn.disabled = window.require ? true : false;
     toggleBtn.style.display = 'block';
-    
+
     statusText.textContent = `Status: Active on Port ${configuredProxyPort}, forwarding to ${configuredServerPort}`;
     statusIndicator.style.backgroundColor = '#4CAF50';
 
@@ -1038,7 +1052,7 @@ function updateProxyUI(isActive) {
 
     // Save state with the active project (per-project settings)
     saveProxyState(true, configuredProxyPort, proxyActiveProject, configuredServerPort);
-    
+
     // Also update the per-project isEnabled flag for the current project
     // Each project maintains its own enabled state independently
     const projectToEnable = proxyActiveProject || currentlyEditingProject;
@@ -1049,7 +1063,7 @@ function updateProxyUI(isActive) {
       projectSettings.serverPort = configuredServerPort;
       saveProxySettings(projectSettings, projectToEnable);
     }
-    
+
     // Refresh the projects list to show updated proxy status badges
     if (typeof renderProjectsList === 'function') {
       renderProjectsList();
@@ -1059,7 +1073,7 @@ function updateProxyUI(isActive) {
     toggleBtn.className = 'toggle-btn enable-proxy';
     toggleBtn.disabled = false;
     toggleBtn.style.display = 'block';
-    
+
     // Re-enable port inputs when proxy is disabled
     const proxyPortInputEl = document.getElementById('proxyPort');
     const serverPortInputEl = document.getElementById('serverPort');
@@ -1073,7 +1087,7 @@ function updateProxyUI(isActive) {
       serverPortInputEl.style.opacity = '1';
       serverPortInputEl.style.cursor = 'text';
     }
-    
+
     // Hide Learning Mode when proxy is disabled
     const learningModeContainer = document.getElementById('learningModeContainer');
     if (learningModeContainer) {
@@ -1117,10 +1131,10 @@ function updateProxyUI(isActive) {
       projectSettings.isEnabled = false;
       saveProxySettings(projectSettings, projectToUpdate);
     }
-    
+
     // Clear proxyActiveProject after disabling
     proxyActiveProject = null;
-    
+
     // Refresh the projects list to show updated proxy status badges
     if (typeof renderProjectsList === 'function') {
       renderProjectsList();
@@ -1153,7 +1167,7 @@ async function isProxyActiveForProject(projectName) {
       const isRunning = (data.status === "running");
       const isThisProject = (data.project === projectName);
       const isActive = isRunning && isThisProject;
-      
+
       // Sync proxyActiveProject with API response for consistency
       if (isRunning && isThisProject) {
         proxyActiveProject = projectName;
@@ -1161,7 +1175,7 @@ async function isProxyActiveForProject(projectName) {
         // Proxy is running but for a different project
         // Don't change proxyActiveProject - keep what we have
       }
-      
+
       console.log(`isProxyActiveForProject("${projectName}"): API status: ${data.status}, API project: ${data.project}, isThisProject: ${isThisProject} -> ${isActive}`);
       return isActive;
     } else {
@@ -1546,20 +1560,20 @@ async function switchTab(tabId) {
     performanceStatus.style.gap = '12px';
     performanceStatus.style.fontFamily = "'Inter', sans-serif";
     performanceStatus.style.transition = 'all 0.3s ease';
-    
+
     // Performance icon
     const perfIcon = document.createElement('span');
     perfIcon.id = 'perfIcon';
     perfIcon.style.fontSize = '1.4em';
     perfIcon.textContent = '⏱️';
     performanceStatus.appendChild(perfIcon);
-    
+
     // Performance text container
     const perfTextContainer = document.createElement('div');
     perfTextContainer.style.display = 'flex';
     perfTextContainer.style.flexDirection = 'column';
     perfTextContainer.style.gap = '2px';
-    
+
     // Performance label
     const perfLabel = document.createElement('span');
     perfLabel.style.fontSize = '0.7em';
@@ -1568,7 +1582,7 @@ async function switchTab(tabId) {
     perfLabel.style.letterSpacing = '0.05em';
     perfLabel.textContent = 'Response Time';
     perfTextContainer.appendChild(perfLabel);
-    
+
     // Performance value
     const perfValue = document.createElement('span');
     perfValue.id = 'perfValue';
@@ -1577,9 +1591,9 @@ async function switchTab(tabId) {
     perfValue.style.color = '#64ffda';
     perfValue.textContent = 'Not monitoring';
     perfTextContainer.appendChild(perfValue);
-    
+
     performanceStatus.appendChild(perfTextContainer);
-    
+
     // Performance badge
     const perfBadge = document.createElement('span');
     perfBadge.id = 'perfBadge';
@@ -1593,7 +1607,7 @@ async function switchTab(tabId) {
     perfBadge.style.color = '#888';
     perfBadge.textContent = '—';
     performanceStatus.appendChild(perfBadge);
-    
+
     statusSection.appendChild(performanceStatus);
 
     // Proxy project display
@@ -1670,47 +1684,45 @@ async function switchTab(tabId) {
     learningModeContainer.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
 
     // Learning Mode Toggle Button Event Handler
-    let learningModeActive = false;
+    let learningModeEnabled = false;
+    let learningModePopupVisible = false;
+    // Load learning mode state for current project
+    const learningSettings = loadLearningMode(currentlyEditingProject);
+    learningModeEnabled = learningSettings.isEnabled || false;
+
+    // Update toggle btn and restore visibility
+    if (learningModeEnabled) {
+      learningModeToggleBtn.textContent = '🧠 Learning Mode: Active';
+      learningModeToggleBtn.style.backgroundColor = '#4CAF50';
+      learningModeContainer.style.display = 'block'; // Initially show if enabled
+    }
+
     learningModeToggleBtn.addEventListener('click', () => {
-      // If learning mode is already active, just toggle the panel visibility
-      if (learningModeActive) {
-        const container = document.getElementById('learningModeContainer');
-        if (container) {
-          container.style.display = container.style.display === 'none' ? 'block' : 'none';
-        }
-        return;
-      }
-      
-      // Check if proxy is enabled (button says "Disable Proxy" when enabled)
+      // Check if proxy is enabled
       const isProxyEnabled = toggleBtn.textContent.includes('Disable Proxy');
-      
       if (!isProxyEnabled) {
-        showFeedback('Please enable the proxy first before starting Learning Mode');
+        showFeedback('Please enable the proxy first before using Learning Mode');
         return;
       }
-      
-      // Toggle learning mode
-      if (!learningModeActive) {
-        // Start learning mode
+
+      if (!learningModeEnabled) {
+        // Enable (blue → green)
+        learningModeEnabled = true;
+        learningModePopupVisible = true;
         learningModeToggleBtn.textContent = '🧠 Learning Mode: Active';
         learningModeToggleBtn.style.backgroundColor = '#4CAF50';
-        learningModeActive = true;
         learningModeContainer.style.display = 'block';
-        
-        // Trigger start learning
-        if (startLearningBtn) {
-          startLearningBtn.click();
-        }
+        // Update internal UI
+        if (learningStatusText) learningStatusText.textContent = 'Active';
+        if (learningStatusText) learningStatusText.style.color = '#4CAF50';
+        if (startLearningBtn) startLearningBtn.click();
+        saveLearningMode({ isEnabled: true }, currentlyEditingProject);
+        showFeedback('Learning Mode enabled');
       } else {
-        // Stop learning mode
-        learningModeToggleBtn.textContent = '🧠 Enable Learning Mode';
-        learningModeToggleBtn.style.backgroundColor = '#6c757d';
-        learningModeActive = false;
-        
-        // Trigger stop learning
-        if (stopLearningBtn) {
-          stopLearningBtn.click();
-        }
+        // Toggle popup visibility only (green stays green)
+        learningModePopupVisible = !learningModePopupVisible;
+        learningModeContainer.style.display = learningModePopupVisible ? 'block' : 'none';
+        showFeedback(learningModePopupVisible ? 'Learning panel opened' : 'Learning panel closed');
       }
     });
 
@@ -1751,12 +1763,12 @@ async function switchTab(tabId) {
       saveProxySettings(freshSettings, currentProject);
       console.log('Saved server port for project:', currentProject, 'port:', serverPortInput.value);
     });
-formSection.appendChild(serverPortLabel);
+    formSection.appendChild(serverPortLabel);
     formSection.appendChild(serverPortInput);
-    
+
     // Add Learning Mode container FIRST (before ports)
     proxyContainer.appendChild(learningModeContainer);
-    
+
     // Then add formSection (ports) after
     proxyContainer.appendChild(formSection);
 
@@ -2027,13 +2039,13 @@ formSection.appendChild(serverPortLabel);
         showFeedback('Cannot save settings while proxy is active. Disable the proxy first.');
         return;
       }
-      
+
       // Get fresh settings from localStorage
       const currentProject = proxyActiveProject || currentlyEditingProject;
       const freshSettings = loadProxySettings(currentProject);
       freshSettings.proxyPort = proxyPortInput.value;
       freshSettings.serverPort = serverPortInput.value;
-      
+
       if (currentProject) {
         if (!sessionEndpoints[currentProject]) {
           sessionEndpoints[currentProject] = { endpoints: [] };
@@ -2055,7 +2067,7 @@ formSection.appendChild(serverPortLabel);
         showFeedback('Cannot reset settings while proxy is active. Disable the proxy first.');
         return;
       }
-      
+
       proxyPortInput.value = '8080';
       serverPortInput.value = '3000';
     });
@@ -2109,17 +2121,19 @@ formSection.appendChild(serverPortLabel);
                 }
               }
             });
-            
+
             proxyActiveProject = currentlyEditingProject;
             console.log('DEBUG: Set proxyActiveProject to:', proxyActiveProject, 'from Electron enable');
 
 
             // Send IPC message to start proxy with the fixed project
+            const learningSettings = loadLearningMode(currentlyEditingProject);
             ipcRenderer.send('start-proxy', {
               projectPath: path.join(__dirname, 'application'),
               proxyPort: proxyPort,
               serverPort: serverPort,
-              currentProject: proxyActiveProject
+              currentProject: proxyActiveProject,
+              learningMode: learningSettings.isEnabled
             });
 
             proxyProcess = true; // Indicate proxy is started
@@ -2169,7 +2183,7 @@ formSection.appendChild(serverPortLabel);
                     }
                   }
                 });
-                
+
                 proxyActiveProject = currentlyEditingProject;
                 console.log('DEBUG: Set proxyActiveProject to:', proxyActiveProject, 'from Browser enable');
                 updateProxyUI(true);
@@ -2243,7 +2257,7 @@ formSection.appendChild(serverPortLabel);
     });
 
     // Define proxyStatusUpdate as a function expression within this scope
-    const proxyStatusUpdate = async function() {
+    const proxyStatusUpdate = async function () {
       // Simply update the UI based on the saved settings - the API call was causing issues
       // The button state is already set correctly when the tab was created
       // Use the helper function for consistent state determination
@@ -2277,7 +2291,7 @@ formSection.appendChild(serverPortLabel);
     learningModeSection.appendChild(learningModeHeader);
 
     const learningModeDescription = document.createElement('p');
-    learningModeDescription.textContent = 'Learning Mode observes traffic and analyzes requests to help you create rules. It tracks headers, fields, content types, and identifies strict vs dynamic parts of your API.';
+    learningModeDescription.textContent = 'Learning Mode observes traffic and analyzes requests to help you create rules. It tracks headers, fields, content types, and identifies strict vs dynamic parts of your API, More requests = better results.';
     learningModeDescription.style.marginBottom = '1.5rem';
     learningModeDescription.style.fontSize = '0.9em';
     learningModeDescription.style.color = '#aaa';
@@ -2312,10 +2326,19 @@ formSection.appendChild(serverPortLabel);
     storageInput.type = 'number';
     storageInput.className = 'form-input';
     storageInput.placeholder = 'e.g., 100';
-    storageInput.value = localStorage.getItem('learningModeStorage') || '100';
+    const projectSettingsKey = `learningSettings_${currentlyEditingProject}`;
+    const projectSettings = JSON.parse(localStorage.getItem(projectSettingsKey) || '{}');
+    storageInput.value = projectSettings.storage || '100';
     storageInput.style.flex = '1';
     storageInput.style.maxWidth = '150px';
     storageLabelRow.appendChild(storageInput);
+
+    const saveStorageBtn = document.createElement('button');
+    saveStorageBtn.textContent = 'Save';
+    saveStorageBtn.className = 'small-btn btn-primary';
+    saveStorageBtn.style.fontSize = '0.8rem';
+    saveStorageBtn.style.padding = '0.3rem 0.6rem';
+    storageLabelRow.appendChild(saveStorageBtn);
 
     storageRow.appendChild(storageLabelRow);
 
@@ -2326,46 +2349,16 @@ formSection.appendChild(serverPortLabel);
     storageHint.style.paddingLeft = '146px';
     storageRow.appendChild(storageHint);
 
+    saveStorageBtn.addEventListener('click', () => {
+      projectSettings.storage = storageInput.value;
+      localStorage.setItem(projectSettingsKey, JSON.stringify(projectSettings));
+      showFeedback('Storage amount saved');
+      requestCountMax.textContent = '/ ' + storageInput.value;
+    });
+
     learningModeForm.appendChild(storageRow);
 
     // Analysis Period Row
-    const periodRow = document.createElement('div');
-    periodRow.style.display = 'flex';
-    periodRow.style.flexDirection = 'column';
-    periodRow.style.gap = '8px';
-
-    const periodLabelRow = document.createElement('div');
-    periodLabelRow.style.display = 'flex';
-    periodLabelRow.style.gap = '1rem';
-    periodLabelRow.style.alignItems = 'center';
-
-    const periodLabel = document.createElement('label');
-    periodLabel.textContent = 'Analysis Period:';
-    periodLabel.style.fontWeight = 'bold';
-    periodLabel.style.color = '#64ffda';
-    periodLabel.style.minWidth = '140px';
-    periodLabelRow.appendChild(periodLabel);
-
-    const periodInput = document.createElement('input');
-    periodInput.id = 'learningModePeriod';
-    periodInput.type = 'number';
-    periodInput.className = 'form-input';
-    periodInput.placeholder = 'e.g., 60';
-    periodInput.value = localStorage.getItem('learningModePeriod') || '60';
-    periodInput.style.flex = '1';
-    periodInput.style.maxWidth = '150px';
-    periodLabelRow.appendChild(periodInput);
-
-    periodRow.appendChild(periodLabelRow);
-
-    const periodHint = document.createElement('span');
-    periodHint.textContent = 'seconds between analyses';
-    periodHint.style.fontSize = '0.75em';
-    periodHint.style.color = '#888';
-    periodHint.style.paddingLeft = '146px';
-    periodRow.appendChild(periodHint);
-
-    learningModeForm.appendChild(periodRow);
 
     // Status Display
     const learningStatusRow = document.createElement('div');
@@ -2390,6 +2383,8 @@ formSection.appendChild(serverPortLabel);
 
     learningModeForm.appendChild(learningStatusRow);
 
+
+
     // Request Count Display
     const requestCountRow = document.createElement('div');
     requestCountRow.style.display = 'flex';
@@ -2413,7 +2408,9 @@ formSection.appendChild(serverPortLabel);
 
     const requestCountMax = document.createElement('span');
     requestCountMax.id = 'learningModeRequestCountMax';
-    requestCountMax.textContent = '/ ' + (localStorage.getItem('learningModeStorage') || '100');
+    const projectSettingsKey2 = `learningSettings_${currentlyEditingProject}`;
+    const projectSettings2 = JSON.parse(localStorage.getItem(projectSettingsKey2) || '{}');
+    requestCountMax.textContent = '/ ' + (projectSettings2.storage || '100');
     requestCountMax.style.color = '#888';
     requestCountMax.style.fontSize = '0.9em';
     requestCountMax.style.marginLeft = '0.25rem';
@@ -2442,18 +2439,9 @@ formSection.appendChild(serverPortLabel);
     stopLearningBtn.style.display = 'none';
     learningButtonsRow.appendChild(stopLearningBtn);
 
-    const viewResultsBtn = document.createElement('button');
-    viewResultsBtn.id = 'viewLearningResultsBtn';
-    viewResultsBtn.textContent = 'View Analysis Results';
-    viewResultsBtn.className = 'btn-secondary';
-    viewResultsBtn.style.display = 'none';
-    learningButtonsRow.appendChild(viewResultsBtn);
 
-    const clearLearningBtn = document.createElement('button');
-    clearLearningBtn.id = 'clearLearningDataBtn';
-    clearLearningBtn.textContent = 'Clear Data';
-    clearLearningBtn.className = 'btn-secondary';
-    learningButtonsRow.appendChild(clearLearningBtn);
+
+    
 
     learningModeForm.appendChild(learningButtonsRow);
 
@@ -2486,13 +2474,25 @@ formSection.appendChild(serverPortLabel);
     // Learning Mode Event Handlers
     // Save settings on input change
     storageInput.addEventListener('change', () => {
-      localStorage.setItem('learningModeStorage', storageInput.value);
+      const projectKey = `learningSettings_${currentlyEditingProject}`;
+      const settings = JSON.parse(localStorage.getItem(projectKey) || '{}');
+      settings.storage = storageInput.value;
+      localStorage.setItem(projectKey, JSON.stringify(settings));
       requestCountMax.textContent = '/ ' + storageInput.value;
     });
 
-    periodInput.addEventListener('change', () => {
-      localStorage.setItem('learningModePeriod', periodInput.value);
-    });
+
+
+    // Update learning status and buttons based on state (safe check)
+    if (learningModeEnabled && learningStatusText && startLearningBtn && stopLearningBtn) {
+      learningModeToggleBtn.textContent = '🧠 Learning Mode: Active';
+      learningModeToggleBtn.style.backgroundColor = '#4CAF50';
+      learningModeContainer.style.display = 'block';
+      learningStatusText.textContent = 'Active';
+      learningStatusText.style.color = '#4CAF50';
+      startLearningBtn.style.display = 'none';
+      stopLearningBtn.style.display = 'block';
+    }
 
     // Start Learning Mode
     startLearningBtn.addEventListener('click', () => {
@@ -2508,9 +2508,7 @@ formSection.appendChild(serverPortLabel);
       learningStatusText.style.color = '#4CAF50';
       startLearningBtn.style.display = 'none';
       stopLearningBtn.style.display = 'block';
-      clearLearningBtn.style.display = 'none';
-      viewResultsBtn.style.display = 'none';
-      
+
       // Show the results section immediately when learning starts
       learningResultsSection.style.display = 'block';
       resultsContent.innerHTML = `
@@ -2544,68 +2542,22 @@ formSection.appendChild(serverPortLabel);
 
     // Stop Learning Mode
     stopLearningBtn.addEventListener('click', () => {
-      // Update UI
-      learningStatusText.textContent = 'Stopped';
-      learningStatusText.style.color = '#ff9800';
-      startLearningBtn.style.display = 'block';
-      stopLearningBtn.style.display = 'none';
-      clearLearningBtn.style.display = 'block';
-      viewResultsBtn.style.display = 'block';
-      
-      // Keep results visible after stopping
-      resultsContent.innerHTML = `
-        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-          <h6 style="color: #ff9800; margin: 0 0 0.5rem 0;">⏹️ Learning Stopped</h6>
-          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Traffic observation has been stopped. View the captured data below.</p>
-        </div>
-        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Headers Analyzed</h6>
-          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Content-Type, Authorization, User-Agent, Accept</p>
-        </div>
-        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Content Types Observed</h6>
-          <p style="color: #aaa; font-size: 0.85em; margin: 0;">application/json, multipart/form-data, application/x-www-form-urlencoded</p>
-        </div>
-        <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-          <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Field Patterns</h6>
-          <p style="color: #aaa; font-size: 0.85em; margin: 0;">Strict fields: id, created_at | Dynamic fields: search, filter, page</p>
-        </div>
-        <p style="color: #ff9800; font-size: 0.85em; margin-top: 1rem;">
-          💡 Tip: Use these insights to create whitelist rules for consistent fields and blacklist rules for dynamic parameters.
-        </p>
-      `;
+      // Disable learning mode completely (green → blue)
+      learningModeEnabled = false;
+      learningModeToggleBtn.textContent = '🧠 Enable Learning Mode';
+      learningModeToggleBtn.style.backgroundColor = '#6c757d';
+      learningModeContainer.style.display = 'none';
+      if (learningStatusText) learningStatusText.textContent = 'Inactive';
+      if (learningStatusText) learningStatusText.style.color = '#ff5757';
+      if (startLearningBtn) startLearningBtn.style.display = 'block';
+      if (stopLearningBtn) stopLearningBtn.style.display = 'none';
+      saveLearningMode({ isEnabled: false }, currentlyEditingProject);
+      showFeedback('Learning Mode disabled');
 
-      showFeedback('Learning Mode stopped.');
-
-      // TODO: Connect to backend to stop learning mode
+      // TODO: Stop backend learning
     });
 
-    // View Results - now toggles visibility since results are always shown when active
-    viewResultsBtn.addEventListener('click', () => {
-      const resultsDiv = document.getElementById('learningResultsSection');
-      if (resultsDiv.style.display === 'none') {
-        resultsDiv.style.display = 'block';
-        viewResultsBtn.textContent = 'Hide Analysis Results';
-      } else {
-        resultsDiv.style.display = 'none';
-        viewResultsBtn.textContent = 'View Analysis Results';
-      }
-    });
 
-    // Clear Learning Data
-    clearLearningBtn.addEventListener('click', () => {
-      if (confirm('Are you sure you want to clear all learning data?')) {
-        // Reset UI
-        requestCountText.textContent = '0';
-        learningStatusText.textContent = 'Inactive';
-        learningStatusText.style.color = '#ff5757';
-        learningResultsSection.style.display = 'none';
-        
-        showFeedback('Learning data cleared!');
-        
-        // TODO: Connect to backend to clear learning data
-      }
-    });
 
     proxyStatusUpdate();
 
@@ -2614,7 +2566,7 @@ formSection.appendChild(serverPortLabel);
   if (tabId === "ips") {
     const ipsSettingsKey = `ips_${currentlyEditingProject}`;
     const storedIpsSettings = localStorage.getItem(ipsSettingsKey);
-    
+
     if (storedIpsSettings) {
       try {
         const ipsSettings = JSON.parse(storedIpsSettings);
@@ -2638,7 +2590,7 @@ formSection.appendChild(serverPortLabel);
     // Load Redis settings with safe parsing
     const redisSettingsKey = `redisSettings_${currentlyEditingProject}`;
     const storedRedisSettings = localStorage.getItem(redisSettingsKey);
-    
+
     if (storedRedisSettings) {
       try {
         const redisSettings = JSON.parse(storedRedisSettings);
@@ -2680,13 +2632,13 @@ async function reloadProxyEndpoints() {
     console.log('No active project to reload endpoints for');
     return;
   }
-  
+
   const settings = loadProxySettings(activeProject);
   const proxyPort = settings.proxyPort || '8080';
-  
+
   try {
-    const response = await fetch(`http://localhost:${proxyPort}/api/reload-endpoints`, { 
-      method: 'POST' 
+    const response = await fetch(`http://localhost:${proxyPort}/api/reload-endpoints`, {
+      method: 'POST'
     });
     if (response.ok) {
       console.log('Proxy endpoints reloaded successfully');
@@ -2700,10 +2652,10 @@ async function reloadProxyEndpoints() {
 
 function saveEndpointSettings() {
   if (!selectedEndpoint) return;
-  
+
   // First, save to localStorage
   saveProjectEndpoints(currentlyEditingProject);
-  
+
   // Update the current_project.json file for the proxy BEFORE reloading
   if (currentlyEditingProject && sessionEndpoints[currentlyEditingProject]?.endpoints) {
     updateCurrentProjectFile(
@@ -2712,7 +2664,7 @@ function saveEndpointSettings() {
       null // Don't change proxyEnabled
     );
   }
-  
+
   // Now reload the proxy to pick up the new rules
   reloadProxyEndpoints();
 }
@@ -3280,7 +3232,7 @@ function renderEndpointSettings(endpoint) {
     // URL Pattern Rules Section (Only shown for dynamic URL parts)
     // =============================================
     const urlPatternSection = document.createElement('div');
-    
+
     // Only show if there are dynamic URL parts ($$ markers)
     const endpointHasDollarParams = hasDollarParams(endpoint.path);
     if (!endpointHasDollarParams) {
@@ -3380,7 +3332,7 @@ function renderEndpointSettings(endpoint) {
         let html = '<div style="display: flex; flex-direction: column; gap: 0.5rem;">';
 
         rules.forEach((rule, index) => {
-          const methodBadge = rule.ruleType === 'regex' 
+          const methodBadge = rule.ruleType === 'regex'
             ? '<span style="background: #ff9800; color: #23234a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.75em;">REGEX</span>'
             : '<span style="background: #64ffda; color: #23234a; padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.75em;">VALUE</span>';
 
@@ -3802,10 +3754,10 @@ function initializeEventHandlers() {
     if (e.target.classList.contains('enter-edit-btn')) {
       const projectName = e.target.dataset.project;
       console.log('DEBUG: Enter edit mode for project:', projectName);
-      
+
       // Note: We no longer clear proxyActiveProject when switching projects
       // This allows the UI to correctly show proxy status for the project that has the proxy running
-      
+
       currentlyEditingProject = projectName;
       window.currentlyEditingProject = projectName;
       localStorage.setItem('currentlyEditingProject', projectName);
@@ -3890,10 +3842,10 @@ function initializeEventHandlers() {
     if (!exists) {
       // Detect path-based advice (keywords like 2fa, checkout, etc.)
       const detectedAdviceKeywords = detectPathAdvice(endpointPath);
-      
+
       // Detect rule-eligible keywords (keywords like auth, payment, api, etc.)
       const detectedRuleKeywords = detectKeywords(endpointPath);
-      
+
       // Detect dollar parameters ($$) - these always show security advice
       const hasDollarParamsFlag = hasDollarParams(endpointPath);
       const dollarParamIssues = analyzeDollarParams(endpointPath);
@@ -3939,7 +3891,7 @@ function initializeEventHandlers() {
               addEndpointWithRules(endpointPath, project, null);
             }
           });
-        } 
+        }
         // No keywords detected, add endpoint without rules
         else {
           addEndpointWithRules(endpointPath, project, null);
@@ -4313,7 +4265,7 @@ async function startPerformanceMonitoring(port) {
   const perfValue = document.getElementById('perfValue');
   const perfBadge = document.getElementById('perfBadge');
   const perfIcon = document.getElementById('perfIcon');
-  
+
   if (!performanceStatus || !perfValue || !perfBadge) return;
 
   // Initial state
@@ -4424,7 +4376,7 @@ function stopPerformanceMonitoring() {
     clearInterval(performanceMonitorInterval);
     performanceMonitorInterval = null;
   }
-  
+
   // Reset performance display when stopped
   const perfValue = document.getElementById('perfValue');
   const perfBadge = document.getElementById('perfBadge');
@@ -4464,12 +4416,12 @@ function addEndpointWithRules(endpointPath, project, recommendedRules) {
 
   sessionEndpoints[project].endpoints.push(newEndpoint);
   saveProjectEndpoints(project);
-  
+
   // Update the current_project.json file and reload proxy
   const proxySettings = loadProxySettings(project);
   updateCurrentProjectFile(project, sessionEndpoints[project].endpoints, proxySettings.isEnabled);
   reloadProxyEndpoints();
-  
+
   renderEndpoints(project);
   newEndpointInput.value = '';
 
@@ -4778,7 +4730,7 @@ function applySuggestedRulesToEndpoint(suggestedRules) {
     }
   });
 
-saveEndpointSettings();
+  saveEndpointSettings();
   renderEndpointSettings(selectedEndpoint);
 }
 
