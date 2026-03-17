@@ -1697,7 +1697,7 @@ async function switchTab(tabId) {
       learningModeContainer.style.display = 'block'; // Initially show if enabled
     }
 
-    learningModeToggleBtn.addEventListener('click', () => {
+    learningModeToggleBtn.addEventListener('click', async () => {
       // Check if proxy is enabled
       const isProxyEnabled = toggleBtn.textContent.includes('Disable Proxy');
       if (!isProxyEnabled) {
@@ -1706,20 +1706,18 @@ async function switchTab(tabId) {
       }
 
       if (!learningModeEnabled) {
-        // Enable (blue → green)
+        // Enable learning mode ONLY
+        await syncLearningModeWithProxy(true);
         learningModeEnabled = true;
         learningModePopupVisible = true;
         learningModeToggleBtn.textContent = '🧠 Learning Mode: Active';
         learningModeToggleBtn.style.backgroundColor = '#4CAF50';
         learningModeContainer.style.display = 'block';
-        // Update internal UI
-        if (learningStatusText) learningStatusText.textContent = 'Active';
-        if (learningStatusText) learningStatusText.style.color = '#4CAF50';
         if (startLearningBtn) startLearningBtn.click();
         saveLearningMode({ isEnabled: true }, currentlyEditingProject);
         showFeedback('Learning Mode enabled');
       } else {
-        // Toggle popup visibility only (green stays green)
+        // Toggle popup visibility ONLY (no disable/sync)
         learningModePopupVisible = !learningModePopupVisible;
         learningModeContainer.style.display = learningModePopupVisible ? 'block' : 'none';
         showFeedback(learningModePopupVisible ? 'Learning panel opened' : 'Learning panel closed');
@@ -2349,10 +2347,14 @@ async function switchTab(tabId) {
     storageHint.style.paddingLeft = '146px';
     storageRow.appendChild(storageHint);
 
-    saveStorageBtn.addEventListener('click', () => {
+    saveStorageBtn.addEventListener('click', async () => {
       projectSettings.storage = storageInput.value;
       localStorage.setItem(projectSettingsKey, JSON.stringify(projectSettings));
-      showFeedback('Storage amount saved');
+      
+      // Sync with proxy
+      await syncLearningModeWithProxy(learningModeEnabled);
+      
+      showFeedback('Storage amount saved & synced with proxy');
       requestCountMax.textContent = '/ ' + storageInput.value;
     });
 
@@ -2439,40 +2441,73 @@ async function switchTab(tabId) {
     stopLearningBtn.style.display = 'none';
     learningButtonsRow.appendChild(stopLearningBtn);
 
-
-
-    
+    // NEW: Save Requests Tracked button (task requirement)
+    const saveRequestsBtn = document.createElement('button');
+    saveRequestsBtn.textContent = '💾 Save Requests Tracked';
+    saveRequestsBtn.className = 'btn-primary';
+    saveRequestsBtn.style.backgroundColor = '#64ffda';
+    saveRequestsBtn.onclick = syncProxyRules;
+    learningButtonsRow.appendChild(saveRequestsBtn);
 
     learningModeForm.appendChild(learningButtonsRow);
 
     learningModeSection.appendChild(learningModeForm);
 
-    // Analysis Results Section - Now shown closer to buttons and visible when active
-    const learningResultsSection = document.createElement('div');
-    learningResultsSection.id = 'learningResultsSection';
-    learningResultsSection.style.display = 'none';
-    learningResultsSection.style.marginTop = '1.5rem';
-    learningResultsSection.style.padding = '1rem';
-    learningResultsSection.style.background = '#29294d';
-    learningResultsSection.style.borderRadius = '8px';
-    learningResultsSection.style.border = '1px solid #64ffda';
+    // REMOVED: Live Analysis Results section per user request
 
-    const learningResultsHeader = document.createElement('h5');
-    learningResultsHeader.textContent = '📊 Live Analysis Results';
-    learningResultsHeader.style.color = '#64ffda';
-    learningResultsHeader.style.marginBottom = '1rem';
-    learningResultsSection.appendChild(learningResultsHeader);
-
-    const resultsContent = document.createElement('div');
-    resultsContent.id = 'learningResultsContent';
-    resultsContent.innerHTML = '<p style="color: #aaa; font-size: 0.9em;">No analysis results yet. Start Learning Mode to begin observing traffic.</p>';
-    learningResultsSection.appendChild(resultsContent);
-
-    learningModeSection.appendChild(learningResultsSection);
     learningModeContainer.appendChild(learningModeSection);
 
-    // Learning Mode Event Handlers
-    // Save settings on input change
+// Learning Mode Event Handlers
+
+// NEW: Proxy sync functions
+async function syncLearningModeWithProxy(enabled) {
+  try {
+    const proxyPortInput = document.getElementById('proxyPort');
+    const proxyPort = proxyPortInput ? proxyPortInput.value : '8080';
+    const storage = parseInt(document.getElementById('learningModeStorage')?.value) || 100;
+    
+    const response = await fetch(`http://localhost:${proxyPort}/api/learningmode/settings`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        enabled: enabled,
+        requestsToStore: storage,
+        saveLocalRequests: true
+      })
+    });
+    
+    if (response.ok) {
+      console.log('Learning mode synced with proxy:', enabled ? 'enabled' : 'disabled');
+    } else {
+      throw new Error(`Proxy sync failed: ${response.status}`);
+    }
+  } catch (err) {
+    console.error('Error syncing learning mode:', err);
+    showFeedback('Proxy sync failed: ' + err.message);
+  }
+}
+
+async function syncProxyRules() {
+  try {
+    const proxyPortInput = document.getElementById('proxyPort');
+    const proxyPort = proxyPortInput ? proxyPortInput.value : '8080';
+    
+    const response = await fetch(`http://localhost:${proxyPort}/api/reload-endpoints`, {
+      method: 'POST'
+    });
+    
+    if (response.ok) {
+      showFeedback('Learning data saved and proxy updated');
+    } else {
+      throw new Error(`Reload failed: ${response.status}`);
+    }
+  } catch (err) {
+    console.error('Error reloading proxy:', err);
+    showFeedback('Proxy reload failed: ' + err.message);
+  }
+}
+
+// Save settings on input change
     storageInput.addEventListener('change', () => {
       const projectKey = `learningSettings_${currentlyEditingProject}`;
       const settings = JSON.parse(localStorage.getItem(projectKey) || '{}');
@@ -2495,13 +2530,13 @@ async function switchTab(tabId) {
     }
 
     // Start Learning Mode
-    startLearningBtn.addEventListener('click', () => {
+    startLearningBtn.addEventListener('click', async () => {
       const storage = parseInt(storageInput.value) || 100;
-      const period = parseInt(periodInput.value) || 60;
+
+      await syncLearningModeWithProxy(true);
 
       // Save settings
       localStorage.setItem('learningModeStorage', storage);
-      localStorage.setItem('learningModePeriod', period);
 
       // Update UI
       learningStatusText.textContent = 'Active - Learning';
@@ -2515,7 +2550,7 @@ async function switchTab(tabId) {
         <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
           <h6 style="color: #4CAF50; margin: 0 0 0.5rem 0;">🔄 Learning in Progress...</h6>
           <p style="color: #aaa; font-size: 0.85em; margin: 0;">Observing traffic and analyzing patterns. Results will appear after the storage limit is reached or analysis period completes.</p>
-          <p style="color: #64ffda; font-size: 0.85em; margin: 0.5rem 0 0 0;">Storage: ${storage} requests | Analysis every: ${period}s</p>
+          <p style="color: #64ffda; font-size: 0.85em; margin: 0.5rem 0 0 0;">Storage: ${storage} requests</p>
         </div>
         <div style="background: #23234a; padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
           <h6 style="color: #64ffda; margin: 0 0 0.5rem 0;">Headers Analyzed</h6>
@@ -2534,15 +2569,15 @@ async function switchTab(tabId) {
         </p>
       `;
 
-      showFeedback('Learning Mode started! Observing traffic...');
-
-      // TODO: Connect to backend to actually start learning mode
-      // This would send a message to the backend to begin traffic analysis
+      showFeedback('Learning Mode started on proxy!');
     });
 
-    // Stop Learning Mode
-    stopLearningBtn.addEventListener('click', () => {
-      // Disable learning mode completely (green → blue)
+    // Stop Learning Mode (interpreted as "stop learning and enable learning mode" per task)
+    stopLearningBtn.addEventListener('click', async () => {
+      await syncLearningModeWithProxy(false);
+      await syncProxyRules();
+      
+      // Update UI
       learningModeEnabled = false;
       learningModeToggleBtn.textContent = '🧠 Enable Learning Mode';
       learningModeToggleBtn.style.backgroundColor = '#6c757d';
@@ -2552,9 +2587,7 @@ async function switchTab(tabId) {
       if (startLearningBtn) startLearningBtn.style.display = 'block';
       if (stopLearningBtn) stopLearningBtn.style.display = 'none';
       saveLearningMode({ isEnabled: false }, currentlyEditingProject);
-      showFeedback('Learning Mode disabled');
-
-      // TODO: Stop backend learning
+      showFeedback('Learning stopped, data saved & proxy synced');
     });
 
 

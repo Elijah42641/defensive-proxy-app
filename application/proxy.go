@@ -818,7 +818,7 @@ func main() {
 			return
 		}
 
-		learningModeEnabled = true
+		learningModeEnabled = learningSettings.Enabled
 		requestsToStore = learningSettings.RequestsToStore
 
 		// Load existing learning requests
