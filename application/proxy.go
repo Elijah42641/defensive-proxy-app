@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,6 +17,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -32,8 +34,70 @@ var connpool *pgxpool.Pool
 var saveLimit int
 var cancel context.CancelFunc
 var autoBlockThreshhold int
+var requestsToStore = 20
+var learningModeEnabled = true
+
+var learningMu sync.Mutex
+var learningRequests []RequestLog
+
+var saveLocalRequests bool
 
 var server *http.Server
+
+type RequestLog struct {
+	Timestamp  time.Time           `json:"timestamp"`
+	Method     string              `json:"method"`
+	URL        string              `json:"url"`
+	RemoteAddr string              `json:"remoteAddr"`
+	Headers    map[string][]string `json:"headers"`
+	BodyBase64 string              `json:"bodyBase64"`
+}
+
+var currentLearningFilepath string
+
+func getLearningFilepath() string {
+	return currentLearningFilepath
+}
+
+func saveLearningRequests() error {
+
+	data, err := json.MarshalIndent(learningRequests, "", "  ")
+	if err != nil {
+		return err
+	}
+
+	projectFilepath := getLearningFilepath()
+	err = os.WriteFile(projectFilepath, data, 0644)
+	if err != nil {
+		log.Printf("saveLearningRequests WriteFile error: %v", err)
+		return err
+	}
+	return nil
+}
+
+func loadLearningRequests() error {
+	projectFilepath := getLearningFilepath()
+	data, err := os.ReadFile(projectFilepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+
+	var reqs []RequestLog
+	if err := json.Unmarshal(data, &reqs); err != nil {
+		log.Printf("Failed to unmarshal %s: %v", projectFilepath, err)
+		return err
+	}
+
+	learningRequests = reqs
+	// Trim to current limit if any
+	if requestsToStore > 0 && len(learningRequests) > requestsToStore {
+		learningRequests = learningRequests[len(learningRequests)-requestsToStore:]
+	}
+	return saveLearningRequests() // Save trimmed
+}
 
 const CHECK_PUBLIC_IPS_TABLE_EXISTENCE_SQL = `
 select exists (
@@ -90,8 +154,11 @@ func main() {
 	if currentProject == "" {
 		log.Fatal("CURRENT_PROJECT environment variable is required")
 	}
+	currentLearningFilepath = currentProject + "_learning_requests.json"
 
-	log.Printf("Proxy started for project: %s on port: %s", currentProject, proxyPort)
+	saveLocalRequests = os.Getenv("SAVE_LOCAL_REQUESTS") == "true"
+
+	log.Printf("Proxy started for project: %s on port: %s (saveLocalRequests=%t)", currentProject, proxyPort, saveLocalRequests)
 
 	// Load endpoints
 	endpoints = loadEndpoints(currentProject)
@@ -186,14 +253,58 @@ func main() {
 		// Re-assign the body reader to the request.
 		r.Body = io.NopCloser(bytes.NewBuffer(bodyBytes))
 
-		//here is where I will add the learning mode stuff
-
-		// Extract IP from remote address for loopback checks
 		host := r.RemoteAddr
 		if strings.Contains(host, ":") {
 			host = strings.Split(host, ":")[0]
 		}
 		ip := net.ParseIP(host)
+		userIsLocal := ip.IsLoopback() || strings.Contains(r.RemoteAddr, "127.0.0.1") || strings.Contains(r.RemoteAddr, "::1")
+
+		if learningModeEnabled && requestsToStore > 0 && len(learningRequests) < requestsToStore && (!userIsLocal || saveLocalRequests) {
+			log.Printf("LEARNING DEBUG: Saving request...")
+			reqLog := RequestLog{
+				Timestamp:  time.Now(),
+				Method:     r.Method,
+				URL:        r.URL.String(),
+				RemoteAddr: r.RemoteAddr,
+				Headers:    r.Header.Clone(),
+				BodyBase64: base64.StdEncoding.EncodeToString(bodyBytes),
+			}
+			go func() {
+				learningMu.Lock()
+				defer learningMu.Unlock()
+				oldLen := len(learningRequests)
+				learningRequests = append(learningRequests, reqLog)
+				log.Printf("LEARNING DEBUG: Appended. Old len=%d new len=%d", oldLen, len(learningRequests))
+				if len(learningRequests) > requestsToStore {
+					learningRequests = learningRequests[len(learningRequests)-requestsToStore:]
+					log.Printf("LEARNING DEBUG: Trimmed to limit %d", requestsToStore)
+				}
+				err := saveLearningRequests()
+				if err != nil {
+					log.Printf("LEARNING ERROR: %v", err)
+				} else {
+					log.Printf("LEARNING SUCCESS: Total %d/%d file=%s", len(learningRequests), requestsToStore, currentLearningFilepath)
+				}
+			}()
+		} else {
+			skipReason := ""
+			if !learningModeEnabled {
+				skipReason = "learning disabled"
+			} else if requestsToStore == 0 {
+				skipReason = "requestsToStore=0"
+			} else if len(learningRequests) >= requestsToStore {
+				skipReason = "storage full"
+			} else if userIsLocal && !saveLocalRequests {
+				skipReason = "local request (savelocal=false)"
+			}
+			log.Printf("LEARNING DEBUG: Skip %s (enabled=%t, store=%d/%d, local=%t saveLocal=%t)", skipReason, learningModeEnabled, len(learningRequests), requestsToStore, userIsLocal, saveLocalRequests)
+		}
+
+		// Extract IP from remote address for loopback checks
+		if strings.Contains(host, ":") {
+			host = strings.Split(host, ":")[0]
+		}
 
 		// Make sure sure that files are only served for loopback addresses
 
@@ -204,15 +315,11 @@ func main() {
 		}
 
 		// Check if this is an internal proxy API request (always allow API calls)
-		internalAPI := false
 		apiPath := r.URL.Path
-		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" {
+		internalAPI := false
+		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/learningmode/settings" {
 			internalAPI = true
 		}
-
-		userIsLocal := strings.Contains(r.RemoteAddr, "127.0.0.1") ||
-			strings.Contains(r.RemoteAddr, "::1") ||
-			ip.IsLoopback()
 
 		if internalAPI && userIsLocal {
 			// Internal API requests are handled by their specific handlers
@@ -659,12 +766,72 @@ func main() {
 		autoBlockThreshhold = ipsSettings.AutoBlockThreshhold
 		timeToBlock = ipsSettings.TimeToBlock
 
-		log.Printf("IPS settings updated: saveLimit=%d, autoBlockThreshhold=%d, timeToBlock=%d", 
+		log.Printf("IPS settings updated: saveLimit=%d, autoBlockThreshhold=%d, timeToBlock=%d",
 			saveLimit, autoBlockThreshhold, timeToBlock)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(map[string]string{"message": "IPS settings updated successfully"})
+	})
+
+	http.HandleFunc("/api/learningmode/settings", func(w http.ResponseWriter, r *http.Request) {
+		// CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		// Parse JSON body
+		data, err := io.ReadAll(r.Body)
+		if err != nil {
+			http.Error(w, "failed to read body", 500)
+			return
+		}
+
+		var body map[string]interface{}
+		err = json.Unmarshal(data, &body)
+		if err != nil {
+			http.Error(w, "invalid JSON", 400)
+			return
+		}
+
+		type learningModeSettings struct {
+			Enabled         bool `json:"enabled"`
+			RequestsToStore int  `json:"requestsToStore"`
+			SaveLocal       bool `json:"saveLocalRequests"`
+		}
+
+		var learningSettings learningModeSettings
+		err = json.Unmarshal(data, &learningSettings)
+		if err != nil {
+			http.Error(w, "invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		learningModeEnabled = true
+		requestsToStore = learningSettings.RequestsToStore
+
+		// Load existing learning requests
+		if err := loadLearningRequests(); err != nil {
+			log.Printf("Failed to load existing learning requests: %v", err)
+		}
+
+		log.Printf("Learning mode settings updated, requestsToStore=%d", requestsToStore)
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Learning mode settings updated successfully"})
+
 	})
 
 	log.Printf("Proxy server starting on port %s", proxyPort)

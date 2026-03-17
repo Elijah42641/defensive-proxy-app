@@ -1,10 +1,13 @@
-1. start by improving interface (more detailed and stuff) (finished)
+1. make it so the amount of requests saved at once is respected
 
-2. make it so that when you add new rules mid proxy enabled it updates (finished)
+fix: 
+when you stop learning mode it doesn't update,
+requests tracked (in main.js) doesn't update
 
-3. make it so the amount of requests saved at once and the analysis period is respected
 
-4. make it so when learning mode is enabled the request analyzer runs on requests and 
+
+
+2. make it so when learning mode is enabled the request analyzer runs on requests and 
 suggests rules in enable proxy tab
 
-5. start getting more advanced: content types, headers used strict/dynamic, etc
+3. start getting more advanced: content types, headers used strict/dynamic, etc

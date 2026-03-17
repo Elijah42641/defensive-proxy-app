@@ -1,6 +1,17 @@
 // openapp.js
 
 const { app, Tray, Menu, BrowserWindow, ipcMain, dialog } = require('electron');
+
+// Parse CLI args for savelocal flag
+let saveLocalRequests = false;
+for (let i = 2; i < process.argv.length; i++) {
+  if (process.argv[i] === 'savelocal=true') {
+    saveLocalRequests = true;
+    break;
+  }
+}
+console.log(`Save local requests: ${saveLocalRequests}`);
+
 const { spawn } = require('child_process');
 const path = require('path');
 const os = require('os');
@@ -147,7 +158,8 @@ ipcMain.on('start-proxy', (event, { projectPath, proxyPort, serverPort, currentP
       ...process.env,
       PROXY_PORT: proxyPort,
       SERVER_PORT: serverPort,
-      CURRENT_PROJECT: currentProject
+      CURRENT_PROJECT: currentProject,
+      SAVE_LOCAL_REQUESTS: saveLocalRequests.toString()
     }
   });
 
