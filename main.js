@@ -1257,6 +1257,36 @@ async function switchTab(tabId) {
                 animation: fadeIn 0.5s ease-in-out;
             }
 
+            .save-tracked-btn {
+              background: linear-gradient(145deg, #64ffda, #4fd1b8) !important;
+              box-shadow: 0 4px 15px rgba(100, 255, 218, 0.4);
+              border-radius: 12px !important;
+              transition: all 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94) !important;
+              font-weight: 600 !important;
+              position: relative;
+              overflow: hidden;
+            }
+            .save-tracked-btn::before {
+              content: '';
+              position: absolute;
+              top: 0;
+              left: -100%;
+              width: 100%;
+              height: 100%;
+              background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
+              transition: left 0.5s;
+            }
+            .save-tracked-btn:hover::before {
+              left: 100%;
+            }
+            .save-tracked-btn:hover {
+              transform: translateY(-3px) !important;
+              box-shadow: 0 8px 25px rgba(100, 255, 218, 0.6) !important;
+            }
+            .save-tracked-btn:active {
+              transform: translateY(-1px) !important;
+            }
+
             @keyframes fadeIn {
                 from { opacity: 0; transform: translateY(20px); }
                 to { opacity: 1; transform: translateY(0); }
@@ -2442,10 +2472,9 @@ async function switchTab(tabId) {
     learningButtonsRow.appendChild(stopLearningBtn);
 
     // NEW: Save Requests Tracked button (task requirement)
-    const saveRequestsBtn = document.createElement('button');
-    saveRequestsBtn.textContent = '💾 Save Requests Tracked';
-    saveRequestsBtn.className = 'btn-primary';
-    saveRequestsBtn.style.backgroundColor = '#64ffda';
+const saveRequestsBtn = document.createElement('button');
+    saveRequestsBtn.textContent = '💾 Update requests tracked';
+    saveRequestsBtn.className = 'btn-primary save-tracked-btn';
     saveRequestsBtn.onclick = syncProxyRules;
     learningButtonsRow.appendChild(saveRequestsBtn);
 
@@ -2497,7 +2526,22 @@ async function syncProxyRules() {
     });
     
     if (response.ok) {
-      showFeedback('Learning data saved and proxy updated');
+      // Update request count display
+      try {
+        const countResponse = await fetch(`http://localhost:${proxyPort}/api/learning/requests-count`);
+        if (countResponse.ok) {
+          const countData = await countResponse.json();
+          const count = countData.count || 0;
+          const countEl = document.getElementById('learningModeRequestCount');
+          if (countEl) countEl.textContent = count;
+          showFeedback(`Requests Tracked: ${count}`);
+        } else {
+          showFeedback('Learning data saved and proxy updated');
+        }
+      } catch (countErr) {
+        console.log('Count fetch failed, using fallback:', countErr);
+        showFeedback('Learning data saved and proxy updated');
+      }
     } else {
       throw new Error(`Reload failed: ${response.status}`);
     }

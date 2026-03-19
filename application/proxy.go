@@ -317,7 +317,7 @@ func main() {
 		// Check if this is an internal proxy API request (always allow API calls)
 		apiPath := r.URL.Path
 		internalAPI := false
-		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/learningmode/settings" {
+		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/learningmode/settings" || apiPath == "/api/learning/requests-count" {
 			internalAPI = true
 		}
 
@@ -715,6 +715,32 @@ func main() {
 		Addr:    ":" + proxyPort,
 		Handler: handlerWithRecovery,
 	}
+
+	// Add API endpoint to get learning requests count
+	http.HandleFunc("/api/learning/requests-count", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodGet {
+			w.WriteHeader(http.StatusMethodNotAllowed)
+			w.Write([]byte("Method not allowed"))
+			return
+		}
+
+		learningMu.Lock()
+		count := len(learningRequests)
+		learningMu.Unlock()
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]int{"count": count})
+	})
 
 	// Add API endpoint to update IPS settings
 	http.HandleFunc("/api/ips/settings", func(w http.ResponseWriter, r *http.Request) {
