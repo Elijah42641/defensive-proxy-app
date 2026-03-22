@@ -38,6 +38,8 @@ var cancel context.CancelFunc
 var autoBlockThreshhold int
 var requestsToStore = 20
 var learningModeEnabled = true
+var analyzerEnabled = false
+var ipThreshold = 5
 
 var learningMu sync.Mutex
 var learningRequests []RequestLog
@@ -826,35 +828,55 @@ func main() {
 			return
 		}
 
-		var body map[string]interface{}
-		err = json.Unmarshal(data, &body)
-		if err != nil {
-			http.Error(w, "invalid JSON", 400)
-			return
-		}
-
-		type learningModeSettings struct {
-			Enabled         bool `json:"enabled"`
-			RequestsToStore int  `json:"requestsToStore"`
-			SaveLocal       bool `json:"saveLocalRequests"`
-		}
-
-		var learningSettings learningModeSettings
+		var learningSettings map[string]interface{}
 		err = json.Unmarshal(data, &learningSettings)
 		if err != nil {
 			http.Error(w, "invalid JSON", http.StatusBadRequest)
 			return
 		}
 
-		learningModeEnabled = learningSettings.Enabled
-		requestsToStore = learningSettings.RequestsToStore
+		const DONT_EDIT_STR = "dontedit"
 
-		// Load existing learning requests
-		if err := loadLearningRequests(); err != nil {
-			log.Printf("Failed to load existing learning requests: %v", err)
+		// Field update helpers
+		updateBool := func(field string, target *bool) {
+			if val, ok := learningSettings[field]; ok {
+				if strVal, ok := val.(string); ok && strVal == DONT_EDIT_STR {
+					return // Skip
+				} else if boolVal, ok := val.(bool); ok {
+					*target = boolVal
+					log.Printf("%s updated to: %v", field, *target)
+				}
+			}
 		}
 
-		log.Printf("Learning mode settings updated, requestsToStore=%d", requestsToStore)
+		updateInt := func(field string, target *int) {
+			if val, ok := learningSettings[field]; ok {
+				if strVal, ok := val.(string); ok && strVal == DONT_EDIT_STR {
+					return // Skip
+				} else if floatVal, ok := val.(float64); ok {
+					*target = int(floatVal)
+				} else if intVal, ok := val.(int); ok {
+					*target = intVal
+				}
+				log.Printf("%s updated to: %d", field, *target)
+			}
+		}
+
+		// Update each field
+		updateBool("enabled", &learningModeEnabled)
+		updateInt("requestsToStore", &requestsToStore)
+		updateBool("saveLocalRequests", &saveLocalRequests)
+		updateBool("analyzerEnabled", &analyzerEnabled)
+		updateInt("ipThreshold", &ipThreshold)
+
+		// Reload learning requests if requestsToStore changed
+		if _, ok := learningSettings["requestsToStore"]; ok {
+			if err := loadLearningRequests(); err != nil {
+				log.Printf("Failed to load learning requests: %v", err)
+			}
+		}
+
+		log.Printf("Learning mode settings partial update - requestsToStore=%d", requestsToStore)
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)

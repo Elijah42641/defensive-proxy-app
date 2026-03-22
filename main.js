@@ -2421,14 +2421,43 @@ async function switchTab(tabId) {
     storageRow.appendChild(storageHint);
 
     saveStorageBtn.addEventListener('click', async () => {
-      projectSettings.storage = storageInput.value;
+      const storageValue = parseInt(storageInput.value) || 100;
+      projectSettings.storage = storageValue;
       localStorage.setItem(projectSettingsKey, JSON.stringify(projectSettings));
       
-      // Sync with proxy
-      await syncLearningModeWithProxy(learningModeEnabled);
+      // Partial sync with proxy - only update requestsToStore
+      const proxyPortInput = document.getElementById('proxyPort');
+      if (proxyPortInput) {
+        const proxyPort = proxyPortInput.value || '8080';
+        const learningSettings = loadLearningMode(currentlyEditingProject) || { enabled: false, requestsToStore: 20, saveLocalRequests: false };
+        
+        const syncBody = {
+          enabled: "dontedit",
+          requestsToStore: storageValue,
+          saveLocalRequests: "dontedit",
+          analyzerEnabled: "dontedit",
+          ipThreshold: "dontedit"
+        };
+        
+        try {
+          const response = await fetch(`http://localhost:${proxyPort}/api/learningmode/settings`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(syncBody)
+          });
+          if (response.ok) {
+            showFeedback('Storage updated & synced with proxy');
+          } else {
+            showFeedback('Storage saved locally (proxy sync failed)');
+          }
+        } catch (err) {
+          showFeedback('Storage saved locally (proxy offline)');
+        }
+      } else {
+        showFeedback('Storage saved locally');
+      }
       
-      showFeedback('Storage amount saved & synced with proxy');
-      requestCountMax.textContent = '/ ' + storageInput.value;
+      requestCountMax.textContent = '/ ' + storageValue;
     });
 
     learningModeForm.appendChild(storageRow);
@@ -2685,18 +2714,49 @@ async function syncProxyRules() {
     // Add analyzer config button handler
     const saveAnalyzerBtn = document.getElementById('saveAnalyzerConfigBtn');
     if (saveAnalyzerBtn) {
-      saveAnalyzerBtn.onclick = () => {
+      saveAnalyzerBtn.onclick = async () => {
         const analyzerEnabled = document.getElementById('analyzerLearningEnabled')?.checked || false;
         const ipThreshold = parseInt(document.getElementById('paramIPThreshold')?.value) || 5;
         
+        // Save to localStorage
         const config = {
           analyzerEnabled,
           ipThreshold,
           timestamp: Date.now()
         };
-        
         localStorage.setItem(`analyzerConfig_${currentlyEditingProject}`, JSON.stringify(config));
-        showFeedback(`Saved: ${analyzerEnabled ? 'Enabled' : 'Disabled'}, ${ipThreshold} IPs`);
+        
+        // Sync with proxy
+        const proxyPortInput = document.getElementById('proxyPort');
+        if (proxyPortInput) {
+          const proxyPort = proxyPortInput.value || '8080';
+          const learningSettings = loadLearningMode(currentlyEditingProject) || { enabled: false, requestsToStore: 20, saveLocalRequests: false };
+          
+          const syncBody = {
+            enabled: learningSettings.enabled !== undefined ? learningSettings.enabled : "dontedit",
+            requestsToStore: learningSettings.requestsToStore !== undefined ? learningSettings.requestsToStore : "dontedit",
+            saveLocalRequests: learningSettings.saveLocalRequests !== undefined ? learningSettings.saveLocalRequests : "dontedit",
+            analyzerEnabled: analyzerEnabled,
+            ipThreshold: ipThreshold
+          };
+          
+          try {
+            const response = await fetch(`http://localhost:${proxyPort}/api/learningmode/settings`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify(syncBody)
+            });
+            if (response.ok) {
+              showFeedback(`Synced analyzer config to proxy: ${analyzerEnabled ? 'Enabled' : 'Disabled'}, ${ipThreshold} IPs`);
+            } else {
+              showFeedback(`Local saved (${ipThreshold} IPs). Proxy sync failed.`);
+            }
+          } catch (err) {
+            showFeedback(`Local saved (${ipThreshold} IPs). Proxy offline.`);
+          }
+        } else {
+          showFeedback(`Local saved: ${analyzerEnabled ? 'Enabled' : 'Disabled'}, ${ipThreshold} IPs`);
+        }
       };
     }
 
