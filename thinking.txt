@@ -1,13 +1,6 @@
-1. make it so the amount of requests saved at once is respected
-
-fix: 
-when you stop learning mode it doesn't update,
-requests tracked (in main.js) doesn't update
-
-
-
-
-2. make it so when learning mode is enabled the request analyzer runs on requests and 
+1. make it so when learning mode is enabled the request analyzer runs on requests and 
 suggests rules in enable proxy tab
 
-3. start getting more advanced: content types, headers used strict/dynamic, etc
+when you feel like it use the api instead of the js 
+
+2. start getting more advanced: content types, headers used strict/dynamic, etc

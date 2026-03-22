@@ -20,6 +20,8 @@ import (
 	"sync"
 	"time"
 
+	"defensive-proxy-app/internal/analyzer"
+
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
@@ -860,7 +862,47 @@ func main() {
 
 	})
 
-	log.Printf("Proxy server starting on port %s", proxyPort)
+	// Add analyzer API endpoint
+	http.HandleFunc("/api/analyze-request", func(w http.ResponseWriter, r *http.Request) {
+		// CORS
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		type AnalyzeRequest struct {
+			HeadersJSON  string `json:"headers"`
+			BodyJSON     string `json:"body"`
+			EndpointPath string `json:"endpointPath"`
+		}
+
+		var req AnalyzeRequest
+		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		issues, err := analyzer.AnalyzeRequestVulnerabilities(req.HeadersJSON, req.BodyJSON, req.EndpointPath)
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Analysis failed: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(issues)
+	})
+
+	log.Printf("Proxy server starting on port %s (with analyzer API)", proxyPort)
 	err := server.ListenAndServe()
 	if err != nil {
 		log.Printf("Server error: %v", err)

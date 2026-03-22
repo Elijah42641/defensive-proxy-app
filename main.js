@@ -1690,7 +1690,7 @@ async function switchTab(tabId) {
     toggleBtn.disabled = false;
     proxyContainer.appendChild(toggleBtn);
 
-    // Learning Mode Toggle Button - positioned right after Enable Proxy button
+// Learning Mode Toggle Button - positioned right after Enable Proxy button
     const learningModeToggleBtn = document.createElement('button');
     learningModeToggleBtn.id = 'learningModeToggleBtn';
     learningModeToggleBtn.textContent = '🧠 Enable Learning Mode';
@@ -1712,6 +1712,49 @@ async function switchTab(tabId) {
     learningModeContainer.style.borderRadius = '12px';
     learningModeContainer.style.border = '1px solid #64ffda';
     learningModeContainer.style.boxShadow = '0 4px 16px rgba(0,0,0,0.4)';
+    proxyContainer.appendChild(learningModeContainer);
+
+    // NEW: Analyzer-Triggered Learning Toggle + Threshold
+    const analyzerLearningGroup = document.createElement('div');
+    analyzerLearningGroup.style.marginTop = '1rem';
+    analyzerLearningGroup.style.padding = '1rem';
+    analyzerLearningGroup.style.background = 'rgba(100, 255, 218, 0.05)';
+    analyzerLearningGroup.style.borderRadius = '8px';
+    analyzerLearningGroup.style.borderLeft = '4px solid #64ffda';
+
+    analyzerLearningGroup.innerHTML = `
+      <h5 style="color: #64ffda; margin: 0 0 0.75rem 0; font-size: 1.1em;">🔍 Request Analyzer Auto-Learning</h5>
+      <div style="background: rgba(35, 35, 74, 0.5); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
+        <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.75rem;">
+          <input type="checkbox" id="analyzerLearningEnabled" style="width: 18px; height: 18px;" />
+          <span style="font-weight: 500;">Enable request analyzer</span>
+        </label>
+        <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 500;">
+          <span>Recommend rules after</span>
+        <input type="number" id="paramIPThreshold"  value="5" style="width: 60px; padding: 0.4rem; text-align: center;">
+          <span style="min-width: 24px; font-weight: 600; color: #64ffda;">IPs</span>
+        </label>
+      </div>
+
+      <div style="font-size: 0.85em; color: #888; line-height: 1.4;">
+        <strong>💡 How it works:</strong> Automatically analyzes request params (like "price", "password") across different IPs. Recommends protective rules when same param pattern appears multiple times.
+      </div>
+      <button class="btn-primary" id="saveAnalyzerConfigBtn" style="margin-top: 1rem; width: 100%;">
+        Save Analyzer Configurations
+      </button>
+    `;
+
+    learningModeContainer.appendChild(analyzerLearningGroup);
+
+
+    // Threshold slider handler
+    const thresholdSlider = document.getElementById('paramIPThreshold');
+    if (thresholdSlider) {
+      thresholdSlider.addEventListener('input', (e) => {
+        const thresholdValueEl = document.getElementById('thresholdValue');
+        if (thresholdValueEl) thresholdValueEl.textContent = e.target.value;
+      });
+    }
 
     // Learning Mode Toggle Button Event Handler
     let learningModeEnabled = false;
@@ -2473,7 +2516,7 @@ async function switchTab(tabId) {
 
     // NEW: Save Requests Tracked button (task requirement)
 const saveRequestsBtn = document.createElement('button');
-    saveRequestsBtn.textContent = '💾 Update requests tracked';
+    saveRequestsBtn.textContent = 'Update requests tracked';
     saveRequestsBtn.className = 'btn-primary save-tracked-btn';
     saveRequestsBtn.onclick = syncProxyRules;
     learningButtonsRow.appendChild(saveRequestsBtn);
@@ -2636,7 +2679,43 @@ async function syncProxyRules() {
 
 
 
+
     proxyStatusUpdate();
+
+    // Add analyzer config button handler
+    const saveAnalyzerBtn = document.getElementById('saveAnalyzerConfigBtn');
+    if (saveAnalyzerBtn) {
+      saveAnalyzerBtn.onclick = () => {
+        const analyzerEnabled = document.getElementById('analyzerLearningEnabled')?.checked || false;
+        const ipThreshold = parseInt(document.getElementById('paramIPThreshold')?.value) || 5;
+        
+        const config = {
+          analyzerEnabled,
+          ipThreshold,
+          timestamp: Date.now()
+        };
+        
+        localStorage.setItem(`analyzerConfig_${currentlyEditingProject}`, JSON.stringify(config));
+        showFeedback(`Saved: ${analyzerEnabled ? 'Enabled' : 'Disabled'}, ${ipThreshold} IPs`);
+      };
+    }
+
+    // Load analyzer config on proxy tab switch
+    if (currentlyEditingProject) {
+      const configStr = localStorage.getItem(`analyzerConfig_${currentlyEditingProject}`);
+      if (configStr) {
+        try {
+          const config = JSON.parse(configStr);
+          const checkbox = document.getElementById('analyzerLearningEnabled');
+          const threshold = document.getElementById('paramIPThreshold');
+          
+          if (checkbox && config.analyzerEnabled !== undefined) checkbox.checked = config.analyzerEnabled;
+          if (threshold && config.ipThreshold) threshold.value = config.ipThreshold;
+        } catch (e) {
+          console.error('Failed to load analyzer config:', e);
+        }
+      }
+    }
 
   }
 
@@ -2692,6 +2771,11 @@ async function syncProxyRules() {
     } else {
       statusElem.textContent = 'Not connected to Redis';
       statusElem.style.color = '#ff5757';
+    }
+
+    // NEW: Load Analyzer Configuration
+    if (typeof loadAnalyzerConfig === 'function') {
+      loadAnalyzerConfig(currentlyEditingProject);
     }
   }
 
