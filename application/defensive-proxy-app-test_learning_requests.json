@@ -1,0 +1,1868 @@
+[
+  {
+    "timestamp": "2026-03-23T15:15:09.032706589-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:10.259593354-04:00",
+    "method": "POST",
+    "url": "/api/learningmode/settings",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "129"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": "eyJlbmFibGVkIjoiZG9udGVkaXQiLCJyZXF1ZXN0c1RvU3RvcmUiOjcwMCwic2F2ZUxvY2FsUmVxdWVzdHMiOiJkb250ZWRpdCIsImFuYWx5emVyRW5hYmxlZCI6ImRvbnRlZGl0IiwiaXBUaHJlc2hvbGQiOiJkb250ZWRpdCJ9"
+  },
+  {
+    "timestamp": "2026-03-23T15:15:11.559070133-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:11.572617414-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:11.699889977-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:11.714074874-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:11.882985312-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:11.897658605-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.06448067-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.074606-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.203757845-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.215376169-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.363627937-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.379748447-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.538344965-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.549357323-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.721954509-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.733046793-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.872595362-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.885986041-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:12.999677752-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:13.006367461-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:13.260698359-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:13.269259067-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:13.412441697-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:13.419769424-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:13.569006083-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:13.585969514-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:14.031298738-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:14.587784106-04:00",
+    "method": "POST",
+    "url": "/api/learningmode/settings",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "64"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": "eyJlbmFibGVkIjpmYWxzZSwicmVxdWVzdHNUb1N0b3JlIjo3MDAsInNhdmVMb2NhbFJlcXVlc3RzIjp0cnVlfQ=="
+  },
+  {
+    "timestamp": "2026-03-23T15:15:16.365303216-04:00",
+    "method": "POST",
+    "url": "/api/learningmode/settings",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "63"
+      ],
+      "Content-Type": [
+        "application/json"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": "eyJlbmFibGVkIjp0cnVlLCJyZXF1ZXN0c1RvU3RvcmUiOjcwMCwic2F2ZUxvY2FsUmVxdWVzdHMiOnRydWV9"
+  },
+  {
+    "timestamp": "2026-03-23T15:15:18.038295681-04:00",
+    "method": "POST",
+    "url": "/api/reload-endpoints",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Content-Length": [
+        "0"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:18.049893949-04:00",
+    "method": "GET",
+    "url": "/api/learning/requests-count",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "*/*"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:19.030948486-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:24.031512585-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:29.03189972-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:34.032422003-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:39.033035171-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:44.031194275-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:49.039093707-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:54.032216456-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:15:59.031703893-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  },
+  {
+    "timestamp": "2026-03-23T15:16:04.031882012-04:00",
+    "method": "GET",
+    "url": "/api/proxy/status",
+    "remoteAddr": "[::1]:36892",
+    "headers": {
+      "Accept": [
+        "application/json"
+      ],
+      "Accept-Encoding": [
+        "gzip, deflate, br, zstd"
+      ],
+      "Accept-Language": [
+        "en-US"
+      ],
+      "Connection": [
+        "keep-alive"
+      ],
+      "Sec-Ch-Ua": [
+        "\"Not)A;Brand\";v=\"8\", \"Chromium\";v=\"138\""
+      ],
+      "Sec-Ch-Ua-Mobile": [
+        "?0"
+      ],
+      "Sec-Ch-Ua-Platform": [
+        "\"Linux\""
+      ],
+      "Sec-Fetch-Dest": [
+        "empty"
+      ],
+      "Sec-Fetch-Mode": [
+        "cors"
+      ],
+      "Sec-Fetch-Site": [
+        "cross-site"
+      ],
+      "User-Agent": [
+        "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) defensive-proxy-app/1.0.0 Chrome/138.0.7204.251 Electron/37.10.3 Safari/537.36"
+      ]
+    },
+    "bodyBase64": ""
+  }
+]

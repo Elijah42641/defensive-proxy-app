@@ -1,5 +1,4 @@
-add https support: add a certificate field by enable proxy and a private key field
-
+added https support... just need somebody to verify
 
 
 

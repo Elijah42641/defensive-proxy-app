@@ -737,6 +737,8 @@ function saveProxySettings(settings, projectName = null) {
 function getCurrentProxySettings(savedSettingsOverride = null) {
   const proxyPortInput = document.getElementById('proxyPort');
   const serverPortInput = document.getElementById('serverPort');
+  const certInput = document.getElementById('certPath');
+  const keyInput = document.getElementById('keyPath');
   const toggleBtn = document.getElementById('toggleProxyBtn');
 
   // Check if proxy is currently enabled based on button text
@@ -751,6 +753,8 @@ function getCurrentProxySettings(savedSettingsOverride = null) {
   return {
     proxyPort: proxyPortInput ? proxyPortInput.value : (savedSettings?.proxyPort || '8080'),
     serverPort: serverPortInput ? serverPortInput.value : (savedSettings?.serverPort || '3000'),
+    certPath: certInput ? certInput.value : (savedSettings?.certPath || ''),
+    keyPath: keyInput ? keyInput.value : (savedSettings?.keyPath || ''),
     // Use the button state OR saved state (prioritize the button state which is more current)
     isEnabled: isEnabled || (savedSettings?.isEnabled || false)
   };
@@ -1039,7 +1043,9 @@ function updateProxyUI(isActive) {
     toggleBtn.disabled = window.require ? true : false;
     toggleBtn.style.display = 'block';
 
-    statusText.textContent = `Status: Active on Port ${configuredProxyPort}, forwarding to ${configuredServerPort}`;
+    const certPath = settings.certPath || '';
+    const isHttps = certPath !== '';
+    statusText.textContent = `Status: Active on Port ${configuredProxyPort} ${isHttps ? '(HTTPS)' : '(HTTP)'} → ${configuredServerPort}`;
     statusIndicator.style.backgroundColor = '#4CAF50';
 
     if (proxyProjectDisplay) {
@@ -1097,7 +1103,9 @@ function updateProxyUI(isActive) {
     if (learningModeToggleBtn) {
       learningModeToggleBtn.style.display = 'none';
     }
-    statusText.textContent = `Status: Inactive (Proxy Port: ${configuredProxyPort}, Server Port: ${configuredServerPort})`;
+    const certPath = settings.certPath || '';
+    const protocol = certPath ? 'HTTPS' : 'HTTP';
+    statusText.textContent = `Status: Inactive (${protocol} Proxy Port: ${configuredProxyPort} → Server Port: ${configuredServerPort})`;
     statusIndicator.style.backgroundColor = '#ff5757';
 
     if (proxyProjectDisplay) {
@@ -1815,7 +1823,7 @@ async function switchTab(tabId) {
     const serverPortInput = document.createElement('input');
     serverPortInput.id = 'serverPort';
     serverPortInput.type = 'number';
-    serverPortInput.value = savedSettings.serverPort;
+    serverPortInput.value = savedSettings.serverPort || '3000';
     serverPortInput.className = 'form-input';
     serverPortInput.addEventListener('change', () => {
       // Get fresh settings from localStorage and update them
@@ -1827,6 +1835,106 @@ async function switchTab(tabId) {
     });
     formSection.appendChild(serverPortLabel);
     formSection.appendChild(serverPortInput);
+
+    // HTTPS Certificate & Key Inputs
+    const certLabel = document.createElement('label');
+    certLabel.textContent = 'Certificate Path (optional for HTTPS):';
+    const certInput = document.createElement('input');
+    certInput.id = 'certPath';
+    certInput.type = 'text';
+    certInput.className = 'form-input';
+    certInput.placeholder = 'Select certificate file...';
+    certInput.value = savedSettings.certPath || '';
+    certInput.readOnly = true;
+    const certBtn = document.createElement('button');
+    certBtn.textContent = 'Select Cert File';
+    certBtn.className = 'small-btn btn-primary';
+    certBtn.type = 'button';
+    const certGroup = document.createElement('div');
+    certGroup.style.display = 'flex';
+    certGroup.style.gap = '0.5rem';
+    certGroup.style.alignItems = 'end';
+    certGroup.appendChild(certInput);
+    certGroup.appendChild(certBtn);
+    formSection.appendChild(certLabel);
+    formSection.appendChild(certGroup);
+
+    const keyLabel = document.createElement('label');
+    keyLabel.textContent = 'Private Key Path (optional for HTTPS):';
+    const keyInput = document.createElement('input');
+    keyInput.id = 'keyPath';
+    keyInput.type = 'text';
+    keyInput.className = 'form-input';
+    keyInput.placeholder = 'Select private key file...';
+    keyInput.value = savedSettings.keyPath || '';
+    keyInput.readOnly = true;
+    const keyBtn = document.createElement('button');
+    keyBtn.textContent = 'Select Key File';
+    keyBtn.className = 'small-btn btn-primary';
+    keyBtn.type = 'button';
+    const keyGroup = document.createElement('div');
+    keyGroup.style.display = 'flex';
+    keyGroup.style.gap = '0.5rem';
+    keyGroup.style.alignItems = 'end';
+    keyGroup.appendChild(keyInput);
+    keyGroup.appendChild(keyBtn);
+    formSection.appendChild(keyLabel);
+    formSection.appendChild(keyGroup);
+
+    // File picker handlers (Electron only)
+    if (isElectron) {
+      // Modern Electron dialog (no remote)
+      certBtn.onclick = async () => {
+        try {
+          const { dialog } = window.require('electron');
+          const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow(), {
+            properties: ['openFile'],
+            filters: [{ name: 'Certificates', extensions: ['crt', 'pem', 'cer'] }]
+          });
+          if (!result.canceled && result.filePaths.length > 0) {
+            certInput.value = result.filePaths[0];
+            saveProxyPaths();
+            showFeedback('Certificate selected: ' + result.filePaths[0]);
+          }
+        } catch (err) {
+          console.error('Cert dialog error:', err);
+          showFeedback('Certificate picker unavailable. Enter path manually.');
+        }
+      };
+
+      keyBtn.onclick = async () => {
+        try {
+          const { dialog } = window.require('electron');
+          const result = await dialog.showOpenDialog(BrowserWindow.getFocusedWindow(), {
+            properties: ['openFile'],
+            filters: [{ name: 'Private Keys', extensions: ['key', 'pem', 'pkey'] }]
+          });
+          if (!result.canceled && result.filePaths.length > 0) {
+            keyInput.value = result.filePaths[0];
+            saveProxyPaths();
+            showFeedback('Key selected: ' + result.filePaths[0]);
+          }
+        } catch (err) {
+          console.error('Key dialog error:', err);
+          showFeedback('Key picker unavailable. Enter path manually.');
+        }
+      };
+    } else {
+      // Fallback: manual path entry for non-Electron/browser
+      certBtn.onclick = () => showFeedback('Manual path entry (non-Electron)');
+      keyBtn.onclick = () => showFeedback('Manual path entry (non-Electron)');
+    }
+
+    function saveProxyPaths() {
+      const currentProject = currentlyEditingProject;
+      if (currentProject) {
+        const settings = loadProxySettings(currentProject);
+        settings.certPath = certInput.value;
+        settings.keyPath = keyInput.value;
+        saveProxySettings(settings, currentProject);
+        console.log('Saved HTTPS paths:', settings.certPath, settings.keyPath);
+      }
+    }
 
     // Add Learning Mode container FIRST (before ports)
     proxyContainer.appendChild(learningModeContainer);
@@ -2161,7 +2269,7 @@ async function switchTab(tabId) {
           }
 
           try {
-            const { ipcRenderer } = window.require('electron');
+    const { ipcRenderer } = window.require('electron');
             const { updateCurrentProjectFile } = require('./updateCurrentProject.js');
 
             // Save localStorage endpoints to JSON file before starting proxy
@@ -2195,6 +2303,8 @@ async function switchTab(tabId) {
               proxyPort: proxyPort,
               serverPort: serverPort,
               currentProject: proxyActiveProject,
+              certPath: document.getElementById('certPath')?.value || '',
+              keyPath: document.getElementById('keyPath')?.value || '',
               learningMode: learningSettings.isEnabled
             });
 

@@ -439,12 +439,20 @@ func main() {
 			return
 		}
 
+		tlsEnabled := false
+		if certPath := os.Getenv("CERT_PATH"); certPath != "" {
+			if keyPath := os.Getenv("KEY_PATH"); keyPath != "" {
+				tlsEnabled = true
+			}
+		}
+
 		status := map[string]interface{}{
 			"status":     "running",
 			"enabled":    proxyEnabled,
 			"project":    currentProject,
 			"proxyPort":  proxyPort,
 			"serverPort": currentServerPort,
+			"tlsEnabled": tlsEnabled,
 			"timestamp":  time.Now().Unix(),
 		}
 
@@ -894,8 +902,19 @@ func main() {
 		json.NewEncoder(w).Encode(issues)
 	})
 
-	log.Printf("Proxy server starting on port %s (with analyzer API)", proxyPort)
-	err := server.ListenAndServe()
+	// HTTPS support
+	certPath := os.Getenv("CERT_PATH")
+	keyPath := os.Getenv("KEY_PATH")
+	tlsEnabled := certPath != "" && keyPath != ""
+
+	log.Printf("Proxy server starting on port %s (HTTPS=%t, cert=%s, key=%s, with analyzer API)", proxyPort, tlsEnabled, certPath, keyPath)
+
+	var err error
+	if tlsEnabled {
+		err = server.ListenAndServeTLS(certPath, keyPath)
+	} else {
+		err = server.ListenAndServe()
+	}
 	if err != nil {
 		log.Printf("Server error: %v", err)
 	}

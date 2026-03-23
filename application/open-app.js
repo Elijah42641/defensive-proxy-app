@@ -146,7 +146,7 @@ ipcMain.on('terminal-input', (event, input) => {
   }
 });
 
-ipcMain.on('start-proxy', (event, { projectPath, proxyPort, serverPort, currentProject }) => {
+ipcMain.on('start-proxy', (event, { projectPath, proxyPort, serverPort, currentProject, certPath, keyPath }) => {
   
   // Use the projectPath sent from main.js as the cwd for the proxy process
   // The projectPath should be the application directory path
@@ -159,6 +159,8 @@ ipcMain.on('start-proxy', (event, { projectPath, proxyPort, serverPort, currentP
       PROXY_PORT: proxyPort,
       SERVER_PORT: serverPort,
       CURRENT_PROJECT: currentProject,
+      CERT_PATH: certPath || '',
+      KEY_PATH: keyPath || '',
       SAVE_LOCAL_REQUESTS: saveLocalRequests.toString()
     }
   });
