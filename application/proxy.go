@@ -79,30 +79,6 @@ func saveLearningRequests() error {
 	return nil
 }
 
-func loadLearningRequests() error {
-	projectFilepath := getLearningFilepath()
-	data, err := os.ReadFile(projectFilepath)
-	if err != nil {
-		if os.IsNotExist(err) {
-			return nil
-		}
-		return err
-	}
-
-	var reqs []RequestLog
-	if err := json.Unmarshal(data, &reqs); err != nil {
-		log.Printf("Failed to unmarshal %s: %v", projectFilepath, err)
-		return err
-	}
-
-	learningRequests = reqs
-	// Trim to current limit if any
-	if requestsToStore > 0 && len(learningRequests) > requestsToStore {
-		learningRequests = learningRequests[len(learningRequests)-requestsToStore:]
-	}
-	return saveLearningRequests() // Save trimmed
-}
-
 const CHECK_PUBLIC_IPS_TABLE_EXISTENCE_SQL = `
 select exists (
   select 1
@@ -839,6 +815,7 @@ func main() {
 
 		// Field update helpers
 		updateBool := func(field string, target *bool) {
+			// ugly ass code but it's safe
 			if val, ok := learningSettings[field]; ok {
 				if strVal, ok := val.(string); ok && strVal == DONT_EDIT_STR {
 					return // Skip
@@ -850,6 +827,7 @@ func main() {
 		}
 
 		updateInt := func(field string, target *int) {
+			// ugly ass code but it's safe
 			if val, ok := learningSettings[field]; ok {
 				if strVal, ok := val.(string); ok && strVal == DONT_EDIT_STR {
 					return // Skip
@@ -867,14 +845,6 @@ func main() {
 		updateInt("requestsToStore", &requestsToStore)
 		updateBool("saveLocalRequests", &saveLocalRequests)
 		updateBool("analyzerEnabled", &analyzerEnabled)
-		updateInt("ipThreshold", &ipThreshold)
-
-		// Reload learning requests if requestsToStore changed
-		if _, ok := learningSettings["requestsToStore"]; ok {
-			if err := loadLearningRequests(); err != nil {
-				log.Printf("Failed to load learning requests: %v", err)
-			}
-		}
 
 		log.Printf("Learning mode settings partial update - requestsToStore=%d", requestsToStore)
 

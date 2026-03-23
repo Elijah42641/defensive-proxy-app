@@ -1,6 +1,51 @@
-1. make it so when learning mode is enabled the request analyzer runs on requests and 
-suggests rules in enable proxy tab
+add https support: add a certificate field by enable proxy and a private key field
 
-when you feel like it use the api instead of the js 
 
-2. start getting more advanced: content types, headers used strict/dynamic, etc
+
+
+
+
+
+
+
+
+
+
+steps: 
+.when update requests tracked is clicked make it filter out dupes then tell the new requests tracked(go from ip --> path --> headers --> body)
+
+.add the option to filter endpoints out of learning mode
+
+.analyze the data, normalize requests immediately (when giving results let user know how many requests were trash),
+
+notice the outliers (use an algorithim to let user know of potential data scewing), 
+
+run the analyzer,
+
+get into patterns: make an array for each endpoint of the length, content types, required fields, required headers, in the end give the user data collected:
+dupe requests amount, trash/outliers/data scewing requests amount, valuable requests collected, let them view the recommended rules, for each rule explain why, and how they could make it less or more strict
+
+
+
+
+For dynamic urls have the user specify which endpoints are dynamic so they dont get incorrectly categorized
+
+
+
+outlier request algorithim: 
+find stuff like headers, body params, cookies, and look at the data collected from the patterns
+and see which data looks off, then go back through the requests and you can see which ip it was,
+
+
+normalization algorithim (filter out dupes):
+group requests into endpoints, then make each ip have their own set of requests, hash each request, then iterate with each hash to spot dupes
+
+
+algorithim to get averages for the other stuff:
+with the valuable requests group each endpoint, then with each endpoint count how many of each content type there is figure out what you wanna recommend based on that,
+then get the median length and do some math to get the recommended length for the rule, then find which headers (besides common ones) are in most requests figure out what you wanna recommend based on that
+
+
+
+when you feel like it use the api instead of the js for request analyzer
+

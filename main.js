@@ -1014,7 +1014,7 @@ function updateProxyUI(isActive) {
 
   if (isActive) {
     // Button text and class - use consistent wording
-    toggleBtn.textContent = 'Disable Proxy';
+    toggleBtn.textContent = 'Disable proxy in browser';
     toggleBtn.className = 'toggle-btn disable-proxy';
 
     // Make port inputs read-only when proxy is enabled
@@ -1726,13 +1726,9 @@ async function switchTab(tabId) {
       <h5 style="color: #64ffda; margin: 0 0 0.75rem 0; font-size: 1.1em;">🔍 Request Analyzer Auto-Learning</h5>
       <div style="background: rgba(35, 35, 74, 0.5); border-radius: 8px; padding: 1rem; margin-bottom: 1rem;">
         <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.75rem;">
+
           <input type="checkbox" id="analyzerLearningEnabled" style="width: 18px; height: 18px;" />
           <span style="font-weight: 500;">Enable request analyzer</span>
-        </label>
-        <label style="display: flex; align-items: center; gap: 0.75rem; cursor: pointer; font-weight: 500;">
-          <span>Recommend rules after</span>
-        <input type="number" id="paramIPThreshold"  value="5" style="width: 60px; padding: 0.4rem; text-align: center;">
-          <span style="min-width: 24px; font-weight: 600; color: #64ffda;">IPs</span>
         </label>
       </div>
 
@@ -1740,21 +1736,16 @@ async function switchTab(tabId) {
         <strong>💡 How it works:</strong> Automatically analyzes request params (like "price", "password") across different IPs. Recommends protective rules when same param pattern appears multiple times.
       </div>
       <button class="btn-primary" id="saveAnalyzerConfigBtn" style="margin-top: 1rem; width: 100%;">
-        Save Analyzer Configurations
+        Save 
       </button>
     `;
 
     learningModeContainer.appendChild(analyzerLearningGroup);
 
 
-    // Threshold slider handler
-    const thresholdSlider = document.getElementById('paramIPThreshold');
-    if (thresholdSlider) {
-      thresholdSlider.addEventListener('input', (e) => {
-        const thresholdValueEl = document.getElementById('thresholdValue');
-        if (thresholdValueEl) thresholdValueEl.textContent = e.target.value;
-      });
-    }
+
+    // Threshold slider handler removed
+
 
     // Learning Mode Toggle Button Event Handler
     let learningModeEnabled = false;
@@ -1772,7 +1763,7 @@ async function switchTab(tabId) {
 
     learningModeToggleBtn.addEventListener('click', async () => {
       // Check if proxy is enabled
-      const isProxyEnabled = toggleBtn.textContent.includes('Disable Proxy');
+      const isProxyEnabled = toggleBtn.textContent.includes('Disable proxy in browser');
       if (!isProxyEnabled) {
         showFeedback('Please enable the proxy first before using Learning Mode');
         return;
@@ -2414,7 +2405,7 @@ async function switchTab(tabId) {
     storageRow.appendChild(storageLabelRow);
 
     const storageHint = document.createElement('span');
-    storageHint.textContent = 'requests to store before analysis, each request is about 200 bytes to a kilobyte';
+    storageHint.textContent = 'requests to store before analysis, each request is about 200 bytes to a kilobyte (when filtering out dupes may use a temporary file the same size)';
     storageHint.style.fontSize = '0.75em';
     storageHint.style.color = '#888';
     storageHint.style.paddingLeft = '146px';
@@ -2714,14 +2705,13 @@ async function syncProxyRules() {
     // Add analyzer config button handler
     const saveAnalyzerBtn = document.getElementById('saveAnalyzerConfigBtn');
     if (saveAnalyzerBtn) {
+
       saveAnalyzerBtn.onclick = async () => {
         const analyzerEnabled = document.getElementById('analyzerLearningEnabled')?.checked || false;
-        const ipThreshold = parseInt(document.getElementById('paramIPThreshold')?.value) || 5;
         
         // Save to localStorage
         const config = {
           analyzerEnabled,
-          ipThreshold,
           timestamp: Date.now()
         };
         localStorage.setItem(`analyzerConfig_${currentlyEditingProject}`, JSON.stringify(config));
@@ -2736,8 +2726,7 @@ async function syncProxyRules() {
             enabled: learningSettings.enabled !== undefined ? learningSettings.enabled : "dontedit",
             requestsToStore: learningSettings.requestsToStore !== undefined ? learningSettings.requestsToStore : "dontedit",
             saveLocalRequests: learningSettings.saveLocalRequests !== undefined ? learningSettings.saveLocalRequests : "dontedit",
-            analyzerEnabled: analyzerEnabled,
-            ipThreshold: ipThreshold
+            analyzerEnabled: analyzerEnabled
           };
           
           try {
@@ -2747,17 +2736,18 @@ async function syncProxyRules() {
               body: JSON.stringify(syncBody)
             });
             if (response.ok) {
-              showFeedback(`Synced analyzer config to proxy: ${analyzerEnabled ? 'Enabled' : 'Disabled'}, ${ipThreshold} IPs`);
+              showFeedback(`Analyzer config synced: ${analyzerEnabled ? 'Enabled' : 'Disabled'}`);
             } else {
-              showFeedback(`Local saved (${ipThreshold} IPs). Proxy sync failed.`);
+              showFeedback('Local saved. Proxy sync failed.');
             }
           } catch (err) {
-            showFeedback(`Local saved (${ipThreshold} IPs). Proxy offline.`);
+            showFeedback('Local saved. Proxy offline.');
           }
         } else {
-          showFeedback(`Local saved: ${analyzerEnabled ? 'Enabled' : 'Disabled'}, ${ipThreshold} IPs`);
+          showFeedback(`Analyzer config saved locally: ${analyzerEnabled ? 'Enabled' : 'Disabled'}`);
         }
       };
+
     }
 
     // Load analyzer config on proxy tab switch
