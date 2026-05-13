@@ -1,0 +1,67 @@
+{
+  "currentProject": "defensive-proxy-app-test",
+  "endpoints": [
+    {
+      "path": "/ssd",
+      "obfuscatedPath": "/api/dppg1ha25b6vy7ndxqiz",
+      "request": {
+        "headers": {
+          "whitelist": [
+            {
+              "key": "Content-Type",
+              "keyRuleType": "value",
+              "value": "(image/|application/pdf|text/|audio/|video/)",
+              "ruleType": "regex",
+              "dateAdded": "3/22/2026, 2:05:32 PM",
+              "notes": "[Analyzer] Allow only safe file types for uploads"
+            }
+          ],
+          "blacklist": [],
+          "required": [],
+          "mode": "blacklist"
+        },
+        "cookies": {
+          "whitelist": [],
+          "blacklist": [],
+          "required": [],
+          "mode": "blacklist"
+        },
+        "body": {
+          "whitelist": [],
+          "blacklist": [
+            {
+              "key": "",
+              "keyRuleType": "value",
+              "value": "(password|secret|token|apikey|auth).*",
+              "ruleType": "regex",
+              "dateAdded": "3/22/2026, 2:05:32 PM",
+              "notes": "[Analyzer] Flag sensitive data for logging"
+            }
+          ],
+          "required": [],
+          "mode": "blacklist"
+        }
+      },
+      "response": {
+        "headers": {
+          "whitelist": [],
+          "blacklist": [],
+          "required": [],
+          "mode": "blacklist"
+        },
+        "cookies": {
+          "whitelist": [],
+          "blacklist": [],
+          "required": [],
+          "mode": "blacklist"
+        },
+        "body": {
+          "whitelist": [],
+          "blacklist": [],
+          "required": [],
+          "mode": "blacklist"
+        }
+      }
+    }
+  ]
+}

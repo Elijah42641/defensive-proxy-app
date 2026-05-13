@@ -1743,8 +1743,12 @@ async function switchTab(tabId) {
       <div style="font-size: 0.85em; color: #888; line-height: 1.4;">
         <strong>💡 How it works:</strong> Automatically analyzes request params (like "price", "password") across different IPs. Recommends protective rules when same param pattern appears multiple times.
       </div>
+      <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; margin-bottom: 0.75rem; font-weight: 500;">
+        <input type="checkbox" id="saveLocalRequestsToggle" style="width: 18px; height: 18px;" />
+        <span>Save Local Requests (localhost)</span>
+      </label>
       <button class="btn-primary" id="saveAnalyzerConfigBtn" style="margin-top: 1rem; width: 100%;">
-        Save 
+        Save Analyzer Config
       </button>
     `;
 
@@ -2532,10 +2536,12 @@ async function switchTab(tabId) {
         const proxyPort = proxyPortInput.value || '8080';
         const learningSettings = loadLearningMode(currentlyEditingProject) || { enabled: false, requestsToStore: 20, saveLocalRequests: false };
         
+        const localLearningSettings = loadLearningMode(currentlyEditingProject) || { saveLocalRequests: false };
+        const saveLocal = localLearningSettings.saveLocalRequests !== undefined ? localLearningSettings.saveLocalRequests : false;
         const syncBody = {
           enabled: "dontedit",
           requestsToStore: storageValue,
-          saveLocalRequests: "dontedit",
+          saveLocalRequests: saveLocal ? true : "dontedit",
           analyzerEnabled: "dontedit",
           ipThreshold: "dontedit"
         };
@@ -2646,7 +2652,7 @@ async function switchTab(tabId) {
 
     // NEW: Save Requests Tracked button (task requirement)
 const saveRequestsBtn = document.createElement('button');
-    saveRequestsBtn.textContent = 'Update requests tracked';
+    saveRequestsBtn.textContent = 'Filter dupes & refresh count (no save)';
     saveRequestsBtn.className = 'btn-primary save-tracked-btn';
     saveRequestsBtn.onclick = syncProxyRules;
     learningButtonsRow.appendChild(saveRequestsBtn);
@@ -2668,13 +2674,16 @@ async function syncLearningModeWithProxy(enabled) {
     const proxyPort = proxyPortInput ? proxyPortInput.value : '8080';
     const storage = parseInt(document.getElementById('learningModeStorage')?.value) || 100;
     
+    const localLearningSettings = loadLearningMode(currentlyEditingProject) || { saveLocalRequests: false };
+    const saveLocal = localLearningSettings.saveLocalRequests !== undefined ? localLearningSettings.saveLocalRequests : false;
+    
     const response = await fetch(`http://localhost:${proxyPort}/api/learningmode/settings`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         enabled: enabled,
         requestsToStore: storage,
-        saveLocalRequests: true
+        saveLocalRequests: saveLocal ? true : "dontedit"
       })
     });
     
@@ -2701,7 +2710,20 @@ async function syncProxyRules() {
     if (response.ok) {
       // Update request count display
       try {
-        const countResponse = await fetch(`http://localhost:${proxyPort}/api/learning/requests-count`);
+        // send request to api first to filter dupes out
+        const data = {projectName:currentlyEditingProject}
+        const filterdupessuccess = await fetch(`http://localhost:${proxyPort}/api/learning/remove-duplicates`, {
+          method: 'POST', 
+          body: JSON.stringify(data)
+        });
+        if (!filterdupessuccess.ok) {
+          console.log('Dupe filtering failed, count may be inaccurate');
+        }
+        const countResponse = await fetch(`http://localhost:${proxyPort}/api/learning/requests-count`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ projectName: currentlyEditingProject })
+        });
         if (countResponse.ok) {
           const countData = await countResponse.json();
           const count = countData.count || 0;
@@ -2816,10 +2838,16 @@ async function syncProxyRules() {
     const saveAnalyzerBtn = document.getElementById('saveAnalyzerConfigBtn');
     if (saveAnalyzerBtn) {
 
-      saveAnalyzerBtn.onclick = async () => {
+    saveAnalyzerBtn.onclick = async () => {
         const analyzerEnabled = document.getElementById('analyzerLearningEnabled')?.checked || false;
+        const saveLocalToggle = document.getElementById('saveLocalRequestsToggle')?.checked || false;
         
-        // Save to localStorage
+        // Save learning mode settings (including saveLocalRequests)
+        const learningSettings = loadLearningMode(currentlyEditingProject) || {};
+        learningSettings.saveLocalRequests = saveLocalToggle;
+        saveLearningMode(learningSettings, currentlyEditingProject);
+        
+        // Save analyzer config
         const config = {
           analyzerEnabled,
           timestamp: Date.now()
@@ -2860,20 +2888,25 @@ async function syncProxyRules() {
 
     }
 
-    // Load analyzer config on proxy tab switch
+    // Load analyzer + learning mode config on proxy tab switch
     if (currentlyEditingProject) {
+      // Analyzer config
       const configStr = localStorage.getItem(`analyzerConfig_${currentlyEditingProject}`);
       if (configStr) {
         try {
           const config = JSON.parse(configStr);
           const checkbox = document.getElementById('analyzerLearningEnabled');
-          const threshold = document.getElementById('paramIPThreshold');
-          
           if (checkbox && config.analyzerEnabled !== undefined) checkbox.checked = config.analyzerEnabled;
-          if (threshold && config.ipThreshold) threshold.value = config.ipThreshold;
         } catch (e) {
           console.error('Failed to load analyzer config:', e);
         }
+      }
+      
+      // Learning mode (saveLocalRequests toggle)
+      const learningSettings = loadLearningMode(currentlyEditingProject);
+      const saveLocalToggle = document.getElementById('saveLocalRequestsToggle');
+      if (saveLocalToggle && learningSettings.saveLocalRequests !== undefined) {
+        saveLocalToggle.checked = learningSettings.saveLocalRequests;
       }
     }
 
@@ -5059,3 +5092,154 @@ function applySuggestedRulesToEndpoint(suggestedRules) {
 document.getElementById('tutorial-close')?.addEventListener('click', hideTutorial);
 document.getElementById('tutorial-next')?.addEventListener('click', nextTutorialStep);
 document.getElementById('tutorial-prev')?.addEventListener('click', prevTutorialStep);
+
+
+function saveIpSettings(project) {
+  let saveLimit = document.getElementById("saveLimit").value;
+  let autoBlockThreshhold = document.getElementById("reputationThreshold").value;
+  let autoBlockTime = document.getElementById("timeToBlockIP").value
+  const ipSettings = {
+    saveLimit: saveLimit,
+    autoBlockThreshhold: autoBlockThreshhold,
+    autoBlockTime: autoBlockTime
+  };
+  localStorage.setItem(`ips_${project}`, JSON.stringify(ipSettings))
+
+  // Send settings to proxy if it's running
+  sendIpsSettingsToProxy(project);
+
+  showFeedback('IPS settings saved successfully!');
+}
+
+// Function to send IPS settings to the proxy
+async function sendIpsSettingsToProxy(projectName) {
+  try {
+    const proxySettings = loadProxySettings(projectName);
+    const proxyPort = proxySettings.proxyPort || '8080';
+    
+    const response = await fetch(`http://localhost:${proxyPort}/api/ips/settings`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
+        autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10),
+        timeToBlock: parseInt(document.getElementById("timeToBlockIP").value, 10)
+      })
+    });
+    
+    if (response.ok) {
+      console.log('IPS settings sent to proxy successfully');
+    } else {
+      console.log('Failed to send IPS settings to proxy');
+    }
+  } catch (err) {
+    console.log('Could not send IPS settings to proxy:', err.message);
+  }
+}
+
+document.getElementById("saveSettingsBtn").onclick = () => {
+  if (!document.getElementById("saveLimit").value ||
+    !document.getElementById("reputationThreshold").value ||
+    !document.getElementById("timeToBlockIP").value
+  ) { showFeedback("Fill out each field first");  } else {
+    saveIpSettings(currentlyEditingProject)
+  }
+
+};
+
+
+
+
+document.getElementById('saveRedisSettingsBtn').onclick = () => {
+  const redisHost = document.getElementById('redisHost').value;
+  const redisPort = document.getElementById('redisPort').value;
+  const redisPassword = document.getElementById('redisPassword').value;
+  const redisUsername = document.getElementById('redisUsername').value;
+  const redisDatabase = document.getElementById('redisDatabase').value || '0'
+
+  if (!redisHost || !redisPort) {
+    showFeedback('Please fill out required Redis fields.');
+    return;
+  }
+
+  localStorage.setItem(`redisSettings_${currentlyEditingProject}`, JSON.stringify({
+    host: redisHost,
+    port: redisPort,
+    password: redisPassword,
+    username: redisUsername,
+    database: redisDatabase,
+    tls: document.getElementById('redisTLS').checked
+  }));
+
+  showFeedback('Redis settings saved successfully!');
+
+}
+
+document.getElementById('connectToRedisBtn').onclick = () => {
+  const proxyPort = loadProxySettings(currentlyEditingProject).proxyPort;
+  let redisSettings = {};
+
+  // Safe JSON parse
+  try {
+    const stored = localStorage.getItem(`redisSettings_${currentlyEditingProject}`);
+    if (stored) redisSettings = JSON.parse(stored);
+  } catch (e) {
+    console.warn("Failed to parse Redis settings from localStorage, using defaults", e);
+    redisSettings = {};
+  }
+
+  // Ensure correct types
+  const redisHost = String(redisSettings.host || 'localhost');
+  const redisPort = Number(redisSettings.port) || 6379;
+  const redisPassword = String(redisSettings.password || '');
+  const redisUsername = String(redisSettings.username || '');
+  const redisDatabase = Number(redisSettings.database) || 0;
+  const redisTLS = Boolean(redisSettings.tls) || false;
+
+  console.log(`redis host: ${redisHost}, port: ${redisPort}, username: ${redisUsername}, database: ${redisDatabase}, tls: ${redisTLS}`);
+
+  // Validate required fields
+  if (!redisHost || !redisPort) {
+    showFeedback('Please fill out required Redis fields and save settings before connecting.');
+    return;
+  }
+
+  // Send properly typed JSON to backend
+  fetch(`http://localhost:${proxyPort}/api/redis/connect`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      host: redisHost,
+      port: redisPort,
+      password: redisPassword,
+      username: redisUsername,
+      database: redisDatabase,
+      tls: redisTLS,
+      saveLimit: parseInt(document.getElementById("saveLimit").value, 10),
+      autoBlockThreshhold: parseInt(document.getElementById("reputationThreshold").value, 10),
+      timeToBlock: parseInt(document.getElementById("timeToBlockIP").value, 10)
+    })
+  })
+    .then(response => response.text())
+    .then(text => {
+      showFeedback(text);
+      const statusElem =  document.getElementById('redisStatus');
+      if (text.includes('Successfully')) {
+        statusElem.textContent = 'Status: Connected';
+        statusElem.style.color = '#64ffda';
+        localStorage.setItem(`redisConnected_${currentlyEditingProject}`, 'true');
+      } else {
+        statusElem.textContent = 'Status: Not Connected';
+        statusElem.style.color = '#ff5757';
+        localStorage.setItem(`redisConnected_${currentlyEditingProject}`, 'false');
+      }
+    })
+    .catch(err => {
+      console.error("Redis connection failed:", err);
+      showFeedback("Redis connection failed: " + err.message);
+    });
+}

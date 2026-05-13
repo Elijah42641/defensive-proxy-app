@@ -5,6 +5,21 @@ added https support... just need somebody to verify
 
 
 
+add the filter dupe requests function to update requests tracked button then verify if it works
+
+for some reason the count won't work
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 

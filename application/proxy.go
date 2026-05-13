@@ -1,9 +1,11 @@
 package main
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto/tls"
+	"defensive-proxy-app/internal/analyzer"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
@@ -19,8 +21,6 @@ import (
 	"strings"
 	"sync"
 	"time"
-
-	"defensive-proxy-app/internal/analyzer"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
@@ -43,7 +43,7 @@ var ipThreshold = 5
 
 var learningMu sync.Mutex
 var learningRequests []RequestLog
-
+var localRequestCount int
 var saveLocalRequests bool
 
 var server *http.Server
@@ -64,18 +64,114 @@ func getLearningFilepath() string {
 }
 
 func saveLearningRequests() error {
-
-	data, err := json.MarshalIndent(learningRequests, "", "  ")
-	if err != nil {
-		return err
-	}
-
 	projectFilepath := getLearningFilepath()
-	err = os.WriteFile(projectFilepath, data, 0644)
+
+	tempFile := projectFilepath + ".tmp"
+
+	f, err := os.Create(tempFile)
 	if err != nil {
-		log.Printf("saveLearningRequests WriteFile error: %v", err)
 		return err
 	}
+	defer f.Close()
+
+	for _, req := range learningRequests {
+		data, err := json.Marshal(req)
+		if err != nil {
+			return err
+		}
+		if _, err := f.Write(data); err != nil {
+			return err
+		}
+		if _, err := f.WriteString("\n"); err != nil {
+			return err
+		}
+	}
+
+	if err := f.Sync(); err != nil {
+		return err
+	}
+
+	if err := f.Close(); err != nil {
+		return err
+	}
+
+	return os.Rename(tempFile, projectFilepath)
+}
+
+func loadLearningRequests() error {
+	projectFilepath := getLearningFilepath()
+
+	file, err := os.Open(projectFilepath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return err
+	}
+	defer file.Close()
+
+	learningMu.Lock()
+	defer learningMu.Unlock()
+
+	// Reset
+	learningRequests = []RequestLog{}
+	localRequestCount = 0
+
+	scanner := bufio.NewScanner(file)
+	// Increase buffer size for large lines if needed
+	const maxCapacity = 1024 * 1024 // 1MB per line
+	buf := make([]byte, maxCapacity)
+	scanner.Buffer(buf, maxCapacity)
+
+	for scanner.Scan() {
+		line := bytes.TrimSpace(scanner.Bytes())
+		if len(line) == 0 {
+			continue
+		}
+
+		var reqLog RequestLog
+		if err := json.Unmarshal(line, &reqLog); err != nil {
+			log.Printf("Failed to unmarshal learning request line: %v", err)
+			continue
+		}
+
+		learningRequests = append(learningRequests, reqLog)
+
+		// Count local requests
+		ip := net.ParseIP(strings.Split(reqLog.RemoteAddr, ":")[0])
+		if ip != nil && (ip.IsLoopback() || strings.Contains(reqLog.RemoteAddr, "127.0.0.1")) {
+			localRequestCount++
+		}
+
+		// Optional: break early if we've reached limit during load
+		if requestsToStore > 0 && len(learningRequests) >= requestsToStore {
+			// We've loaded enough, stop reading
+			break
+		}
+	}
+
+	if err := scanner.Err(); err != nil {
+		return fmt.Errorf("error reading file: %w", err)
+	}
+
+	// Apply limit if needed (trim from beginning to keep most recent)
+	if requestsToStore > 0 && len(learningRequests) > requestsToStore {
+		overflow := len(learningRequests) - requestsToStore
+
+		// Keep the most recent requests (at the end of slice)
+		learningRequests = learningRequests[overflow:]
+
+		// Recalculate local count after trimming
+		localRequestCount = 0
+		for _, req := range learningRequests {
+			ip := net.ParseIP(strings.Split(req.RemoteAddr, ":")[0])
+			if ip != nil && (ip.IsLoopback() || strings.Contains(req.RemoteAddr, "127.0.0.1")) {
+				localRequestCount++
+			}
+		}
+	}
+
+	log.Printf("Loaded %d learning requests (local: %d)", len(learningRequests), localRequestCount)
 	return nil
 }
 
@@ -138,7 +234,12 @@ func main() {
 
 	saveLocalRequests = os.Getenv("SAVE_LOCAL_REQUESTS") == "true"
 
-	log.Printf("Proxy started for project: %s on port: %s (saveLocalRequests=%t)", currentProject, proxyPort, saveLocalRequests)
+	// Load learning requests from NDJSON
+	if err := loadLearningRequests(); err != nil {
+		log.Printf("Failed to load learning requests: %v", err)
+	}
+
+	log.Printf("Proxy started for project: %s on port: %s (saveLocalRequests=%t, loaded learning reqs: %d)", currentProject, proxyPort, saveLocalRequests, len(learningRequests))
 
 	// Load endpoints
 	endpoints = loadEndpoints(currentProject)
@@ -240,45 +341,72 @@ func main() {
 		ip := net.ParseIP(host)
 		userIsLocal := ip.IsLoopback() || strings.Contains(r.RemoteAddr, "127.0.0.1") || strings.Contains(r.RemoteAddr, "::1")
 
-		if learningModeEnabled && requestsToStore > 0 && len(learningRequests) < requestsToStore && (!userIsLocal || saveLocalRequests) {
-			log.Printf("LEARNING DEBUG: Saving request...")
+		if learningModeEnabled && requestsToStore > 0 && (!userIsLocal || saveLocalRequests) {
+			log.Printf("LEARNING DEBUG: Saving request (local=%t)...", userIsLocal)
+
 			reqLog := RequestLog{
-				Timestamp:  time.Now(),
 				Method:     r.Method,
 				URL:        r.URL.String(),
 				RemoteAddr: r.RemoteAddr,
 				Headers:    r.Header.Clone(),
 				BodyBase64: base64.StdEncoding.EncodeToString(bodyBytes),
 			}
-			go func() {
+
+			go func(logEntry RequestLog, isLocal bool) {
 				learningMu.Lock()
 				defer learningMu.Unlock()
+
 				oldLen := len(learningRequests)
-				learningRequests = append(learningRequests, reqLog)
-				log.Printf("LEARNING DEBUG: Appended. Old len=%d new len=%d", oldLen, len(learningRequests))
+
+				// Append first
+				learningRequests = append(learningRequests, logEntry)
+				if isLocal {
+					localRequestCount++
+				}
+
+				// Trim AFTER append (this is the correct pattern)
 				if len(learningRequests) > requestsToStore {
 					learningRequests = learningRequests[len(learningRequests)-requestsToStore:]
+					// Note: trimming affects localRequestCount accuracy, but close enough
+					if localRequestCount > requestsToStore {
+						localRequestCount = requestsToStore
+					}
 					log.Printf("LEARNING DEBUG: Trimmed to limit %d", requestsToStore)
 				}
-				err := saveLearningRequests()
-				if err != nil {
-					log.Printf("LEARNING ERROR: %v", err)
+
+				log.Printf("LEARNING DEBUG: Appended. Old len=%d new len=%d localCount=%d", oldLen, len(learningRequests), localRequestCount)
+
+				// Conditional save: only if relevant data exists
+				shouldSave := len(learningRequests) > 0 && (localRequestCount == 0 || saveLocalRequests)
+				if shouldSave {
+					if err := saveLearningRequests(); err != nil {
+						log.Printf("LEARNING ERROR: %v", err)
+					} else {
+						log.Printf("LEARNING SUCCESS: Saved %d total (%d local) /%d file=%s",
+							len(learningRequests), localRequestCount, requestsToStore, currentLearningFilepath)
+					}
 				} else {
-					log.Printf("LEARNING SUCCESS: Total %d/%d file=%s", len(learningRequests), requestsToStore, currentLearningFilepath)
+					log.Printf("LEARNING DEBUG: Skipped save (no relevant requests: local=%d saveLocal=%t)", localRequestCount, saveLocalRequests)
 				}
-			}()
+			}(reqLog, userIsLocal)
+
 		} else {
 			skipReason := ""
 			if !learningModeEnabled {
 				skipReason = "learning disabled"
 			} else if requestsToStore == 0 {
 				skipReason = "requestsToStore=0"
-			} else if len(learningRequests) >= requestsToStore {
-				skipReason = "storage full"
 			} else if userIsLocal && !saveLocalRequests {
 				skipReason = "local request (savelocal=false)"
 			}
-			log.Printf("LEARNING DEBUG: Skip %s (enabled=%t, store=%d/%d, local=%t saveLocal=%t)", skipReason, learningModeEnabled, len(learningRequests), requestsToStore, userIsLocal, saveLocalRequests)
+			log.Printf("LEARNING DEBUG: Skip %s (enabled=%t, store=%d/%d, local=%t saveLocal=%t)",
+				skipReason,
+				learningModeEnabled,
+				len(learningRequests),
+				requestsToStore,
+				userIsLocal,
+				saveLocalRequests,
+			)
 		}
 
 		// Extract IP from remote address for loopback checks
@@ -297,7 +425,9 @@ func main() {
 		// Check if this is an internal proxy API request (always allow API calls)
 		apiPath := r.URL.Path
 		internalAPI := false
-		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" || apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/learningmode/settings" || apiPath == "/api/learning/requests-count" {
+		if strings.HasPrefix(apiPath, "/api/proxy/") || apiPath == "/api/redis/connect" ||
+			apiPath == "/api/endpoints" || apiPath == "/api/reload-endpoints" || apiPath == "/api/learningmode/settings" ||
+			apiPath == "/api/learning/requests-count" || apiPath == "/api/learning/remove-duplicates" {
 			internalAPI = true
 		}
 
@@ -715,7 +845,7 @@ func main() {
 			return
 		}
 
-		if r.Method != http.MethodGet {
+		if r.Method != http.MethodGet && r.Method != http.MethodPost {
 			w.WriteHeader(http.StatusMethodNotAllowed)
 			w.Write([]byte("Method not allowed"))
 			return
@@ -854,7 +984,12 @@ func main() {
 		updateBool("saveLocalRequests", &saveLocalRequests)
 		updateBool("analyzerEnabled", &analyzerEnabled)
 
-		log.Printf("Learning mode settings partial update - requestsToStore=%d", requestsToStore)
+		// Reload learning requests with new limit
+		if err := loadLearningRequests(); err != nil {
+			log.Printf("Failed to reload learning requests after settings update: %v", err)
+		} else {
+			log.Printf("Reloaded learning requests after settings update - requestsToStore=%d, count=%d", requestsToStore, len(learningRequests))
+		}
 
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
@@ -900,6 +1035,45 @@ func main() {
 		w.Header().Set("Content-Type", "application/json")
 		w.WriteHeader(http.StatusOK)
 		json.NewEncoder(w).Encode(issues)
+	})
+
+	// add api to filter dupes out of learning requests
+	http.HandleFunc("/api/learning/remove-duplicates", func(w http.ResponseWriter, r *http.Request) {
+		// CORS
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "POST, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type")
+
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		if r.Method != http.MethodPost {
+			http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+
+		// to remove dupes we need to know what file to remove from
+		type RemoveDupesRequest struct {
+			ProjectName string `json:"projectName"`
+		}
+		var projectName RemoveDupesRequest
+		if err := json.NewDecoder(r.Body).Decode(&projectName); err != nil {
+			http.Error(w, "Invalid JSON", http.StatusBadRequest)
+			return
+		}
+
+		err := FilterOutDupeRequests(projectName.ProjectName + "_learning_requests.json")
+
+		if err != nil {
+			http.Error(w, fmt.Sprintf("Failed to remove duplicates: %v", err), http.StatusInternalServerError)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusOK)
+		json.NewEncoder(w).Encode(map[string]string{"message": "Duplicate requests removed successfully"})
 	})
 
 	// HTTPS support
